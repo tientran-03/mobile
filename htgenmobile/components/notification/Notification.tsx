@@ -83,11 +83,11 @@ export const Notification: React.FC<NotificationProps> = ({ notification, onHide
 
   return (
     <Animated.View
-      pointerEvents="box-none"
       style={{
         paddingTop: topPadding,
         transform: [{ translateY: slideAnim }],
         opacity: opacityAnim,
+        pointerEvents: "box-none",
       }}
       className="absolute left-0 right-0 top-0 z-[9999] px-4"
     >

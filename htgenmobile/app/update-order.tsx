@@ -46,11 +46,12 @@ import { orderService, type OrderResponse } from "@/services/orderService";
 import { patientService } from "@/services/patientService";
 import { serviceService, type ServiceResponse } from "@/services/serviceService";
 import { specifyVoteTestService } from "@/services/specifyVoteTestService";
+
 const EDITABLE = {
   step1: {
     orderName: true,
     doctorId: true,
-    customerId: false, 
+    customerId: false,
     barcodeId: true,
     staffAnalystId: true,
     sampleCollectorId: true,
@@ -309,7 +310,6 @@ export default function UpdateOrderWizardRestrictedScreen() {
     methods.setValue("step6.sampleCollectDate", formatDateInput(order.specifyId?.sampleCollectDate));
     methods.setValue("step6.embryoNumber", order.specifyId?.embryoNumber?.toString() || "");
     methods.setValue("step6.specifyVoteImagePath", order.specifyVoteImagePath || "");
-
     methods.setValue("step7.geneticTestResults", order.specifyId?.geneticTestResults || "");
     methods.setValue("step7.geneticTestResultsRelationship", order.specifyId?.geneticTestResultsRelationship || "");
     methods.setValue("step7.orderNote", order.orderNote || "");
@@ -385,6 +385,7 @@ export default function UpdateOrderWizardRestrictedScreen() {
       const formData = methods.getValues();
       const currentOrderData = (orderResponse as any)?.data as OrderResponse | undefined;
       if (!currentOrderData) throw new Error("Không tải được dữ liệu đơn hàng");
+
       const specifyVoteID = currentOrderData?.specifyId?.specifyVoteID;
       if (!specifyVoteID) throw new Error("Đơn hàng chưa có specifyVoteID");
       const lockedServiceType = methods.getValues("step5.serviceType");
@@ -426,7 +427,6 @@ export default function UpdateOrderWizardRestrictedScreen() {
         sendEmailPatient: false,
       };
       if (EDITABLE.step1.doctorId) specifyReq.doctorId = formData.step1.doctorId?.trim() || undefined;
-
       if (EDITABLE.step6.samplingSite) specifyReq.samplingSite = formData.step6.samplingSite?.trim() || undefined;
       if (EDITABLE.step6.sampleCollectDate)
         specifyReq.sampleCollectDate = formData.step6.sampleCollectDate?.trim()
@@ -446,14 +446,14 @@ export default function UpdateOrderWizardRestrictedScreen() {
       if (orderReq.barcodeId) {
         try {
           await barcodeService.update(orderReq.barcodeId, { status: BarcodeStatus.NOT_PRINTED });
-        } catch {}
+        } catch { }
       }
 
       const orderStatusString = typeof orderReq.orderStatus === "string" ? orderReq.orderStatus : String(orderReq.orderStatus);
       if (orderStatusString === OrderStatusEnum.FORWARD_ANALYSIS && specifyVoteID) {
         try {
           await specifyVoteTestService.updateStatus(specifyVoteID, SpecifyStatus.FORWARD_ANALYSIS);
-        } catch {}
+        } catch { }
       }
 
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
@@ -467,8 +467,6 @@ export default function UpdateOrderWizardRestrictedScreen() {
       setIsSubmitting(false);
     }
   };
-
-  /** ===== UI Steps ===== */
 
   const renderStep1 = () => (
     <View className="bg-white rounded-3xl border border-slate-200 p-4">
@@ -763,7 +761,9 @@ export default function UpdateOrderWizardRestrictedScreen() {
               <Text className="text-sm font-extrabold text-slate-700">Xong</Text>
             </TouchableOpacity>
           </View>
-        </View
+        </View>
+
+        {/* Step header */}
         <View className="bg-white px-5 pt-4 pb-5 border-b border-slate-200">
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
@@ -858,7 +858,6 @@ export default function UpdateOrderWizardRestrictedScreen() {
           </View>
         </View>
 
-        {/* Success Modal */}
         <Modal
           visible={showSuccessModal}
           transparent
@@ -880,7 +879,6 @@ export default function UpdateOrderWizardRestrictedScreen() {
                   Đơn hàng đã được cập nhật. Bạn có thể xem trong danh sách đơn hàng.
                 </Text>
               </View>
-
               <View className="flex-row p-4 gap-3 border-t border-slate-200 bg-slate-50">
                 <TouchableOpacity
                   className="flex-1 h-12 rounded-2xl items-center justify-center bg-white border border-slate-200"
