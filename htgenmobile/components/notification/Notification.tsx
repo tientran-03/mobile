@@ -47,7 +47,6 @@ export const Notification: React.FC<NotificationProps> = ({ notification, onHide
       }),
     ]).start(onHide);
   };
-
   const tone: Tone = useMemo(() => {
     switch (notification.type) {
       case "success":

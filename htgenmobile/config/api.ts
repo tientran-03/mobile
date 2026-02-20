@@ -13,19 +13,17 @@ const getApiBaseUrl = () => {
     return "https://api.htgenetic.io.vn";
   }
 };
-
 export const API_BASE_URL = getApiBaseUrl();
 export const API_ENDPOINTS = {
   LOGIN: "/api/auth/login",
   LOGOUT: "/api/auth/logout",
   ME: "/api/auth/me",
-  
   ORDERS: "/api/v1/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/orders/${id}`,
   ORDER_BY_STATUS: (status: string) => `/api/v1/orders/status/${status}`,
   ORDER_BY_PATIENT_ID: (patientId: string) => `/api/v1/orders/patient/${patientId}`,
   ORDER_SEARCH: "/api/v1/orders/search",
-  
+
   PATIENTS: "/api/v1/patients",
   PATIENT_BY_ID: (id: string) => `/api/v1/patients/${id}`,
   PATIENT_BY_PHONE: (phone: string) => `/api/v1/patients/phone/${phone}`,

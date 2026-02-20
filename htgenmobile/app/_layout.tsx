@@ -8,11 +8,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
-
 SplashScreen.preventAutoHideAsync();
-
 const queryClient = new QueryClient();
-
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Quay lại" }}>
@@ -176,15 +173,6 @@ function RootLayoutNav() {
           headerShown: false,
         }}
       />
-      {/* TODO: Implement edit-prescription-slip screen */}
-      {/* <Stack.Screen
-        name="edit-prescription-slip"
-        options={{
-          title: "Sửa phiếu chỉ định",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      /> */}
       <Stack.Screen
         name="genome-tests"
         options={{
@@ -229,15 +217,6 @@ function RootLayoutNav() {
           headerTintColor: "#fff",
         }}
       />
-      {/* TODO: Implement edit-customer screen */}
-      {/* <Stack.Screen
-        name="edit-customer"
-        options={{
-          title: "Sửa thông tin khách hàng",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      /> */}
       <Stack.Screen
         name="statistics"
         options={{

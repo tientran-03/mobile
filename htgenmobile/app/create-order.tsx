@@ -373,8 +373,7 @@ export default function CreateOrderScreen() {
     mutationFn: async (data: OrderFormData) => {
       if (!user?.id) throw new Error('Không tìm thấy thông tin người dùng');
 
-      // Validate paymentType - must be a valid PaymentType enum, not empty string
-      if (!data.paymentType || data.paymentType === "") {
+      if (!data.paymentType ) {
         console.error('[CreateOrder] PaymentType is empty or missing:', data.paymentType);
         throw new Error('Vui lòng chọn hình thức thanh toán');
       }
@@ -385,11 +384,9 @@ export default function CreateOrderScreen() {
         throw new Error('Hình thức thanh toán không hợp lệ');
       }
 
-      // Build request
-      // staffAnalystId is automatically synced with sampleCollectorId, so it's always valid
       const createRequest: any = {
         orderName: data.orderName.trim(),
-        customerId: user.id, // Use user.id from auth context, matching frontend behavior
+        customerId: user.id, 
         specifyId: data.specifyId || undefined,
         paymentType: paymentTypeValue,
         orderNote: data.orderNote?.trim() || undefined,
@@ -397,7 +394,6 @@ export default function CreateOrderScreen() {
         paymentStatus: PaymentStatus.PENDING,
         ...(data.staffId && { staffId: data.staffId }),
         ...(data.paymentAmount && { paymentAmount: parseFloat(data.paymentAmount as any) }),
-        // staffAnalystId is same as sampleCollectorId (synced via useEffect)
         ...(data.staffAnalystId && { staffAnalystId: data.staffAnalystId }),
         ...(data.sampleCollectorId && { sampleCollectorId: data.sampleCollectorId }),
         ...(data.barcodeId && { barcodeId: data.barcodeId }),
@@ -415,10 +411,7 @@ export default function CreateOrderScreen() {
         console.log('[CreateOrder] Response:', JSON.stringify(response, null, 2));
         
         if (!response.success) {
-          // Extract detailed error message from response
           let errorMessage = response.message || response.error || 'Tạo đơn hàng thất bại';
-          
-          // If response has data array (validation errors), format them
           if (response.data && Array.isArray(response.data)) {
             const validationErrors = response.data.map((err: any) => {
               if (typeof err === 'object' && err.message) {
@@ -437,11 +430,9 @@ export default function CreateOrderScreen() {
         return response;
       } catch (error: any) {
         console.error('[CreateOrder] Exception:', error);
-        // If it's already an Error object, re-throw it
         if (error instanceof Error) {
           throw error;
         }
-        // Otherwise, wrap it in an Error
         throw new Error(error?.message || 'Tạo đơn hàng thất bại');
       }
     },
