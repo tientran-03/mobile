@@ -1,89 +1,207 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Check, ChevronDown, X } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Check } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "@/constants/colors";
+import {
+  FormFieldGroup,
+  FormInfoBox,
+  FormInput,
+  FormNumericInput,
+  FormReadOnly,
+  FormSelect,
+  FormTextarea,
+} from "@/components/form";
+import {
+  createOrderDefaultValues,
+  createOrderSchema,
+  PAYMENT_TYPE_OPTIONS,
+  SERVICE_TYPE_MAPPER,
+  type CreateOrderFormData,
+} from "@/lib/schemas/order-schemas";
 import { ORDER_STATUS_OPTIONS, ORDER_STATUS_DEFAULT } from "@/lib/constants/order-status";
-import { barcodeService } from "@/services/barcodeService";
-import { customerService } from "@/services/customerService";
-import { hospitalStaffService } from "@/services/hospitalStaffService";
-import { OrderResponse, orderService } from "@/services/orderService";
 import { OrderStatus } from "@/types";
 
-type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNPAID";
-type PaymentType = "CASH" | "ONLINE_PAYMENT";
+import { BarcodeStatus, OrderStatus as OrderStatusEnum, SpecifyStatus } from "@/lib/schemas/order-form-schema";
+import { barcodeService, type BarcodeResponse } from "@/services/barcodeService";
+import { customerService, type CustomerResponse } from "@/services/customerService";
+import { doctorService, type DoctorResponse } from "@/services/doctorService";
+import { genomeTestService, type GenomeTestResponse } from "@/services/genomeTestService";
+import { hospitalStaffService, type HospitalStaffResponse } from "@/services/hospitalStaffService";
+import { orderService, type OrderResponse } from "@/services/orderService";
+import { patientService } from "@/services/patientService";
+import { serviceService, type ServiceResponse } from "@/services/serviceService";
+import { specifyVoteTestService } from "@/services/specifyVoteTestService";
+const EDITABLE = {
+  step1: {
+    orderName: true,
+    doctorId: true,
+    customerId: false, 
+    barcodeId: true,
+    staffAnalystId: true,
+    sampleCollectorId: true,
+    orderStatus: true,
+  },
+  step2: {
+    all: false,
+  },
+  step3: {
+    genomeTestId: false,
+  },
+  step4: {
+    all: false,
+  },
+  step5: {
+    serviceType: false,
+  },
+  step6: {
+    paymentAmount: true,
+    paymentType: true,
+    samplingSite: false,
+    sampleCollectDate: false,
+    embryoNumber: false,
+    specifyVoteImagePath: false,
+  },
+  step7: {
+    geneticTestResults: true,
+    geneticTestResultsRelationship: true,
+    orderNote: true,
+  },
+};
 
-const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
-  { value: "PENDING", label: "Chờ thanh toán" },
-  { value: "COMPLETED", label: "Đã thanh toán" },
-  { value: "FAILED", label: "Thanh toán thất bại" },
-  { value: "UNPAID", label: "Chưa thanh toán" },
+const TOTAL_STEPS = 7;
+const STEP_TITLES = [
+  "Thông tin cơ bản đơn hàng",
+  "Thông tin người làm xét nghiệm",
+  "Thông tin xét nghiệm",
+  "Thông tin lâm sàng",
+  "Thông tin nhóm xét nghiệm",
+  "Thanh toán & mẫu xét nghiệm",
+  "Kết quả xét nghiệm di truyền",
 ];
 
-const PAYMENT_TYPE_OPTIONS: { value: PaymentType; label: string }[] = [
-  { value: "CASH", label: "Tiền mặt" },
-  { value: "ONLINE_PAYMENT", label: "Thanh toán online" },
-];
+const formatDateInput = (isoDate?: string): string => {
+  if (!isoDate) return "";
+  try {
+    const d = new Date(isoDate);
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
 
-interface FormData {
-  orderName: string;
-  customerId: string;
-  sampleCollectorId: string;
-  staffAnalystId: string;
-  barcodeId: string;
-  orderStatus: OrderStatus;
-  paymentStatus: PaymentStatus;
-  paymentType: PaymentType;
-  paymentAmount: string;
-  orderNote: string;
+function Stepper({
+  totalSteps,
+  currentStep,
+  onStepPress,
+}: {
+  totalSteps: number;
+  currentStep: number;
+  onStepPress?: (step: number) => void;
+}) {
+  return (
+    <View className="mt-4">
+      <View className="absolute left-0 right-0 top-[14px] h-[2px] bg-slate-200" />
+      <View
+        className="absolute left-0 top-[14px] h-[2px] bg-cyan-600"
+        style={{
+          width: totalSteps <= 1 ? "0%" : `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+        }}
+      />
+      <View className="flex-row items-center justify-between">
+        {Array.from({ length: totalSteps }, (_, i) => {
+          const stepNum = i + 1;
+          const isDone = stepNum < currentStep;
+          const isActive = stepNum === currentStep;
+
+          const circleBg = isDone ? "bg-cyan-600" : "bg-white";
+          const circleBorder = isDone
+            ? "border-cyan-600"
+            : isActive
+              ? "border-cyan-600"
+              : "border-slate-300";
+
+          const textColor = isDone ? "text-white" : isActive ? "text-cyan-700" : "text-slate-500";
+
+          return (
+            <TouchableOpacity
+              key={stepNum}
+              activeOpacity={onStepPress && isDone ? 0.7 : 1}
+              onPress={() => {
+                if (onStepPress && isDone) onStepPress(stepNum);
+              }}
+              disabled={!onStepPress || !isDone}
+              className="items-center"
+            >
+              <View className={`w-8 h-8 rounded-full items-center justify-center border-2 ${circleBg} ${circleBorder}`}>
+                {isDone ? (
+                  <Check size={16} color="#fff" strokeWidth={3} />
+                ) : (
+                  <Text className={`text-[12px] font-extrabold ${textColor}`}>{stepNum}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+function LockedField({
+  locked,
+  children,
+}: {
+  locked: boolean;
+  children: React.ReactNode;
+}) {
+  if (!locked) return <>{children}</>;
+  return (
+    <View pointerEvents="none" className="opacity-60">
+      {children}
+    </View>
+  );
 }
 
-export default function UpdateOrderScreen() {
+export default function UpdateOrderWizardRestrictedScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
 
-  const [formData, setFormData] = useState<FormData>({
-    orderName: "",
-    customerId: "",
-    sampleCollectorId: "",
-    staffAnalystId: "",
-    barcodeId: "",
-    orderStatus: "initiation",
-    paymentStatus: "PENDING",
-    paymentType: "CASH",
-    paymentAmount: "",
-    orderNote: "",
-  });
-
-  const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [showSampleCollectorModal, setShowSampleCollectorModal] = useState(false);
-  const [showStaffAnalystModal, setShowStaffAnalystModal] = useState(false);
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
-  const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
-  const [showPaymentStatusModal, setShowPaymentStatusModal] = useState(false);
-  const [showPaymentTypeModal, setShowPaymentTypeModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const methods = useForm<CreateOrderFormData>({
+    resolver: zodResolver(createOrderSchema),
+    mode: "onTouched",
+    defaultValues: createOrderDefaultValues,
+  });
   const { data: orderResponse, isLoading: isLoadingOrder } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => orderService.getById(orderId!),
     enabled: !!orderId,
+  });
+
+  const { data: doctorsResponse } = useQuery({
+    queryKey: ["doctors"],
+    queryFn: () => doctorService.getAll(),
+    retry: false,
   });
 
   const { data: customersResponse } = useQuery({
@@ -110,802 +228,686 @@ export default function UpdateOrderScreen() {
     retry: false,
   });
 
-  const customers = customersResponse?.success ? (customersResponse.data || []) : [];
-  const staffs = staffResponse?.success ? (staffResponse.data || []) : [];
-
-  const allBarcodes = barcodesResponse?.success
-    ? (barcodesResponse.data || [])
-    : [];
-  const usedBarcodeIds = new Set<string>();
-  if ((ordersResponse as any)?.success && (ordersResponse as any).data) {
-    const orders = (ordersResponse as any).data as OrderResponse[];
-    orders.forEach((order) => {
-      if (order.barcodeId && order.orderId !== orderId) {
-        usedBarcodeIds.add(order.barcodeId);
-      }
-    });
-  }
-  const barcodes = allBarcodes.filter((b) => !usedBarcodeIds.has(b.barcode));
-
-  useEffect(() => {
-    if ((orderResponse as any)?.success && (orderResponse as any).data) {
-      const order: OrderResponse = (orderResponse as any).data;
-      const orderCustomer = order.customerId
-        ? customers.find((c: any) => c.customerId === order.customerId)
-        : null;
-
-      setFormData({
-        orderName: order.orderName || "",
-        customerId: orderCustomer?.customerId || order.customerId || "",
-        sampleCollectorId: order.sampleCollectorId || "",
-        staffAnalystId: order.staffAnalystId || "",
-        barcodeId: order.barcodeId || "",
-        orderStatus: (order.orderStatus as OrderStatus) || ORDER_STATUS_DEFAULT,
-        paymentStatus: (order.paymentStatus as PaymentStatus) || "PENDING",
-        paymentType: (order.paymentType as PaymentType) || "CASH",
-        paymentAmount: order.paymentAmount?.toString() || "",
-        orderNote: order.orderNote || "",
-      });
-    }
-  }, [orderResponse, customers]);
-
-  const updateOrderMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await orderService.update(orderId!, data);
-      if (!response.success) {
-        throw new Error(response.error || "Không thể cập nhật đơn hàng");
-      }
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      setShowSuccessModal(true);
-    },
-    onError: (error: any) => {
-      console.error("[UpdateOrder] Error:", error);
-      let errorMessage = error?.message || error?.error || "Không thể cập nhật đơn hàng. Vui lòng thử lại.";
-      if (errorMessage.includes("not found")) {
-        if (errorMessage.includes("Customer")) {
-          errorMessage = "Khách hàng không tồn tại. Vui lòng chọn lại khách hàng.";
-        } else if (errorMessage.includes("Sample collector")) {
-          errorMessage = "Nhân viên thu mẫu không tồn tại. Vui lòng chọn lại.";
-        } else if (errorMessage.includes("Staff analyst")) {
-          errorMessage = "Nhân viên phân tích không tồn tại. Vui lòng chọn lại.";
-        } else if (errorMessage.includes("Barcode")) {
-          errorMessage = "Mã barcode không tồn tại hoặc đã được sử dụng.";
-        }
-      } else if (errorMessage.includes("already exists")) {
-        errorMessage = "Tên đơn hàng đã tồn tại. Vui lòng chọn tên khác.";
-      } else if (errorMessage.includes("already in use")) {
-        if (errorMessage.includes("Barcode")) {
-          errorMessage = "Mã barcode đã được sử dụng. Vui lòng chọn mã barcode khác.";
-        } else {
-          errorMessage = "Giá trị này đã được sử dụng. Vui lòng chọn giá trị khác.";
-        }
-      } else if (errorMessage.includes("500") || errorMessage.includes("Internal Server Error")) {
-        errorMessage = "Lỗi máy chủ. Vui lòng thử lại sau hoặc liên hệ quản trị viên.";
-      }
-      
-      Alert.alert("Lỗi cập nhật đơn hàng", errorMessage);
-    },
+  const { data: genomeTestsResponse } = useQuery({
+    queryKey: ["genome-tests"],
+    queryFn: () => genomeTestService.getAll(),
+    retry: false,
   });
 
-  const handleSubmit = () => {
-    if (!formData.orderName.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên đơn hàng");
+  const { data: servicesResponse } = useQuery({
+    queryKey: ["services"],
+    queryFn: () => serviceService.getAll(),
+    retry: false,
+  });
+
+  const doctors = (doctorsResponse as any)?.success ? (((doctorsResponse as any).data as DoctorResponse[]) || []) : [];
+  const customers = (customersResponse as any)?.success ? (((customersResponse as any).data as CustomerResponse[]) || []) : [];
+  const staffs = (staffResponse as any)?.success ? (((staffResponse as any).data as HospitalStaffResponse[]) || []) : [];
+  const allBarcodes = (barcodesResponse as any)?.success ? (((barcodesResponse as any).data as BarcodeResponse[]) || []) : [];
+  const genomeTests: GenomeTestResponse[] = genomeTestsResponse?.success ? ((genomeTestsResponse.data as GenomeTestResponse[]) || []) : [];
+  const services = (servicesResponse as any)?.success ? (((servicesResponse as any).data as ServiceResponse[]) || []) : [];
+
+  const serviceOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const uniqueServices: Array<{ value: string; label: string; serviceId: string; uniqueKey: string }> = [];
+
+    services.forEach((service, index) => {
+      if (!service.name || !service.serviceId) return;
+      const normalizedName = service.name.toLowerCase();
+      if (!seen.has(normalizedName)) {
+        seen.add(normalizedName);
+        uniqueServices.push({
+          value: service.name,
+          label: SERVICE_TYPE_MAPPER[service.name] || service.name,
+          serviceId: service.serviceId,
+          uniqueKey: `${service.serviceId}-${index}`,
+        });
+      }
+    });
+
+    return uniqueServices;
+  }, [services]);
+
+  const usedBarcodeIds = useMemo(() => {
+    const used = new Set<string>();
+    if ((ordersResponse as any)?.success && (ordersResponse as any).data) {
+      ((ordersResponse as any).data as any[]).forEach((o) => {
+        if (o.barcodeId && o.orderId !== orderId) used.add(String(o.barcodeId).trim());
+      });
+    }
+    return used;
+  }, [ordersResponse, orderId]);
+
+  const availableBarcodes = useMemo(() => {
+    const currentOrderBarcode = (orderResponse as any)?.data?.barcodeId;
+    return allBarcodes.filter((b) => {
+      const barcode = String(b.barcode).trim();
+      return !usedBarcodeIds.has(barcode) || barcode === currentOrderBarcode;
+    });
+  }, [allBarcodes, usedBarcodeIds, orderResponse]);
+
+  const findServiceIdByType = (type?: string) => {
+    if (!type) return undefined;
+    return services.find((s) => String(s.name).toLowerCase() === String(type).toLowerCase())?.serviceId;
+  };
+  useEffect(() => {
+    if (!(orderResponse as any)?.success || !(orderResponse as any).data) return;
+    const order: OrderResponse = (orderResponse as any).data;
+
+    const matchedCustomer = customers.find((c: any) => c.customerId === order.customerId);
+    const customerUserId = (matchedCustomer as any)?.userId || (matchedCustomer as any)?.user?.userId || "";
+    methods.setValue("step1.orderName", order.orderName || "");
+    methods.setValue("step1.doctorId", order.specifyId?.doctorId || "");
+    methods.setValue("step1.customerId", customerUserId || "");
+    methods.setValue("step1.staffAnalystId", order.staffAnalystId || "");
+    methods.setValue("step1.sampleCollectorId", order.sampleCollectorId || "");
+    methods.setValue("step1.barcodeId", order.barcodeId || "");
+    methods.setValue("step1.orderStatus", (order.orderStatus as OrderStatus) || ORDER_STATUS_DEFAULT);
+    methods.setValue("step6.paymentAmount", order.paymentAmount?.toString() || "");
+    methods.setValue("step6.paymentType", (order.paymentType as any) || "CASH");
+    methods.setValue("step6.samplingSite", order.specifyId?.samplingSite || "");
+    methods.setValue("step6.sampleCollectDate", formatDateInput(order.specifyId?.sampleCollectDate));
+    methods.setValue("step6.embryoNumber", order.specifyId?.embryoNumber?.toString() || "");
+    methods.setValue("step6.specifyVoteImagePath", order.specifyVoteImagePath || "");
+
+    methods.setValue("step7.geneticTestResults", order.specifyId?.geneticTestResults || "");
+    methods.setValue("step7.geneticTestResultsRelationship", order.specifyId?.geneticTestResultsRelationship || "");
+    methods.setValue("step7.orderNote", order.orderNote || "");
+
+    if (order.specifyId?.genomeTestId) {
+      const test = genomeTests.find((t: any) => t.testId === order.specifyId?.genomeTestId);
+      if (test) {
+        methods.setValue("step3.genomeTestId", test.testId || "");
+        methods.setValue("step3.testName", test.testName || "");
+        methods.setValue("step3.testSample", Array.isArray(test.testSample) ? test.testSample.join(", ") : test.testSample || "");
+        methods.setValue("step3.testContent", test.testDescription || "");
+
+        if (test?.service?.name) {
+          const serviceName = String(test.service.name).toLowerCase();
+          if (serviceName.includes("embryo") || serviceName === "embryo") methods.setValue("step5.serviceType", "embryo");
+          else if (serviceName.includes("disease") || serviceName === "disease") methods.setValue("step5.serviceType", "disease");
+          else methods.setValue("step5.serviceType", "reproduction");
+        }
+      }
+    }
+
+    if (order.specifyId?.patientId) {
+      patientService.getById(order.specifyId.patientId).then((patientResponse) => {
+        if (patientResponse.success && patientResponse.data) {
+          const p = patientResponse.data as any;
+          methods.setValue("step2.patientName", p.patientName || "");
+          methods.setValue("step2.patientPhone", p.patientPhone || "");
+          methods.setValue("step2.patientDob", formatDateInput(p.patientDob));
+          methods.setValue("step2.patientGender", p.gender || "");
+          methods.setValue("step2.patientEmail", p.patientEmail || "");
+          methods.setValue("step2.patientJob", p.patientJob || "");
+          methods.setValue("step2.patientContactName", p.patientContactName || "");
+          methods.setValue("step2.patientContactPhone", p.patientContactPhone || "");
+          methods.setValue("step2.patientAddress", p.patientAddress || "");
+          methods.setValue("step2.patientId", p.patientId);
+        }
+      });
+    }
+  }, [orderResponse, customers, genomeTests, methods]);
+  const validateStep1 = async () => {
+    const ok = await methods.trigger("step1.orderName");
+    if (!ok) Alert.alert("Lỗi", "Vui lòng nhập tên đơn hàng");
+    return ok;
+  };
+  const validateStep6 = async () => {
+    const ok = await methods.trigger("step6.paymentType");
+    if (!ok) Alert.alert("Lỗi", "Vui lòng chọn hình thức thanh toán");
+    return ok;
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) setCurrentStep((p) => p - 1);
+    else router.back();
+  };
+
+  const handleNext = async () => {
+    let ok = true;
+    if (currentStep === 1) ok = await validateStep1();
+    if (currentStep === 6 && EDITABLE.step6.paymentType) ok = await validateStep6();
+    if (!ok) return;
+
+    if (currentStep === TOTAL_STEPS) {
+      await handleSubmit();
       return;
     }
+    setCurrentStep((p) => p + 1);
+  };
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    let selectedCustomer: any = null;
-    if (formData.customerId.trim()) {
-      selectedCustomer = customers?.find(
-        (c: any) => c.customerId === formData.customerId,
-      );
-      if (!selectedCustomer) {
-        Alert.alert("Lỗi", "Khách hàng được chọn không hợp lệ. Vui lòng chọn lại.");
-        return;
+    try {
+      const formData = methods.getValues();
+      const currentOrderData = (orderResponse as any)?.data as OrderResponse | undefined;
+      if (!currentOrderData) throw new Error("Không tải được dữ liệu đơn hàng");
+      const specifyVoteID = currentOrderData?.specifyId?.specifyVoteID;
+      if (!specifyVoteID) throw new Error("Đơn hàng chưa có specifyVoteID");
+      const lockedServiceType = methods.getValues("step5.serviceType");
+      const serviceId =
+        findServiceIdByType(lockedServiceType) || currentOrderData.specifyId?.serviceID;
+      if (!serviceId) throw new Error("Không tìm thấy serviceId");
+
+      const patientId = currentOrderData.specifyId?.patientId;
+      const genomeTestId = currentOrderData.specifyId?.genomeTestId;
+      if (!patientId) throw new Error("Không tìm thấy patientId");
+      if (!genomeTestId) throw new Error("Không tìm thấy genomeTestId");
+
+      const paymentAmount =
+        formData.step6.paymentAmount?.trim() ? Number(formData.step6.paymentAmount) : undefined;
+      const orderReq: any = {
+        orderName: formData.step1.orderName.trim(),
+      };
+
+      if (EDITABLE.step1.doctorId) orderReq.doctorId = formData.step1.doctorId?.trim() || undefined; // nếu backend cần (thường doctor nằm trong specify)
+      if (EDITABLE.step1.customerId) orderReq.customerId = formData.step1.customerId?.trim() || undefined;
+      if (EDITABLE.step1.sampleCollectorId) orderReq.sampleCollectorId = formData.step1.sampleCollectorId?.trim() || undefined;
+      if (EDITABLE.step1.staffAnalystId) orderReq.staffAnalystId = formData.step1.staffAnalystId?.trim() || undefined;
+      if (EDITABLE.step1.barcodeId) orderReq.barcodeId = formData.step1.barcodeId?.trim() || undefined;
+      if (EDITABLE.step1.orderStatus)
+        orderReq.orderStatus = (formData.step1.orderStatus || currentOrderData.orderStatus || ORDER_STATUS_DEFAULT) as any;
+      if (EDITABLE.step6.paymentType) orderReq.paymentType = (formData.step6.paymentType || currentOrderData.paymentType || "CASH") as any;
+      if (EDITABLE.step6.paymentAmount)
+        orderReq.paymentAmount =
+          typeof paymentAmount === "number" && !Number.isNaN(paymentAmount) ? paymentAmount : undefined;
+      if (EDITABLE.step7.orderNote) orderReq.orderNote = formData.step7.orderNote?.trim() || undefined;
+      orderReq.specifyId = specifyVoteID;
+      orderReq.paymentStatus = (currentOrderData.paymentStatus || "PENDING") as any;
+      orderReq.invoiceLink = currentOrderData.invoiceLink || undefined;
+      const specifyReq: any = {
+        serviceId,
+        patientId,
+        genomeTestId,
+        hospitalId: currentOrderData.specifyId?.hospitalId || undefined,
+        sendEmailPatient: false,
+      };
+      if (EDITABLE.step1.doctorId) specifyReq.doctorId = formData.step1.doctorId?.trim() || undefined;
+
+      if (EDITABLE.step6.samplingSite) specifyReq.samplingSite = formData.step6.samplingSite?.trim() || undefined;
+      if (EDITABLE.step6.sampleCollectDate)
+        specifyReq.sampleCollectDate = formData.step6.sampleCollectDate?.trim()
+          ? new Date(formData.step6.sampleCollectDate.trim()).toISOString()
+          : undefined;
+      if (EDITABLE.step6.embryoNumber)
+        specifyReq.embryoNumber = formData.step6.embryoNumber?.trim() ? Number(formData.step6.embryoNumber) : undefined;
+      if (EDITABLE.step7.geneticTestResults) specifyReq.geneticTestResults = formData.step7.geneticTestResults?.trim() || undefined;
+      if (EDITABLE.step7.geneticTestResultsRelationship)
+        specifyReq.geneticTestResultsRelationship = formData.step7.geneticTestResultsRelationship?.trim() || undefined;
+
+      const orderUpdateRes = await orderService.update(orderId!, orderReq);
+      if (!orderUpdateRes?.success) throw new Error(orderUpdateRes?.error || orderUpdateRes?.message || "Cập nhật đơn hàng thất bại");
+
+      const specifyUpdateRes = await specifyVoteTestService.update(specifyVoteID, specifyReq);
+      if (!specifyUpdateRes?.success) throw new Error(specifyUpdateRes?.error || specifyUpdateRes?.message || "Cập nhật phiếu chỉ định thất bại");
+      if (orderReq.barcodeId) {
+        try {
+          await barcodeService.update(orderReq.barcodeId, { status: BarcodeStatus.NOT_PRINTED });
+        } catch {}
       }
-      if (!selectedCustomer.userId) {
-        Alert.alert(
-          "Lỗi",
-          `Khách hàng "${selectedCustomer.customerName}" không có userId.\n\nVui lòng chọn khách hàng khác hoặc để trống.`,
-        );
-        return;
+
+      const orderStatusString = typeof orderReq.orderStatus === "string" ? orderReq.orderStatus : String(orderReq.orderStatus);
+      if (orderStatusString === OrderStatusEnum.FORWARD_ANALYSIS && specifyVoteID) {
+        try {
+          await specifyVoteTestService.updateStatus(specifyVoteID, SpecifyStatus.FORWARD_ANALYSIS);
+        } catch {}
       }
+
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["specify-vote-tests"] });
+
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      Alert.alert("Lỗi cập nhật", error?.message || "Không thể cập nhật. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const payload: any = {
-      orderName: formData.orderName.trim(),
-      orderStatus: formData.orderStatus,
-      paymentStatus: formData.paymentStatus,
-      paymentType: formData.paymentType,
-    };
-
-    if (selectedCustomer?.userId) {
-      payload.customerId = selectedCustomer.userId.trim();
-    }
-
-    if (formData.sampleCollectorId && formData.sampleCollectorId.trim()) {
-      payload.sampleCollectorId = formData.sampleCollectorId.trim();
-    }
-
-    if (formData.staffAnalystId && formData.staffAnalystId.trim()) {
-      payload.staffAnalystId = formData.staffAnalystId.trim();
-    }
-
-    if (formData.barcodeId && formData.barcodeId.trim()) {
-      payload.barcodeId = formData.barcodeId.trim();
-    }
-
-    if (formData.paymentAmount && formData.paymentAmount.trim()) {
-      const amount = parseFloat(formData.paymentAmount);
-      if (!isNaN(amount) && amount > 0) {
-        payload.paymentAmount = amount;
-      }
-    }
-
-    if (formData.orderNote && formData.orderNote.trim()) {
-      payload.orderNote = formData.orderNote.trim();
-    }
-
-    const cleanPayload = Object.fromEntries(
-      Object.entries(payload).filter(([_, value]) => {
-        if (value === null || value === undefined) return false;
-        if (typeof value === "string" && value.trim() === "") return false;
-        return true;
-      })
-    );
-
-        updateOrderMutation.mutate(cleanPayload);
   };
 
-  const getSelectedCustomerName = () => {
-    const customer = customers?.find((c) => c.customerId === formData.customerId);
-    return customer?.customerName || "Chọn khách hàng";
-  };
+  /** ===== UI Steps ===== */
 
-  const getSelectedSampleCollectorName = () => {
-    const staff = staffs?.find((s) => s.staffId === formData.sampleCollectorId);
-    return staff?.staffName || "Chọn nhân viên thu mẫu";
-  };
+  const renderStep1 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <LockedField locked={!EDITABLE.step1.orderName}>
+        <FormInput name="step1.orderName" label="Tên đơn hàng" required placeholder="Nhập tên đơn hàng" />
+      </LockedField>
 
-  const getSelectedStaffAnalystName = () => {
-    const staff = staffs.find((s) => s.staffId === formData.staffAnalystId);
-    return staff?.staffName || "Chọn nhân viên phân tích";
-  };
+      <LockedField locked={!EDITABLE.step1.doctorId}>
+        <FormSelect
+          name="step1.doctorId"
+          label="Bác sĩ chỉ định"
+          options={doctors}
+          getLabel={(d: any) => d.doctorName}
+          getValue={(d: any) => d.doctorId}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn bác sĩ chỉ định"
+        />
+      </LockedField>
 
-  const getSelectedBarcodeName = () => {
-    if (!barcodes || !Array.isArray(barcodes)) {
-      return "Chọn mã barcode";
-    }
-    const barcode = barcodes.find((b) => b.barcode === formData.barcodeId);
-    return barcode?.barcode || "Chọn mã barcode";
-  };
+      <LockedField locked={!EDITABLE.step1.customerId}>
+        <FormSelect
+          name="step1.customerId"
+          label="Khách hàng"
+          options={customers}
+          getLabel={(c: any) => c.customerName}
+          getValue={(c: any) => (c as any).userId || (c as any).user?.userId || c.customerId}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn khách hàng"
+        />
+      </LockedField>
 
-  const getSelectedOrderStatusLabel = () => {
-    return ORDER_STATUS_OPTIONS.find((opt) => opt.value === formData.orderStatus)?.label || "Chọn trạng thái";
-  };
+      <LockedField locked={!EDITABLE.step1.barcodeId}>
+        <FormSelect
+          name="step1.barcodeId"
+          label="Mã Barcode PCĐ"
+          options={availableBarcodes}
+          getLabel={(b: any) => b.barcode}
+          getValue={(b: any) => b.barcode}
+          placeholder="Lựa chọn"
+          modalTitle={`Chọn mã Barcode PCĐ (${availableBarcodes.length} mã có sẵn)`}
+        />
+      </LockedField>
 
-  const getSelectedPaymentStatusLabel = () => {
-    return PAYMENT_STATUS_OPTIONS.find((opt) => opt.value === formData.paymentStatus)?.label || "Chọn trạng thái thanh toán";
-  };
+      <LockedField locked={!EDITABLE.step1.staffAnalystId}>
+        <FormSelect
+          name="step1.staffAnalystId"
+          label="Nhân viên phụ trách"
+          options={staffs}
+          getLabel={(s: any) => s.staffName}
+          getValue={(s: any) => s.staffId}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn nhân viên phụ trách"
+        />
+      </LockedField>
 
-  const getSelectedPaymentTypeLabel = () => {
-    return PAYMENT_TYPE_OPTIONS.find((opt) => opt.value === formData.paymentType)?.label || "Chọn hình thức thanh toán";
-  };
+      <LockedField locked={!EDITABLE.step1.sampleCollectorId}>
+        <FormSelect
+          name="step1.sampleCollectorId"
+          label="Nhân viên thu mẫu"
+          options={staffs}
+          getLabel={(s: any) => s.staffName}
+          getValue={(s: any) => s.staffId}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn nhân viên thu mẫu"
+        />
+      </LockedField>
 
-  const renderDropdownModal = (
-    visible: boolean,
-    onClose: () => void,
-    title: string,
-    options: any[],
-    selectedValue: string,
-    onSelect: (value: string) => void,
-    getLabel: (item: any) => string,
-    getValue: (item: any) => string
-  ) => (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <X size={20} color={COLORS.text} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.modalList}>
-            {options.map((item) => {
-              const value = getValue(item);
-              const isSelected = value === selectedValue;
-              return (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.modalItem, isSelected && styles.modalItemSelected]}
-                  onPress={() => {
-                    onSelect(value);
-                    onClose();
-                  }}
-                >
-                  <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
-                    {getLabel(item)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+      <LockedField locked={!EDITABLE.step1.orderStatus}>
+        <FormSelect
+          name="step1.orderStatus"
+          label="Trạng thái đơn hàng"
+          options={ORDER_STATUS_OPTIONS}
+          getLabel={(opt: any) => opt.label}
+          getValue={(opt: any) => opt.value}
+          placeholder="Chọn trạng thái"
+          modalTitle="Chọn trạng thái đơn hàng"
+        />
+      </LockedField>
+
+      {!EDITABLE.step1.customerId && (
+        <FormInfoBox>
+          Một số thông tin quan trọng đã bị khóa khi cập nhật (vd: Khách hàng).
+        </FormInfoBox>
+      )}
+    </View>
   );
+
+  const renderStep2 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <FormInfoBox>Thông tin người làm xét nghiệm (chỉ xem).</FormInfoBox>
+
+      <FormReadOnly label="Tên người làm xét nghiệm" value={methods.watch("step2.patientName") || ""} />
+      <FormFieldGroup>
+        <FormReadOnly label="Số điện thoại" value={methods.watch("step2.patientPhone") || ""} />
+        <FormReadOnly label="Giới tính" value={methods.watch("step2.patientGender") || ""} />
+      </FormFieldGroup>
+
+      <FormFieldGroup>
+        <FormReadOnly label="Ngày sinh" value={methods.watch("step2.patientDob") || ""} />
+        <FormReadOnly label="Email" value={methods.watch("step2.patientEmail") || ""} />
+      </FormFieldGroup>
+
+      <FormReadOnly label="Địa chỉ" value={methods.watch("step2.patientAddress") || ""} />
+    </View>
+  );
+
+  const renderStep3 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <FormInfoBox>Thông tin xét nghiệm (chỉ xem).</FormInfoBox>
+
+      <FormReadOnly label="Tên xét nghiệm" value={methods.watch("step3.testName") || ""} />
+      <FormReadOnly label="Mẫu xét nghiệm" value={methods.watch("step3.testSample") || ""} />
+      <FormReadOnly label="Nội dung xét nghiệm" value={methods.watch("step3.testContent") || ""} />
+    </View>
+  );
+
+  const renderStep4 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <FormInfoBox>Thông tin lâm sàng (chỉ xem).</FormInfoBox>
+
+      <FormReadOnly label="Chiều cao (cm)" value={methods.watch("step4.patientHeight")?.toString?.() || ""} />
+      <FormReadOnly label="Cân nặng (kg)" value={methods.watch("step4.patientWeight")?.toString?.() || ""} />
+      <FormReadOnly label="Tiền sử bệnh nhân" value={methods.watch("step4.patientHistory") || ""} />
+      <FormReadOnly label="Tiền sử gia đình" value={methods.watch("step4.familyHistory") || ""} />
+      <FormReadOnly label="Tiếp xúc độc tố" value={methods.watch("step4.toxicExposure") || ""} />
+      <FormReadOnly label="Tiền sử y tế" value={methods.watch("step4.medicalHistory") || ""} />
+      <FormReadOnly label="Bệnh mãn tính" value={methods.watch("step4.chronicDisease") || ""} />
+      <FormReadOnly label="Bệnh cấp tính" value={methods.watch("step4.acuteDisease") || ""} />
+      <FormReadOnly label="Thuốc đang sử dụng" value={methods.watch("step4.medicalUsing") || ""} />
+    </View>
+  );
+
+  const renderStep5 = () => {
+    const selectedServiceType = methods.watch("step5.serviceType");
+    const label =
+      serviceOptions.find((s) => String(s.value).toLowerCase() === String(selectedServiceType).toLowerCase())?.label ||
+      selectedServiceType ||
+      "";
+
+    return (
+      <View className="bg-white rounded-3xl border border-slate-200 p-4">
+        <FormInfoBox>Nhóm xét nghiệm (chỉ xem).</FormInfoBox>
+        <FormReadOnly label="Nhóm xét nghiệm" value={label} />
+      </View>
+    );
+  };
+
+  const renderStep6 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <FormFieldGroup>
+        <LockedField locked={!EDITABLE.step6.paymentAmount}>
+          <FormNumericInput
+            name="step6.paymentAmount"
+            label="Số tiền thanh toán (VNĐ)"
+            type="integer"
+            placeholder="Nhập số tiền"
+          />
+        </LockedField>
+
+        <LockedField locked={!EDITABLE.step6.paymentType}>
+          <FormSelect
+            name="step6.paymentType"
+            label="Hình thức thanh toán"
+            required
+            options={PAYMENT_TYPE_OPTIONS}
+            getLabel={(o: any) => o.label}
+            getValue={(o: any) => o.value}
+            placeholder="Tiền mặt"
+            modalTitle="Chọn hình thức thanh toán"
+          />
+        </LockedField>
+      </FormFieldGroup>
+
+      <LockedField locked={!EDITABLE.step6.samplingSite}>
+        <FormInput name="step6.samplingSite" label="Địa điểm lấy mẫu" placeholder="Nhập địa điểm lấy mẫu" />
+      </LockedField>
+
+      <FormFieldGroup>
+        <LockedField locked={!EDITABLE.step6.sampleCollectDate}>
+          <FormInput name="step6.sampleCollectDate" label="Ngày lấy mẫu" placeholder="YYYY-MM-DD" />
+        </LockedField>
+
+        <LockedField locked={!EDITABLE.step6.embryoNumber}>
+          <FormNumericInput name="step6.embryoNumber" label="Số phôi (nếu có)" type="integer" placeholder="VD: 2" />
+        </LockedField>
+      </FormFieldGroup>
+
+      <LockedField locked={!EDITABLE.step6.specifyVoteImagePath}>
+        <FormInput
+          name="step6.specifyVoteImagePath"
+          label="Đường dẫn ảnh phiếu chỉ định"
+          placeholder="Nhập đường dẫn ảnh (nếu có)"
+        />
+      </LockedField>
+    </View>
+  );
+
+  const renderStep7 = () => (
+    <View className="bg-white rounded-3xl border border-slate-200 p-4">
+      <FormInfoBox>Cập nhật kết quả xét nghiệm di truyền (nếu được phép).</FormInfoBox>
+
+      <LockedField locked={!EDITABLE.step7.geneticTestResults}>
+        <FormTextarea
+          name="step7.geneticTestResults"
+          label="Kết quả xét nghiệm di truyền"
+          placeholder="Nhập kết quả"
+          minHeight={120}
+        />
+      </LockedField>
+
+      <LockedField locked={!EDITABLE.step7.geneticTestResultsRelationship}>
+        <FormInput name="step7.geneticTestResultsRelationship" label="Mối quan hệ" placeholder="Nhập mối quan hệ" />
+      </LockedField>
+
+      <View className="h-px bg-slate-100 my-4" />
+
+      <LockedField locked={!EDITABLE.step7.orderNote}>
+        <FormTextarea
+          name="step7.orderNote"
+          label="Ghi chú đơn hàng"
+          placeholder="Nhập ghi chú cho đơn hàng (nếu có)"
+          minHeight={120}
+          maxLength={500}
+        />
+      </LockedField>
+    </View>
+  );
+
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case 1:
+        return renderStep1();
+      case 2:
+        return renderStep2();
+      case 3:
+        return renderStep3();
+      case 4:
+        return renderStep4();
+      case 5:
+        return renderStep5();
+      case 6:
+        return renderStep6();
+      case 7:
+        return renderStep7();
+      default:
+        return renderStep1();
+    }
+  };
 
   if (isLoadingOrder) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tải...</Text>
+      <View className="flex-1 justify-center items-center bg-slate-50">
+        <ActivityIndicator size="large" color="#0891B2" />
+        <Text className="mt-3 text-slate-600 text-xs font-bold">Đang tải đơn hàng...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              Tên đơn hàng <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập tên đơn hàng"
-              placeholderTextColor={COLORS.muted}
-              value={formData.orderName}
-              onChangeText={(text) => setFormData({ ...formData, orderName: text })}
-            />
-          </View>
+    <FormProvider {...methods}>
+      <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "left", "right"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar barStyle="dark-content" />
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Khách hàng</Text>
+        {/* Header */}
+        <View className="pb-4 px-5 bg-white border-b border-slate-200">
+          <View className="flex-row items-center justify-between">
             <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowCustomerModal(true)}
+              onPress={handleBack}
+              className="w-11 h-11 rounded-2xl bg-cyan-50 border border-cyan-100 items-center justify-center"
+              activeOpacity={0.75}
+              disabled={isSubmitting}
             >
-              <Text style={[styles.dropdownText, !formData.customerId && styles.dropdownPlaceholder]}>
-                {getSelectedCustomerName()}
+              <ArrowLeft size={22} color="#0891B2" strokeWidth={2.5} />
+            </TouchableOpacity>
+
+            <View className="flex-1 items-center px-3">
+              <Text className="text-[15px] font-extrabold text-slate-900" numberOfLines={1}>
+                Cập nhật đơn hàng
               </Text>
-              <ChevronDown size={20} color={COLORS.sub} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Nhân viên thu mẫu</Text>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowSampleCollectorModal(true)}
-            >
-              <Text style={[styles.dropdownText, !formData.sampleCollectorId && styles.dropdownPlaceholder]}>
-                {getSelectedSampleCollectorName()}
+              <Text className="mt-0.5 text-[11px] font-bold text-slate-500" numberOfLines={1}>
+                Hoàn thiện theo từng bước
               </Text>
-              <ChevronDown size={20} color={COLORS.sub} />
+            </View>
+
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="px-4 py-2 rounded-2xl bg-slate-50 border border-slate-200"
+              activeOpacity={0.75}
+              disabled={isSubmitting}
+            >
+              <Text className="text-sm font-extrabold text-slate-700">Xong</Text>
             </TouchableOpacity>
           </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Nhân viên phân tích</Text>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowStaffAnalystModal(true)}
-            >
-              <Text style={[styles.dropdownText, !formData.staffAnalystId && styles.dropdownPlaceholder]}>
-                {getSelectedStaffAnalystName()}
+        </View
+        <View className="bg-white px-5 pt-4 pb-5 border-b border-slate-200">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-[12px] font-bold text-slate-500">
+                Bước {currentStep}/{TOTAL_STEPS}
               </Text>
-              <ChevronDown size={20} color={COLORS.sub} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Mã Barcode</Text>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowBarcodeModal(true)}
-            >
-              <Text style={[styles.dropdownText, !formData.barcodeId && styles.dropdownPlaceholder]}>
-                {getSelectedBarcodeName()}
+              <Text className="mt-1 text-[14px] font-extrabold text-slate-900" numberOfLines={2}>
+                {STEP_TITLES[currentStep - 1]}
               </Text>
-              <ChevronDown size={20} color={COLORS.sub} />
-            </TouchableOpacity>
+            </View>
+
+            <View className="px-3 py-1.5 rounded-2xl bg-cyan-50 border border-cyan-100">
+              <Text className="text-sm font-extrabold text-cyan-700">{currentStep}</Text>
+            </View>
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              Trạng thái đơn hàng <Text style={styles.required}>*</Text>
-            </Text>
+          <Stepper totalSteps={TOTAL_STEPS} currentStep={currentStep} onStepPress={(s) => setCurrentStep(s)} />
+        </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 140 + insets.bottom,
+          }}
+        >
+          {renderCurrentStep()}
+        </ScrollView>
+
+        {/* Bottom bar */}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: isWeb ? ("fixed" as any) : "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "white",
+              borderTopWidth: 1,
+              borderTopColor: "#E2E8F0",
+              padding: 16,
+              paddingBottom: Math.max(16, insets.bottom),
+              flexDirection: "row",
+              gap: 12,
+            }}
+          >
             <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowOrderStatusModal(true)}
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "white",
+                borderWidth: 1,
+                borderColor: "#E2E8F0",
+              }}
+              onPress={handleBack}
+              activeOpacity={0.8}
+              disabled={isSubmitting}
             >
-              <Text style={styles.dropdownText}>{getSelectedOrderStatusLabel()}</Text>
-              <ChevronDown size={20} color={COLORS.sub} />
+              <Text style={{ fontSize: 15, fontWeight: "800", color: "#334155" }}>
+                {currentStep === 1 ? "Huỷ" : "Quay lại"}
+              </Text>
             </TouchableOpacity>
-          </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              Trạng thái thanh toán <Text style={styles.required}>*</Text>
-            </Text>
             <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowPaymentStatusModal(true)}
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isSubmitting ? "#22D3EE" : "#0891B2",
+              }}
+              onPress={handleNext}
+              activeOpacity={0.85}
+              disabled={isSubmitting}
             >
-              <Text style={styles.dropdownText}>{getSelectedPaymentStatusLabel()}</Text>
-              <ChevronDown size={20} color={COLORS.sub} />
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: "800", color: "white" }}>
+                  {currentStep === TOTAL_STEPS ? "Hoàn thành" : "Tiếp theo"}
+                </Text>
+              )}
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              Hình thức thanh toán <Text style={styles.required}>*</Text>
-            </Text>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowPaymentTypeModal(true)}
-            >
-              <Text style={styles.dropdownText}>{getSelectedPaymentTypeLabel()}</Text>
-              <ChevronDown size={20} color={COLORS.sub} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Số tiền (VNĐ)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập số tiền"
-              placeholderTextColor={COLORS.muted}
-              value={formData.paymentAmount}
-              onChangeText={(text) => setFormData({ ...formData, paymentAmount: text.replace(/[^0-9]/g, "") })}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Ghi chú</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Nhập ghi chú"
-              placeholderTextColor={COLORS.muted}
-              value={formData.orderNote}
-              onChangeText={(text) => setFormData({ ...formData, orderNote: text })}
-              multiline
-              numberOfLines={4}
-            />
           </View>
         </View>
-      </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={() => router.back()}
+        {/* Success Modal */}
+        <Modal
+          visible={showSuccessModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowSuccessModal(false);
+            router.back();
+          }}
         >
-          <Text style={styles.cancelButtonText}>Hủy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.saveButton]}
-          onPress={handleSubmit}
-          disabled={updateOrderMutation.isPending}
-        >
-          {updateOrderMutation.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.saveButtonText}>Lưu</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          <View className="flex-1 bg-black/60 justify-center items-center p-5">
+            <View className="bg-white rounded-3xl w-full max-w-[420px] overflow-hidden border border-slate-200">
+              <View className="items-center p-6">
+                <View className="w-16 h-16 rounded-2xl bg-emerald-500/12 border border-emerald-200 items-center justify-center">
+                  <Check size={30} color="#22C55E" strokeWidth={3} />
+                </View>
 
-      {renderDropdownModal(
-        showCustomerModal,
-        () => setShowCustomerModal(false),
-        "Chọn khách hàng",
-        customers,
-        formData.customerId,
-        (value) => setFormData({ ...formData, customerId: value }),
-        (item) => item.customerName,
-        (item) => item.customerId
-      )}
-
-      {renderDropdownModal(
-        showSampleCollectorModal,
-        () => setShowSampleCollectorModal(false),
-        "Chọn nhân viên thu mẫu",
-        staffs,
-        formData.sampleCollectorId,
-        (value) => setFormData({ ...formData, sampleCollectorId: value }),
-        (item) => item.staffName,
-        (item) => item.staffId
-      )}
-
-      {renderDropdownModal(
-        showStaffAnalystModal,
-        () => setShowStaffAnalystModal(false),
-        "Chọn nhân viên phân tích",
-        staffs,
-        formData.staffAnalystId,
-        (value) => setFormData({ ...formData, staffAnalystId: value }),
-        (item) => item.staffName,
-        (item) => item.staffId
-      )}
-
-      {renderDropdownModal(
-        showBarcodeModal,
-        () => setShowBarcodeModal(false),
-        "Chọn mã barcode",
-        barcodes,
-        formData.barcodeId,
-        (value) => setFormData({ ...formData, barcodeId: value }),
-        (item) => item.barcode,
-        (item) => item.barcode
-      )}
-
-      {renderDropdownModal(
-        showOrderStatusModal,
-        () => setShowOrderStatusModal(false),
-        "Chọn trạng thái đơn hàng",
-        ORDER_STATUS_OPTIONS,
-        formData.orderStatus,
-        (value) => setFormData({ ...formData, orderStatus: value as OrderStatus }),
-        (item) => item.label,
-        (item) => item.value
-      )}
-
-      {renderDropdownModal(
-        showPaymentStatusModal,
-        () => setShowPaymentStatusModal(false),
-        "Chọn trạng thái thanh toán",
-        PAYMENT_STATUS_OPTIONS,
-        formData.paymentStatus,
-        (value) => setFormData({ ...formData, paymentStatus: value as PaymentStatus }),
-        (item) => item.label,
-        (item) => item.value
-      )}
-
-      {renderDropdownModal(
-        showPaymentTypeModal,
-        () => setShowPaymentTypeModal(false),
-        "Chọn hình thức thanh toán",
-        PAYMENT_TYPE_OPTIONS,
-        formData.paymentType,
-        (value) => setFormData({ ...formData, paymentType: value as PaymentType }),
-        (item) => item.label,
-        (item) => item.value
-      )}
-
-      <Modal
-        visible={showSuccessModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowSuccessModal(false);
-          router.back();
-        }}
-      >
-        <View style={styles.successModalOverlay}>
-          <View style={styles.successModalContent}>
-            <View style={styles.successModalHeader}>
-              <View style={styles.successIconContainer}>
-                <Check size={32} color={COLORS.success} strokeWidth={3} />
+                <Text className="mt-4 text-[16px] font-extrabold text-slate-900">Cập nhật thành công</Text>
+                <Text className="mt-2 text-[12px] font-bold text-slate-500 text-center leading-5">
+                  Đơn hàng đã được cập nhật. Bạn có thể xem trong danh sách đơn hàng.
+                </Text>
               </View>
-              <Text style={styles.successModalTitle}>Thành công</Text>
-              <Text style={styles.successModalMessage}>
-                Đơn hàng đã được cập nhật thành công!
-              </Text>
-              <Text style={styles.successModalSubMessage}>
-                Thông tin đơn hàng đã được lưu và cập nhật.
-              </Text>
-            </View>
-            <View style={styles.successModalActions}>
-              <TouchableOpacity
-                style={[styles.successModalButton, styles.successModalButtonSecondary]}
-                onPress={() => {
-                  setShowSuccessModal(false);
-                  router.back();
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.successModalButtonSecondaryText}>Đóng</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.successModalButton, styles.successModalButtonPrimary]}
-                onPress={() => {
-                  setShowSuccessModal(false);
-                  if (orderId) {
-                    router.push({
-                      pathname: "/order-detail",
-                      params: { orderId },
-                    });
-                  }
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.successModalButtonPrimaryText}>Xem chi tiết</Text>
-              </TouchableOpacity>
+
+              <View className="flex-row p-4 gap-3 border-t border-slate-200 bg-slate-50">
+                <TouchableOpacity
+                  className="flex-1 h-12 rounded-2xl items-center justify-center bg-white border border-slate-200"
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    router.push("/orders");
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text className="text-[14px] font-extrabold text-slate-700">Xem danh sách</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 h-12 rounded-2xl items-center justify-center bg-cyan-600"
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    router.back();
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text className="text-[14px] font-extrabold text-white">Đóng</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </FormProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.bg,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.sub,
-    fontSize: 14,
-  },
-  form: {
-    gap: 20,
-  },
-  field: {
-    marginBottom: 4,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  required: {
-    color: "#EF4444",
-  },
-  input: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  dropdown: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 50,
-  },
-  dropdownText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  dropdownPlaceholder: {
-    color: COLORS.muted,
-    fontWeight: "400",
-  },
-  footer: {
-    flexDirection: "row",
-    padding: 16,
-    gap: 12,
-    backgroundColor: COLORS.card,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  button: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  cancelButton: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.sub,
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    width: "90%",
-    maxHeight: "80%",
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.text,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalList: {
-    maxHeight: 400,
-  },
-  modalItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalItemSelected: {
-    backgroundColor: COLORS.primarySoft,
-  },
-  modalItemText: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  modalItemTextSelected: {
-    color: COLORS.primary,
-  },
-  successModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  successModalContent: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    margin: 20,
-    maxWidth: 400,
-    alignSelf: "center",
-    width: "100%",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.3)",
-      },
-    }),
-  },
-  successModalHeader: {
-    alignItems: "center",
-    padding: 24,
-    paddingBottom: 20,
-  },
-  successIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(34,197,94,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  successModalTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: COLORS.text,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  successModalMessage: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  successModalSubMessage: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.sub,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  successModalActions: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    padding: 16,
-    gap: 12,
-  },
-  successModalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  successModalButtonSecondary: {
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  successModalButtonSecondaryText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: COLORS.sub,
-  },
-  successModalButtonPrimary: {
-    backgroundColor: COLORS.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.3)",
-      },
-    }),
-  },
-  successModalButtonPrimaryText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#fff",
-  },
-});

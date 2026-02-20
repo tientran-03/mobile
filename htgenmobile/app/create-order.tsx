@@ -231,39 +231,28 @@ export default function CreateOrderScreen() {
     return allHospitalStaff.filter(s => s.staffPosition === StaffPosition.STAFF);
   }, [allHospitalStaff]);
 
-  const sampleCollectorList = useMemo(() => {
-    // Filter LAB_TECHNICIAN staff - backend uses "lab_technician" (lowercase)
-    // StaffPosition.LAB_TECHNICIAN = "lab_technician"
-    const filtered = allHospitalStaff.filter(
-      s => {
-        const position = s.staffPosition;
-        return (
-          position === StaffPosition.LAB_TECHNICIAN || // "lab_technician"
-          position === 'lab_technician' ||
-          position === 'LAB_TECHNICIAN' ||
-          (typeof position === 'string' && position.toLowerCase() === 'lab_technician')
-        );
-      }
-    );
-    console.log('[CreateOrder] Total hospital staff:', allHospitalStaff.length);
-    console.log('[CreateOrder] Filtered sampleCollectorList:', filtered.length, 'items');
-    if (filtered.length === 0 && allHospitalStaff.length > 0) {
-      console.warn('[CreateOrder] No LAB_TECHNICIAN found. Available positions:', 
-        [...new Set(allHospitalStaff.map(s => s.staffPosition).filter(Boolean))]);
-    }
-    return filtered;
-  }, [allHospitalStaff]);
-
-  // Staff analyst list - must be same as sample collector (LAB_TECHNICIAN staff)
   const staffAnalystList = useMemo(() => {
-    // Use same list as sampleCollectorList - nhân viên phụ trách = nhân viên thu mẫu
-    return sampleCollectorList.map(s => ({
-      id: s.staffId,
-      name: s.staffName,
-      position: s.staffPosition || 'lab_technician',
-      type: 'staff' as const,
-    }));
-  }, [sampleCollectorList]);
+    const options: { id: string; name: string; position: string; type: 'doctor' | 'staff' }[] = [];
+    doctors
+      .filter(d => d.hospitalId === '1')
+      .forEach(d => {
+        options.push({
+          id: d.doctorId,
+          name: d.doctorName,
+          position: 'doctor',
+          type: 'doctor',
+        });
+      });
+    return options;
+  }, [doctors]);
+
+  const sampleCollectorList = useMemo(() => {
+    return allHospitalStaff.filter(
+      s =>
+        s.staffPosition === StaffPosition.LAB_TECHNICIAN ||
+        (s.staffPosition as any) === 'LAB_TECHNICIAN'
+    );
+  }, [allHospitalStaff]);
 
   const hospitalName = useMemo(() => {
     const selectedDoctor = doctors.find(d => d.doctorId === doctorId);
@@ -286,27 +275,6 @@ export default function CreateOrderScreen() {
       fetchCurrentUserStaff();
     }
   }, [user?.id, allHospitalStaff, setValue, getValues]);
-
-
-  // Auto-sync staffAnalystId with sampleCollectorId - nhân viên phụ trách = nhân viên thu mẫu
-  const sampleCollectorId = watch('sampleCollectorId');
-  useEffect(() => {
-    if (sampleCollectorId && sampleCollectorId.trim() !== '') {
-      // Set staffAnalystId to same value as sampleCollectorId
-      const currentStaffAnalystId = getValues('staffAnalystId');
-      if (currentStaffAnalystId !== sampleCollectorId) {
-        console.log('[CreateOrder] Auto-syncing staffAnalystId with sampleCollectorId:', sampleCollectorId);
-        setValue('staffAnalystId', sampleCollectorId, { shouldValidate: true, shouldDirty: true });
-      }
-    } else {
-      // Clear staffAnalystId if sampleCollectorId is cleared
-      const currentStaffAnalystId = getValues('staffAnalystId');
-      if (currentStaffAnalystId && currentStaffAnalystId.trim() !== '') {
-        console.log('[CreateOrder] Clearing staffAnalystId because sampleCollectorId is empty');
-        setValue('staffAnalystId', '', { shouldValidate: true, shouldDirty: true });
-      }
-    }
-  }, [sampleCollectorId, setValue, getValues]);
 
   const specifyId = watch('specifyId');
   useEffect(() => {
@@ -373,77 +341,25 @@ export default function CreateOrderScreen() {
     mutationFn: async (data: OrderFormData) => {
       if (!user?.id) throw new Error('Không tìm thấy thông tin người dùng');
 
-      // Validate paymentType - must be a valid PaymentType enum, not empty string
-      if (!data.paymentType || data.paymentType === "") {
-        console.error('[CreateOrder] PaymentType is empty or missing:', data.paymentType);
-        throw new Error('Vui lòng chọn hình thức thanh toán');
-      }
-
-      const paymentTypeValue = data.paymentType as PaymentType;
-      if (paymentTypeValue !== PaymentType.CASH && paymentTypeValue !== PaymentType.ONLINE_PAYMENT) {
-        console.error('[CreateOrder] Invalid PaymentType:', paymentTypeValue);
-        throw new Error('Hình thức thanh toán không hợp lệ');
-      }
-
-      // Build request
-      // staffAnalystId is automatically synced with sampleCollectorId, so it's always valid
       const createRequest: any = {
         orderName: data.orderName.trim(),
-        customerId: user.id, // Use user.id from auth context, matching frontend behavior
+        customerId: data.customerId || undefined,
         specifyId: data.specifyId || undefined,
-        paymentType: paymentTypeValue,
+        paymentType: data.paymentType as PaymentType,
         orderNote: data.orderNote?.trim() || undefined,
         orderStatus: OrderStatus.INITIATION,
         paymentStatus: PaymentStatus.PENDING,
         ...(data.staffId && { staffId: data.staffId }),
         ...(data.paymentAmount && { paymentAmount: parseFloat(data.paymentAmount as any) }),
-        // staffAnalystId is same as sampleCollectorId (synced via useEffect)
         ...(data.staffAnalystId && { staffAnalystId: data.staffAnalystId }),
         ...(data.sampleCollectorId && { sampleCollectorId: data.sampleCollectorId }),
         ...(data.barcodeId && { barcodeId: data.barcodeId }),
         ...(data.specifyVoteTestImagePath && { specifyVoteImagePath: data.specifyVoteTestImagePath }),
       };
 
-      console.log('[CreateOrder] Sending request:', JSON.stringify(createRequest, null, 2));
-      console.log('[CreateOrder] Form data staffAnalystId:', data.staffAnalystId);
-      console.log('[CreateOrder] Form data sampleCollectorId:', data.sampleCollectorId);
-      console.log('[CreateOrder] Form data staffId:', data.staffId);
-      console.log('[CreateOrder] Form data barcodeId:', data.barcodeId);
-
-      try {
-        const response = await orderService.create(createRequest);
-        console.log('[CreateOrder] Response:', JSON.stringify(response, null, 2));
-        
-        if (!response.success) {
-          // Extract detailed error message from response
-          let errorMessage = response.message || response.error || 'Tạo đơn hàng thất bại';
-          
-          // If response has data array (validation errors), format them
-          if (response.data && Array.isArray(response.data)) {
-            const validationErrors = response.data.map((err: any) => {
-              if (typeof err === 'object' && err.message) {
-                return err.message;
-              }
-              return String(err);
-            }).join('; ');
-            if (validationErrors) {
-              errorMessage = `${errorMessage}: ${validationErrors}`;
-            }
-          }
-          
-          console.error('[CreateOrder] API error:', errorMessage, response);
-          throw new Error(errorMessage);
-        }
-        return response;
-      } catch (error: any) {
-        console.error('[CreateOrder] Exception:', error);
-        // If it's already an Error object, re-throw it
-        if (error instanceof Error) {
-          throw error;
-        }
-        // Otherwise, wrap it in an Error
-        throw new Error(error?.message || 'Tạo đơn hàng thất bại');
-      }
+      const response = await orderService.create(createRequest);
+      if (!response.success) throw new Error(response.message || 'Tạo đơn hàng thất bại');
+      return response;
     },
     onSuccess: response => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });

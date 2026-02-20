@@ -56,28 +56,16 @@ class ApiClient {
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-      console.log(`[API] ${options.method || "GET"} ${endpoint} - Token: ${token.substring(0, 20)}...`);
-    } else {
-      console.log(`[API] ${options.method || "GET"} ${endpoint} - No token`);
     }
 
-    const fullUrl = `${this.baseURL}${endpoint}`;
-    console.log(`[API] Full URL: ${fullUrl}`);
-
     try {
-      const response = await fetch(fullUrl, {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
         ...options,
         headers,
       });
 
-      console.log(`[API] Response status: ${response.status} for ${endpoint}`);
-
       if (response.status === 401) {
-        console.warn(`[API] Unauthorized (401) for ${endpoint}`);
-        console.warn(`[API] Request had token:`, token ? `Yes (${token.substring(0, 20)}...)` : "No");
-        if (token) {
-          console.warn(`[API] Authorization header:`, headers["Authorization"]?.substring(0, 30) + "...");
-        }
+        console.warn("Unauthorized - clearing token");
         await this.removeToken();
         return {
           success: false,
@@ -107,16 +95,11 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        // Don't log 404 errors for patient clinical endpoints (normal - patient may not have clinical data yet)
-        const isPatientClinical404 = response.status === 404 && endpoint.includes("/patient-clinicals/patient/");
-        
-        if (!isPatientClinical404) {
-          console.error("API error response:", {
-            status: response.status,
-            statusText: response.statusText,
-            data: JSON.stringify(data, null, 2),
-          });
-        }
+        console.error("API error response:", {
+          status: response.status,
+          statusText: response.statusText,
+          data: JSON.stringify(data, null, 2),
+        });
         
         // Extract validation errors if available
         let errorMessage = data?.error || data?.message || `Server error: ${response.status} ${response.statusText}`;
@@ -130,9 +113,7 @@ class ApiClient {
           if (validationErrors) {
             errorMessage = `${errorMessage}: ${validationErrors}`;
           }
-          if (!isPatientClinical404) {
-            console.error("Validation errors:", data.data);
-          }
+          console.error("Validation errors:", data.data);
         }
         
         return {
@@ -187,35 +168,17 @@ class ApiClient {
   async login(email: string, password: string): Promise<ApiResponse<any>> {
     const response = await this.post("/api/auth/login", { email, password });
 
-    console.log("[Login] Full response:", JSON.stringify(response, null, 2));
-
     if (response.success && response.data) {
       const data = response.data as any;
-      console.log("[Login] Response data:", JSON.stringify(data, null, 2));
-      
       // Support multiple possible token field names from backend
       const token = data.sessionId || data.token || data.accessToken || data.jwt;
 
       if (token) {
-        console.log("[Login] Token extracted successfully:", { 
-          token: token.substring(0, 20) + "...", 
-          tokenType: Object.keys(data).find(k => data[k] === token),
-          tokenLength: token.length
-        });
+        console.log("Token extracted successfully:", { tokenType: Object.keys(data).find(k => data[k] === token) });
         await this.setToken(token);
-        
-        // Verify token was saved
-        const savedToken = await this.getToken();
-        console.log("[Login] Token saved verification:", savedToken ? "✅ Saved" : "❌ Not saved");
-        if (savedToken) {
-          console.log("[Login] Saved token preview:", savedToken.substring(0, 20) + "...");
-        }
       } else {
-        console.error("[Login] No token found in login response. Available keys:", Object.keys(data));
-        console.error("[Login] Full data object:", data);
+        console.error("No token found in login response:", data);
       }
-    } else {
-      console.error("[Login] Login failed:", response.error || "Unknown error");
     }
 
     return response;

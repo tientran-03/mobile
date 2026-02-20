@@ -1,6 +1,6 @@
 import { Check, X } from 'lucide-react-native';
 import React from 'react';
-import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
 
@@ -94,20 +94,11 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: 340,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 10,
-      },
-      web: {
-        boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.25)",
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   closeBtn: {
     position: 'absolute',
@@ -164,20 +155,11 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     backgroundColor: COLORS.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 5,
-      },
-      web: {
-        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.3)",
-      },
-    }),
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonPrimaryText: {
     fontSize: 15,

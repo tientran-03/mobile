@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ConfirmModal, SuccessModal } from "@/components/modals";
 import { getApiResponseData } from "@/lib/types/api-types";
 import {
   SpecifyVoteTestResponse,
@@ -74,34 +73,38 @@ export default function PrescriptionSlipDetailScreen() {
     enabled: !!specifyVoteID,
   });
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
-
   const deleteMutation = useMutation({
     mutationFn: () => specifyVoteTestService.delete(specifyVoteID!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specify-vote-tests"] });
-      queryClient.invalidateQueries({ queryKey: ["specify-vote-test", specifyVoteID] });
-      setShowDeleteConfirm(false);
-      setShowDeleteSuccess(true);
+      Alert.alert("Thành công", "Phiếu chỉ định đã được xóa thành công", [
+        {
+          text: "OK",
+          onPress: () => router.back(),
+        },
+      ]);
     },
     onError: (error: any) => {
-      setShowDeleteConfirm(false);
       Alert.alert("Lỗi", error?.message || "Không thể xóa phiếu chỉ định. Vui lòng thử lại.");
     },
   });
 
   const handleDelete = () => {
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = () => {
-    deleteMutation.mutate();
-  };
-
-  const handleDeleteSuccessClose = () => {
-    setShowDeleteSuccess(false);
-    router.back();
+    Alert.alert(
+      "Xác nhận xóa",
+      "Bạn có chắc chắn muốn xóa phiếu chỉ định này? Hành động này không thể hoàn tác.",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate(),
+        },
+      ]
+    );
   };
 
   if (isLoading) {
@@ -258,27 +261,6 @@ export default function PrescriptionSlipDetailScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        visible={showDeleteConfirm}
-        title="Xác nhận xóa"
-        message="Bạn có chắc chắn muốn xóa phiếu chỉ định này? Hành động này không thể hoàn tác."
-        confirmText="Xóa"
-        cancelText="Hủy"
-        destructive={true}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-      />
-
-      {/* Delete Success Modal */}
-      <SuccessModal
-        visible={showDeleteSuccess}
-        title="Thành công"
-        message="Phiếu chỉ định đã được xóa thành công!"
-        buttonText="OK"
-        onClose={handleDeleteSuccessClose}
-      />
     </SafeAreaView>
   );
 }

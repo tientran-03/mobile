@@ -37,23 +37,11 @@ export const reproductionService = {
     return apiClient.post<ReproductionServiceResponse>(API_ENDPOINTS.REPRODUCTION_SERVICES, data);
   },
 
-  update: async (id: string, data: ReproductionServiceRequest) => {
-    return apiClient.put<ReproductionServiceResponse>(`${API_ENDPOINTS.REPRODUCTION_SERVICES}/${id}`, data);
-  },
-
   getById: async (id: string) => {
     return apiClient.get<ReproductionServiceResponse>(`${API_ENDPOINTS.REPRODUCTION_SERVICES}/${id}`);
   },
 
   getAll: async () => {
     return apiClient.get<ReproductionServiceResponse[]>(API_ENDPOINTS.REPRODUCTION_SERVICES);
-  },
-
-  getByPatientId: async (patientId: string) => {
-    return apiClient.get<ReproductionServiceResponse[]>(`${API_ENDPOINTS.REPRODUCTION_SERVICES}/patient/${patientId}`);
-  },
-
-  getByServiceId: async (serviceId: string) => {
-    return apiClient.get<ReproductionServiceResponse[]>(`${API_ENDPOINTS.REPRODUCTION_SERVICES}/service/${serviceId}`);
   },
 };

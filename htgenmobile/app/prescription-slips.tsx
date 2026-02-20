@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -10,12 +10,10 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
-  Trash2,
 } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   RefreshControl,
   ScrollView,
@@ -29,8 +27,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { COLORS } from "@/constants/colors";
-import { ConfirmModal, SuccessModal } from "@/components/modals";
-import { useAuth } from "@/contexts/AuthContext";
 import { getApiResponseData } from "@/lib/types/api-types";
 import {
   SpecifyVoteTestResponse,
@@ -135,27 +131,11 @@ const formatDateShort = (dateString?: string): string => {
 
 export default function PrescriptionSlipsScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user, canCreatePrescriptionSlip } = useAuth();
-  
-  // Check if user can create prescription slip
-  const canCreate = React.useMemo(() => {
-    const result = canCreatePrescriptionSlip();
-    console.log("[PrescriptionSlips] Permission check", { 
-      hasUser: !!user, 
-      userRole: user?.role, 
-      canCreate: result 
-    });
-    return result;
-  }, [user, canCreatePrescriptionSlip]);
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<string | "all">("all");
   const [showStatusDropdown, setShowStatusDropdown] = useState<boolean>(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["specify-vote-tests", statusFilter],
@@ -166,37 +146,6 @@ export default function PrescriptionSlipsScreen() {
       return await specifyVoteTestService.getAll();
     },
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => specifyVoteTestService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["specify-vote-tests"] });
-      setShowDeleteConfirm(false);
-      setShowDeleteSuccess(true);
-      setDeleteTargetId(null);
-    },
-    onError: (error: any) => {
-      setShowDeleteConfirm(false);
-      Alert.alert("Lỗi", error?.message || "Không thể xóa phiếu chỉ định. Vui lòng thử lại.");
-      setDeleteTargetId(null);
-    },
-  });
-
-  const handleDelete = (slipId: string, event: any) => {
-    event?.stopPropagation?.();
-    setDeleteTargetId(slipId);
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = () => {
-    if (deleteTargetId) {
-      deleteMutation.mutate(deleteTargetId);
-    }
-  };
-
-  const handleDeleteSuccessClose = () => {
-    setShowDeleteSuccess(false);
-  };
 
   const slips: SpecifyVoteTestResponse[] = useMemo(() => {
     return getApiResponseData<SpecifyVoteTestResponse>(data) || [];
@@ -351,26 +300,21 @@ export default function PrescriptionSlipsScreen() {
             <Text style={styles.headerSub}>Tra cứu & lọc phiếu chỉ định xét nghiệm</Text>
           </View>
 
-          {canCreate && (
-            <TouchableOpacity
-              onPress={() => {
-                console.log("[PrescriptionSlips] Create button pressed");
-                router.push("/create-prescription-slip");
-              }}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                backgroundColor: COLORS.primary,
-                alignItems: "center",
-                justifyContent: "center",
-                marginLeft: 8,
-              }}
-              activeOpacity={0.85}
-            >
-              <Plus size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => router.push("/create-prescription-slip")}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: COLORS.primary,
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: 8,
+            }}
+            activeOpacity={0.85}
+          >
+            <Plus size={20} color="#FFFFFF" />
+          </TouchableOpacity>
 
           <View style={styles.countPill}>
             <Text style={styles.countText}>{filteredSlips.length}</Text>
@@ -458,24 +402,19 @@ export default function PrescriptionSlipsScreen() {
             </View>
             <Text style={styles.emptyTitle}>Không có phiếu chỉ định</Text>
             <Text style={styles.emptySub}>Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</Text>
-            {canCreate && (
-              <TouchableOpacity
-                style={{
-                  marginTop: 16,
-                  backgroundColor: COLORS.primary,
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                }}
-                onPress={() => {
-                  console.log("[PrescriptionSlips] Create button pressed (empty state)");
-                  router.push("/create-prescription-slip");
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>Thêm phiếu chỉ định</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={{
+                marginTop: 16,
+                backgroundColor: COLORS.primary,
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderRadius: 12,
+              }}
+              onPress={() => router.push("/create-prescription-slip")}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>Thêm phiếu chỉ định</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           Object.keys(groupedSlips).map((date) => (
@@ -534,27 +473,6 @@ export default function PrescriptionSlipsScreen() {
                       </View>
 
                       <View style={styles.actionBtn}>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            if (slip.specifyVoteID) {
-                              handleDelete(slip.specifyVoteID, e);
-                            }
-                          }}
-                          disabled={deleteMutation.isPending}
-                          style={{
-                            padding: 8,
-                            marginRight: 8,
-                            borderRadius: 8,
-                            backgroundColor: deleteMutation.isPending ? COLORS.bg : "#FEE2E2",
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Trash2 
-                            size={16} 
-                            color={deleteMutation.isPending ? COLORS.sub : "#EF4444"} 
-                          />
-                        </TouchableOpacity>
                         <ChevronRight size={18} color={COLORS.sub} />
                       </View>
                     </View>
@@ -565,30 +483,6 @@ export default function PrescriptionSlipsScreen() {
           ))
         )}
       </ScrollView>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        visible={showDeleteConfirm}
-        title="Xác nhận xóa"
-        message="Bạn có chắc chắn muốn xóa phiếu chỉ định này? Hành động này không thể hoàn tác."
-        confirmText="Xóa"
-        cancelText="Hủy"
-        destructive={true}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setShowDeleteConfirm(false);
-          setDeleteTargetId(null);
-        }}
-      />
-
-      {/* Delete Success Modal */}
-      <SuccessModal
-        visible={showDeleteSuccess}
-        title="Thành công"
-        message="Phiếu chỉ định đã được xóa thành công!"
-        buttonText="OK"
-        onClose={handleDeleteSuccessClose}
-      />
     </SafeAreaView>
   );
 }
@@ -721,20 +615,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 1,
-      },
-      web: {
-        boxShadow: "0px 10px 12px rgba(0, 0, 0, 0.04)",
-      },
-    }),
+    shadowColor: "#000",
+    shadowOpacity: Platform.OS === "ios" ? 0.05 : 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 1,
   },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
 

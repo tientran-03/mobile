@@ -1,17 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   Calendar,
@@ -39,21 +28,34 @@ import {
   AlertTriangle,
   Pill,
   BadgeCheck,
-  ListChecks,
-} from 'lucide-react-native';
+} from "lucide-react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ConfirmModal, SuccessModal } from '@/components/modals';
-import { COLORS } from '@/constants/colors';
-import { OrderResponse, orderService } from '@/services/orderService';
+import { ConfirmModal, SuccessModal } from "@/components/modals";
+import { COLORS } from "@/constants/colors";
+import { OrderResponse, orderService } from "@/services/orderService";
 
+// Helper function to format date
 const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
+  if (!dateString) return "-";
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   } catch {
     return dateString;
@@ -61,15 +63,15 @@ const formatDate = (dateString?: string) => {
 };
 
 const formatDateTime = (dateString?: string) => {
-  if (!dateString) return '-';
+  if (!dateString) return "-";
   try {
     const date = new Date(dateString);
-    return date.toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return dateString;
@@ -77,31 +79,86 @@ const formatDateTime = (dateString?: string) => {
 };
 
 const formatCurrency = (amount?: number) => {
-  if (amount === undefined || amount === null) return '-';
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
+  if (amount === undefined || amount === null) return "-";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
   }).format(amount);
 };
 
+// Status badge component
+const StatusBadge = ({
+  status,
+  type = "order",
+}: {
+  status?: string;
+  type?: "order" | "payment";
+}) => {
+  const getStatusConfig = () => {
+    if (!status) return { label: "-", bgColor: COLORS.muted, textColor: "#fff" };
+
+    const s = status.toUpperCase();
+    if (type === "payment") {
+      switch (s) {
+        case "COMPLETED":
+          return { label: "Đã thanh toán", bgColor: COLORS.success, textColor: "#fff" };
+        case "PENDING":
+          return { label: "Chờ thanh toán", bgColor: COLORS.warning, textColor: "#fff" };
+        case "FAILED":
+          return { label: "Thất bại", bgColor: COLORS.danger, textColor: "#fff" };
+        case "UNPAID":
+          return { label: "Chưa thanh toán", bgColor: COLORS.muted, textColor: "#fff" };
+        default:
+          return { label: status, bgColor: COLORS.muted, textColor: "#fff" };
+      }
+    }
+
+    // Order status
+    switch (s) {
+      case "INITIATION":
+        return { label: "Khởi tạo", bgColor: COLORS.info, textColor: "#fff" };
+      case "FORWARD_ANALYSIS":
+        return { label: "Chuyển tiếp phân tích", bgColor: COLORS.primary, textColor: "#fff" };
+      case "ACCEPTED":
+        return { label: "Chấp nhận", bgColor: COLORS.success, textColor: "#fff" };
+      case "REJECTED":
+        return { label: "Từ chối", bgColor: COLORS.danger, textColor: "#fff" };
+      case "IN_PROGRESS":
+        return { label: "Đang xử lý", bgColor: COLORS.warning, textColor: "#fff" };
+      case "SAMPLE_ERROR":
+        return { label: "Mẫu lỗi", bgColor: COLORS.danger, textColor: "#fff" };
+      case "COMPLETED":
+        return { label: "Hoàn thành", bgColor: COLORS.success, textColor: "#fff" };
+      default:
+        return { label: status, bgColor: COLORS.muted, textColor: "#fff" };
+    }
+  };
+
+  const config = getStatusConfig();
+
+  return (
+    <View style={[styles.badge, { backgroundColor: config.bgColor }]}>
+      <Text style={[styles.badgeText, { color: config.textColor }]}>
+        {config.label}
+      </Text>
+    </View>
+  );
+};
+
+// Payment type label
 const getPaymentTypeLabel = (type?: string) => {
-  if (!type) return '-';
+  if (!type) return "-";
   switch (type.toUpperCase()) {
-    case 'CASH':
-      return 'Tiền mặt';
-    case 'ONLINE_PAYMENT':
-      return 'Chuyển khoản';
+    case "CASH":
+      return "Tiền mặt";
+    case "ONLINE_PAYMENT":
+      return "Chuyển khoản";
     default:
       return type;
   }
 };
 
-const Card = ({ children }: { children: React.ReactNode }) => (
-  <View className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-    {children}
-  </View>
-);
-
+// Section component
 const Section = ({
   title,
   icon,
@@ -111,15 +168,16 @@ const Section = ({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) => (
-  <Card>
-    <View className="flex-row items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
+  <View style={styles.section}>
+    <View style={styles.sectionHeader}>
       {icon}
-      <Text className="text-[15px] font-bold text-slate-900">{title}</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
     </View>
-    <View className="px-4 py-3">{children}</View>
-  </Card>
+    <View style={styles.sectionContent}>{children}</View>
+  </View>
 );
 
+// Info row component
 const InfoRow = ({
   label,
   value,
@@ -130,74 +188,13 @@ const InfoRow = ({
   icon?: React.ReactNode;
 }) => {
   if (!value && value !== 0) return null;
-
   return (
-    <View className="flex-row items-start py-2">
-      {icon ? (
-        <View className="w-9 h-9 rounded-xl bg-slate-100 items-center justify-center mr-3">
-          {icon}
-        </View>
-      ) : (
-        <View className="w-9 mr-3" />
-      )}
-
-      <View className="flex-1">
-        <Text className="text-[12px] text-slate-500">{label}</Text>
-        <Text className="text-[14px] font-semibold text-slate-900 mt-0.5">{String(value)}</Text>
+    <View style={styles.infoRow}>
+      {icon && <View style={styles.infoIcon}>{icon}</View>}
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
       </View>
-    </View>
-  );
-};
-
-const StatusBadge = ({
-  status,
-  type = 'order',
-}: {
-  status?: string;
-  type?: 'order' | 'payment';
-}) => {
-  const cfg = useMemo(() => {
-    if (!status) return { label: '-', bg: 'bg-slate-200', text: 'text-slate-700' };
-    const s = status.toUpperCase();
-
-    if (type === 'payment') {
-      switch (s) {
-        case 'COMPLETED':
-          return { label: 'Đã thanh toán', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-        case 'PENDING':
-          return { label: 'Chờ thanh toán', bg: 'bg-amber-100', text: 'text-amber-800' };
-        case 'FAILED':
-          return { label: 'Thất bại', bg: 'bg-rose-100', text: 'text-rose-700' };
-        case 'UNPAID':
-          return { label: 'Chưa thanh toán', bg: 'bg-slate-200', text: 'text-slate-700' };
-        default:
-          return { label: status, bg: 'bg-slate-200', text: 'text-slate-700' };
-      }
-    }
-
-    switch (s) {
-      case 'INITIATION':
-        return { label: 'Khởi tạo', bg: 'bg-sky-100', text: 'text-sky-700' };
-      case 'FORWARD_ANALYSIS':
-        return { label: 'Chuyển tiếp phân tích', bg: 'bg-indigo-100', text: 'text-indigo-700' };
-      case 'ACCEPTED':
-        return { label: 'Chấp nhận', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-      case 'REJECTED':
-        return { label: 'Từ chối', bg: 'bg-rose-100', text: 'text-rose-700' };
-      case 'IN_PROGRESS':
-        return { label: 'Đang xử lý', bg: 'bg-amber-100', text: 'text-amber-800' };
-      case 'SAMPLE_ERROR':
-        return { label: 'Mẫu lỗi', bg: 'bg-rose-100', text: 'text-rose-700' };
-      case 'COMPLETED':
-        return { label: 'Hoàn thành', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-      default:
-        return { label: status, bg: 'bg-slate-200', text: 'text-slate-700' };
-    }
-  }, [status, type]);
-
-  return (
-    <View className={`px-3 py-1 rounded-full ${cfg.bg} self-start`}>
-      <Text className={`text-[12px] font-bold ${cfg.text}`}>{cfg.label}</Text>
     </View>
   );
 };
@@ -209,8 +206,9 @@ export default function OrderDetailScreen() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
 
+  // Fetch order details
   const {
     data: orderResponse,
     isLoading,
@@ -218,7 +216,7 @@ export default function OrderDetailScreen() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ['order', orderId],
+    queryKey: ["order", orderId],
     queryFn: () => orderService.getById(orderId!),
     enabled: !!orderId,
     retry: false,
@@ -226,14 +224,17 @@ export default function OrderDetailScreen() {
 
   const order = orderResponse?.success ? (orderResponse.data as OrderResponse) : null;
 
+  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: () => orderService.delete(orderId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      setSuccessMessage('Xóa đơn hàng thành công!');
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setSuccessMessage("Xóa đơn hàng thành công!");
       setShowSuccessModal(true);
     },
-    onError: (error: any) => Alert.alert('Lỗi', error?.message || 'Không thể xóa đơn hàng'),
+    onError: (error: any) => {
+      Alert.alert("Lỗi", error?.message || "Không thể xóa đơn hàng");
+    },
   });
 
   const handleDelete = () => {
@@ -243,13 +244,13 @@ export default function OrderDetailScreen() {
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    router.replace('/orders');
+    router.replace("/orders");
   };
 
   const handlePayment = () => {
     if (order && order.paymentAmount) {
       router.push({
-        pathname: '/payment',
+        pathname: "/payment",
         params: {
           orderId: order.orderId,
           amount: order.paymentAmount.toString(),
@@ -259,6 +260,7 @@ export default function OrderDetailScreen() {
     }
   };
 
+  // Extract data from order
   const specify = order?.specifyId;
   const patient = (specify as any)?.patient;
   const doctor = (specify as any)?.doctor;
@@ -269,11 +271,11 @@ export default function OrderDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-        <StatusBar barStyle="dark-content" />
-        <View className="flex-1 items-center justify-center gap-3">
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text className="text-slate-500">Đang tải thông tin đơn hàng...</Text>
+          <Text style={styles.loadingText}>Đang tải thông tin đơn hàng...</Text>
         </View>
       </SafeAreaView>
     );
@@ -281,56 +283,89 @@ export default function OrderDetailScreen() {
 
   if (isError || !order) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-        <StatusBar barStyle="dark-content" />
-        <View className="flex-1 items-center justify-center px-8 gap-4">
-          <View className="w-16 h-16 rounded-2xl bg-rose-50 items-center justify-center">
-            <FileText size={36} color={COLORS.danger} />
-          </View>
-          <Text className="text-slate-900 font-bold text-base">Không tìm thấy đơn hàng</Text>
-
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+        <View style={styles.errorContainer}>
+          <FileText size={48} color={COLORS.danger} />
+          <Text style={styles.errorText}>Không tìm thấy đơn hàng</Text>
           <TouchableOpacity
-            className="flex-row items-center gap-2 px-4 py-3 rounded-xl bg-white border border-slate-200"
+            style={styles.backButton}
             onPress={() => router.back()}
           >
             <ArrowLeft size={18} color={COLORS.primary} />
-            <Text className="font-bold text-slate-900">Quay lại danh sách</Text>
+            <Text style={styles.backButtonText}>Quay lại danh sách</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const showPayButton =
-    order.paymentType?.toUpperCase() === 'ONLINE_PAYMENT' &&
-    order.paymentStatus?.toUpperCase() !== 'COMPLETED' &&
-    !!order.paymentAmount;
-
   return (
-    <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
+      {/* Header */}
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryDark]}
+        style={styles.header}
+      >
+        <TouchableOpacity
+          style={styles.headerBackBtn}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Chi tiết đơn hàng</Text>
+          <Text style={styles.headerSubtitle}>#{order.orderId}</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/update-order",
+                params: { orderId: order.orderId },
+              })
+            }
+          >
+            <Edit size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
       <ScrollView
-        className="flex-1"
-        contentContainerClassName="p-4 gap-4"
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[COLORS.primary]} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            colors={[COLORS.primary]}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
-        <Card>
-          <View className="p-4 flex-row items-center">
-            <View className="flex-1">
-              <Text className="text-[12px] text-slate-500 mb-2">Trạng thái đơn hàng</Text>
+        {/* Order Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusRow}>
+            <View>
+              <Text style={styles.statusLabel}>Trạng thái đơn hàng</Text>
               <StatusBadge status={order.orderStatus} type="order" />
             </View>
-            <View className="w-px h-12 bg-slate-100 mx-4" />
-            <View className="flex-1">
-              <Text className="text-[12px] text-slate-500 mb-2">Thanh toán</Text>
+            <View style={styles.statusDivider} />
+            <View>
+              <Text style={styles.statusLabel}>Thanh toán</Text>
               <StatusBadge status={order.paymentStatus} type="payment" />
             </View>
           </View>
-        </Card>
-        <Section title="Thông tin đơn hàng" icon={<Package size={18} color={COLORS.primary} />}>
+        </View>
+
+        {/* Order Information */}
+        <Section
+          title="Thông tin đơn hàng"
+          icon={<Package size={20} color={COLORS.primary} />}
+        >
           <InfoRow
             label="Mã đơn hàng"
             value={order.orderId}
@@ -351,18 +386,19 @@ export default function OrderDetailScreen() {
             value={order.barcodeId}
             icon={<Hash size={16} color={COLORS.muted} />}
           />
-          {order.orderNote ? (
+          {order.orderNote && (
             <InfoRow
               label="Ghi chú"
               value={order.orderNote}
               icon={<ClipboardList size={16} color={COLORS.muted} />}
             />
-          ) : null}
+          )}
         </Section>
 
+        {/* Payment Information */}
         <Section
           title="Thông tin thanh toán"
-          icon={<CreditCard size={18} color={COLORS.primary} />}
+          icon={<CreditCard size={20} color={COLORS.primary} />}
         >
           <InfoRow
             label="Phương thức"
@@ -374,18 +410,23 @@ export default function OrderDetailScreen() {
             value={formatCurrency(order.paymentAmount)}
             icon={<CreditCard size={16} color={COLORS.muted} />}
           />
-          {showPayButton && (
-            <TouchableOpacity
-              onPress={handlePayment}
-              className="mt-3 rounded-xl px-4 py-3 bg-slate-900 flex-row items-center justify-center gap-2"
-            >
-              <CreditCard size={18} color="#fff" />
-              <Text className="text-white font-extrabold">Thanh toán ngay</Text>
-            </TouchableOpacity>
-          )}
+
+          {/* Payment button for pending online payments */}
+          {order.paymentType?.toUpperCase() === "ONLINE_PAYMENT" &&
+            order.paymentStatus?.toUpperCase() !== "COMPLETED" &&
+            order.paymentAmount && (
+              <TouchableOpacity style={styles.paymentButton} onPress={handlePayment}>
+                <CreditCard size={18} color="#fff" />
+                <Text style={styles.paymentButtonText}>Thanh toán ngay</Text>
+              </TouchableOpacity>
+            )}
         </Section>
 
-        <Section title="Nhân viên phụ trách" icon={<Users size={18} color={COLORS.primary} />}>
+        {/* Staff Information */}
+        <Section
+          title="Nhân viên phụ trách"
+          icon={<Users size={20} color={COLORS.primary} />}
+        >
           <InfoRow
             label="Khách hàng"
             value={order.customerName || order.customerId}
@@ -403,8 +444,12 @@ export default function OrderDetailScreen() {
           />
         </Section>
 
+        {/* Patient Information */}
         {patient && (
-          <Section title="Thông tin bệnh nhân" icon={<User size={18} color={COLORS.primary} />}>
+          <Section
+            title="Thông tin bệnh nhân"
+            icon={<User size={20} color={COLORS.primary} />}
+          >
             <InfoRow
               label="Mã bệnh nhân"
               value={patient.patientId}
@@ -422,13 +467,7 @@ export default function OrderDetailScreen() {
             />
             <InfoRow
               label="Giới tính"
-              value={
-                patient.gender === 'MALE'
-                  ? 'Nam'
-                  : patient.gender === 'FEMALE'
-                    ? 'Nữ'
-                    : patient.gender
-              }
+              value={patient.gender === "MALE" ? "Nam" : patient.gender === "FEMALE" ? "Nữ" : patient.gender}
               icon={<User size={16} color={COLORS.muted} />}
             />
             <InfoRow
@@ -453,8 +492,13 @@ export default function OrderDetailScreen() {
             />
           </Section>
         )}
+
+        {/* Doctor Information */}
         {doctor && (
-          <Section title="Thông tin bác sĩ" icon={<Stethoscope size={18} color={COLORS.primary} />}>
+          <Section
+            title="Thông tin bác sĩ"
+            icon={<Stethoscope size={20} color={COLORS.primary} />}
+          >
             <InfoRow
               label="Họ tên"
               value={doctor.doctorName}
@@ -483,8 +527,12 @@ export default function OrderDetailScreen() {
           </Section>
         )}
 
+        {/* Hospital Information */}
         {hospital && (
-          <Section title="Thông tin bệnh viện" icon={<Hospital size={18} color={COLORS.primary} />}>
+          <Section
+            title="Thông tin bệnh viện"
+            icon={<Hospital size={20} color={COLORS.primary} />}
+          >
             <InfoRow
               label="Tên bệnh viện"
               value={hospital.hospitalName}
@@ -493,10 +541,11 @@ export default function OrderDetailScreen() {
           </Section>
         )}
 
+        {/* Genome Test Information */}
         {genomeTest && (
           <Section
             title="Thông tin xét nghiệm"
-            icon={<FlaskConical size={18} color={COLORS.primary} />}
+            icon={<FlaskConical size={20} color={COLORS.primary} />}
           >
             <InfoRow
               label="Mã xét nghiệm"
@@ -521,10 +570,11 @@ export default function OrderDetailScreen() {
           </Section>
         )}
 
+        {/* Specify Information */}
         {specify && (
           <Section
             title="Thông tin phiếu chỉ định"
-            icon={<ClipboardList size={18} color={COLORS.primary} />}
+            icon={<ClipboardList size={20} color={COLORS.primary} />}
           >
             <InfoRow
               label="Mã phiếu"
@@ -556,18 +606,22 @@ export default function OrderDetailScreen() {
               value={specify.specifyStatus}
               icon={<Activity size={16} color={COLORS.muted} />}
             />
-            {specify.specifyNote ? (
+            {specify.specifyNote && (
               <InfoRow
                 label="Ghi chú"
                 value={specify.specifyNote}
                 icon={<ClipboardList size={16} color={COLORS.muted} />}
               />
-            ) : null}
+            )}
           </Section>
         )}
 
+        {/* Clinical Information */}
         {clinical && (
-          <Section title="Thông tin lâm sàng" icon={<Activity size={18} color={COLORS.primary} />}>
+          <Section
+            title="Thông tin lâm sàng"
+            icon={<Activity size={20} color={COLORS.primary} />}
+          >
             <InfoRow
               label="Chiều cao"
               value={clinical.patientHeight ? `${clinical.patientHeight} cm` : null}
@@ -611,69 +665,56 @@ export default function OrderDetailScreen() {
           </Section>
         )}
 
+        {/* Patient Metadata */}
         {patientMetadata && patientMetadata.length > 0 && (
           <Section
             title={`Thông tin mẫu (${patientMetadata.length})`}
-            icon={<TestTube size={18} color={COLORS.primary} />}
+            icon={<TestTube size={20} color={COLORS.primary} />}
           >
-            <View className="gap-3">
-              {patientMetadata.map((meta: any, index: number) => (
-                <View key={index} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                  <Text className="text-slate-900 font-extrabold mb-2">Mẫu #{index + 1}</Text>
+            {patientMetadata.map((meta, index) => (
+              <View key={index} style={styles.metadataItem}>
+                <Text style={styles.metadataLabel}>Mẫu #{index + 1}</Text>
+                <InfoRow
+                  label="Labcode"
+                  value={meta.labcode}
+                  icon={<Hash size={16} color={COLORS.muted} />}
+                />
+                {meta.sampleName && (
                   <InfoRow
-                    label="Labcode"
-                    value={meta.labcode}
-                    icon={<Hash size={16} color={COLORS.muted} />}
+                    label="Tên mẫu"
+                    value={meta.sampleName}
+                    icon={<TestTube size={16} color={COLORS.muted} />}
                   />
-                  {meta.sampleName ? (
-                    <InfoRow
-                      label="Tên mẫu"
-                      value={meta.sampleName}
-                      icon={<TestTube size={16} color={COLORS.muted} />}
-                    />
-                  ) : null}
-                  {meta.status ? (
-                    <InfoRow
-                      label="Trạng thái"
-                      value={meta.status}
-                      icon={<Activity size={16} color={COLORS.muted} />}
-                    />
-                  ) : null}
-                </View>
-              ))}
-            </View>
+                )}
+                {meta.status && (
+                  <InfoRow
+                    label="Trạng thái"
+                    value={meta.status}
+                    icon={<Activity size={16} color={COLORS.muted} />}
+                  />
+                )}
+              </View>
+            ))}
           </Section>
         )}
 
-        <View className="gap-3">
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
           <TouchableOpacity
-            className="rounded-xl py-4 bg-white border border-slate-200 flex-row items-center justify-center gap-2"
+            style={[styles.actionButton, styles.editButton]}
             onPress={() =>
               router.push({
-                pathname: '/update-order-wizard',
+                pathname: "/update-order",
                 params: { orderId: order.orderId },
               })
             }
           >
             <Edit size={18} color={COLORS.primary} />
-            <Text className="font-extrabold text-slate-900">Sửa chi tiết đơn hàng</Text>
+            <Text style={styles.editButtonText}>Chỉnh sửa</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="rounded-xl py-4 bg-slate-900 flex-row items-center justify-center gap-2"
-            onPress={() =>
-              router.push({
-                pathname: '/update-order',
-                params: { orderId: order.orderId, mode: 'status' },
-              })
-            }
-          >
-            <ListChecks size={18} color="#fff" />
-            <Text className="font-extrabold text-white">Chỉnh sửa trạng thái đơn hàng</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="rounded-xl py-4 bg-rose-50 border border-rose-200 flex-row items-center justify-center gap-2"
+            style={[styles.actionButton, styles.deleteButton]}
             onPress={() => setShowDeleteModal(true)}
             disabled={deleteMutation.isPending}
           >
@@ -682,15 +723,16 @@ export default function OrderDetailScreen() {
             ) : (
               <>
                 <Trash2 size={18} color={COLORS.danger} />
-                <Text className="font-extrabold text-rose-700">Xoá đơn hàng</Text>
+                <Text style={styles.deleteButtonText}>Xóa đơn</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        <View className="h-10" />
+        <View style={styles.bottomPadding} />
       </ScrollView>
 
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         visible={showDeleteModal}
         title="Xác nhận xóa"
@@ -702,6 +744,7 @@ export default function OrderDetailScreen() {
         destructive
       />
 
+      {/* Success Modal */}
       <SuccessModal
         visible={showSuccessModal}
         message={successMessage}
@@ -710,3 +753,246 @@ export default function OrderDetailScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.muted,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 16,
+    color: COLORS.danger,
+    fontWeight: "600",
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySoft,
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  headerBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+    gap: 16,
+  },
+  statusCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusLabel: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginBottom: 8,
+  },
+  statusDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 24,
+  },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: "flex-start",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  section: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: COLORS.primarySoft,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  sectionContent: {
+    padding: 16,
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 8,
+    gap: 12,
+  },
+  infoIcon: {
+    marginTop: 2,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: "500",
+  },
+  paymentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  paymentButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  metadataItem: {
+    backgroundColor: COLORS.bg,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  metadataLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginBottom: 8,
+  },
+  actionContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  editButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  deleteButton: {
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.danger,
+  },
+  bottomPadding: {
+    height: 40,
+  },
+});

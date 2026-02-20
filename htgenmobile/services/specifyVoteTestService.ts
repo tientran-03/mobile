@@ -19,24 +19,6 @@ export interface SpecifyVoteTestResponse {
   geneticTestResults?: string;
   geneticTestResultsRelationship?: string;
   createdAt?: string;
-  reproductionService?: {
-    id: string;
-    serviceId: string;
-    patientId: string;
-    [key: string]: any;
-  };
-  embryoService?: {
-    id: string;
-    serviceId: string;
-    patientId: string;
-    [key: string]: any;
-  };
-  diseaseService?: {
-    id: string;
-    serviceId: string;
-    patientId: string;
-    [key: string]: any;
-  };
   patient?: {
     patientId: string;
     patientName: string;
