@@ -25,7 +25,6 @@ export default function Step6ServiceType({ isEditMode = false, onManualServiceTy
       <Text className="text-[15px] font-extrabold text-slate-900 mb-4">
         Thông tin nhóm xét nghiệm
       </Text>
-      {/* Service Type Selection */}
       <View className="mb-4">
         <Text className="text-[13px] font-extrabold text-slate-700 mb-2">Loại xét nghiệm</Text>
         <Controller
@@ -73,8 +72,6 @@ export default function Step6ServiceType({ isEditMode = false, onManualServiceTy
                     );
                   })}
                 </View>
-
-                {/* Conditional sections based on service type */}
                 {value === ServiceType.REPRODUCTION && (
                   <View className="pt-4 border-t border-slate-100 mt-4">
                     <Text className="text-[13px] font-bold text-slate-600 mb-3">

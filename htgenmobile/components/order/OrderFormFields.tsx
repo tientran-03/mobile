@@ -11,35 +11,28 @@ import { SelectionOption } from '@/components/modals';
 import type { SimpleOrderFormData } from '@/lib/schemas/simple-order-schema';
 
 interface OrderFormFieldsProps {
-  // Customer selection
   showCustomerModal: boolean;
   setShowCustomerModal: (show: boolean) => void;
   customerOptions: SelectionOption[];
   getSelectedCustomerName: () => string;
-  // Sample collector selection
   showSampleCollectorModal: boolean;
   setShowSampleCollectorModal: (show: boolean) => void;
   sampleCollectorOptions: SelectionOption[];
   getSelectedSampleCollectorName: () => string;
-  // Staff analyst selection
   showStaffAnalystModal: boolean;
   setShowStaffAnalystModal: (show: boolean) => void;
   staffAnalystOptions: SelectionOption[];
   getSelectedStaffAnalystName: () => string;
-  // Barcode selection
   showBarcodeModal: boolean;
   setShowBarcodeModal: (show: boolean) => void;
   barcodeOptions: SelectionOption[];
   getSelectedBarcodeName: () => string;
-  // Order status selection
   showOrderStatusModal: boolean;
   setShowOrderStatusModal: (show: boolean) => void;
   orderStatusOptions: SelectionOption[];
-  // Payment status selection
   showPaymentStatusModal: boolean;
   setShowPaymentStatusModal: (show: boolean) => void;
   paymentStatusOptions: SelectionOption[];
-  // Payment type selection
   showPaymentTypeModal: boolean;
   setShowPaymentTypeModal: (show: boolean) => void;
   paymentTypeOptions: SelectionOption[];
@@ -155,4 +148,3 @@ export function OrderFormFields({
   );
 }
 
-// No styles needed - FormInput components have their own styles

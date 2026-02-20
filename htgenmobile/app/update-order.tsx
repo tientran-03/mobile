@@ -13,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -811,11 +812,20 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: "center",
     width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.3)",
+      },
+    }),
   },
   successModalHeader: {
     alignItems: "center",
@@ -878,11 +888,20 @@ const styles = StyleSheet.create({
   },
   successModalButtonPrimary: {
     backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.3)",
+      },
+    }),
   },
   successModalButtonPrimaryText: {
     fontSize: 15,

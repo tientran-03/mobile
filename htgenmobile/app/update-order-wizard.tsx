@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -8,13 +8,14 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   FormFieldGroup,
@@ -36,6 +37,11 @@ import {
 } from '@/lib/schemas/order-schemas';
 import { ORDER_STATUS_OPTIONS, ORDER_STATUS_DEFAULT } from '@/lib/constants/order-status';
 import { OrderStatus } from '@/types';
+import {
+  BarcodeStatus,
+  OrderStatus as OrderStatusEnum,
+  SpecifyStatus,
+} from '@/lib/schemas/order-form-schema';
 import { BarcodeResponse, barcodeService } from '@/services/barcodeService';
 import { CustomerResponse, customerService } from '@/services/customerService';
 import { DoctorResponse, doctorService } from '@/services/doctorService';
@@ -45,9 +51,6 @@ import { OrderResponse, orderService } from '@/services/orderService';
 import { patientService } from '@/services/patientService';
 import { ServiceResponse, serviceService } from '@/services/serviceService';
 import { specifyVoteTestService } from '@/services/specifyVoteTestService';
-import { reproductionService } from '@/services/reproductionService';
-import { embryoService } from '@/services/embryoService';
-import { diseaseService } from '@/services/diseaseService';
 
 const TOTAL_STEPS = 7;
 const STEP_TITLES = [
@@ -60,13 +63,6 @@ const STEP_TITLES = [
   'Kết quả xét nghiệm di truyền',
 ];
 
-const toISO = (s?: string) => {
-  if (!s || !s.trim()) return undefined;
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return undefined;
-  return d.toISOString();
-};
-
 const formatDateInput = (isoDate?: string): string => {
   if (!isoDate) return '';
   try {
@@ -77,14 +73,78 @@ const formatDateInput = (isoDate?: string): string => {
   }
 };
 
+function Stepper({
+  totalSteps,
+  currentStep,
+  onStepPress,
+}: {
+  totalSteps: number;
+  currentStep: number;
+  onStepPress?: (step: number) => void;
+}) {
+  return (
+    <View className="mt-4">
+      <View className="absolute left-0 right-0 top-[14px] h-[2px] bg-slate-200" />
+      <View
+        className="absolute left-0 top-[14px] h-[2px] bg-cyan-600"
+        style={{
+          width: totalSteps <= 1 ? '0%' : `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+        }}
+      />
+      <View className="flex-row items-center justify-between">
+        {Array.from({ length: totalSteps }, (_, i) => {
+          const stepNum = i + 1;
+          const isDone = stepNum < currentStep;
+          const isActive = stepNum === currentStep;
+
+          const circleBg = isDone ? 'bg-cyan-600' : 'bg-white';
+          const circleBorder = isDone
+            ? 'border-cyan-600'
+            : isActive
+              ? 'border-cyan-600'
+              : 'border-slate-300';
+
+          const textColor = isDone ? 'text-white' : isActive ? 'text-cyan-700' : 'text-slate-500';
+
+          return (
+            <TouchableOpacity
+              key={stepNum}
+              activeOpacity={onStepPress && isDone ? 0.7 : 1}
+              onPress={() => {
+                if (onStepPress && isDone) onStepPress(stepNum);
+              }}
+              disabled={!onStepPress || !isDone}
+              className="items-center"
+            >
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center border-2 ${circleBg} ${circleBorder}`}
+              >
+                {isDone ? (
+                  <Check size={16} color="#fff" strokeWidth={3} />
+                ) : (
+                  <Text className={`text-[12px] font-extrabold ${textColor}`}>{stepNum}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function UpdateOrderWizardScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+
+  const isWeb = Platform.OS === 'web';
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const methods = useForm<CreateOrderFormData>({
     resolver: zodResolver(createOrderSchema),
@@ -152,18 +212,22 @@ export default function UpdateOrderWizardScreen() {
   const allBarcodes = (barcodesResponse as any)?.success
     ? ((barcodesResponse as any).data as BarcodeResponse[]) || []
     : [];
-  const genomeTests: GenomeTestResponse[] = genomeTestsResponse?.success 
-    ? (genomeTestsResponse.data as GenomeTestResponse[]) || [] 
+  const genomeTests: GenomeTestResponse[] = genomeTestsResponse?.success
+    ? (genomeTestsResponse.data as GenomeTestResponse[]) || []
     : [];
   const services = (servicesResponse as any)?.success
     ? ((servicesResponse as any).data as ServiceResponse[]) || []
     : [];
-  
-  // Remove duplicates by service name to ensure unique keys
+
   const serviceOptions = useMemo(() => {
     const seen = new Set<string>();
-    const uniqueServices: Array<{ value: string; label: string; serviceId: string; uniqueKey: string }> = [];
-    
+    const uniqueServices: Array<{
+      value: string;
+      label: string;
+      serviceId: string;
+      uniqueKey: string;
+    }> = [];
+
     services.forEach((service, index) => {
       if (!service.name || !service.serviceId) return;
       const normalizedName = service.name.toLowerCase();
@@ -177,7 +241,7 @@ export default function UpdateOrderWizardScreen() {
         });
       }
     });
-    
+
     return uniqueServices;
   }, [services]);
 
@@ -208,15 +272,24 @@ export default function UpdateOrderWizardScreen() {
     });
   }, [genomeTests, serviceType]);
 
+  const findServiceIdByType = (type?: string) => {
+    if (!type) return undefined;
+    return services.find(s => String(s.name).toLowerCase() === String(type).toLowerCase())
+      ?.serviceId;
+  };
+
   useEffect(() => {
     if (!(orderResponse as any)?.success || !(orderResponse as any).data) return;
 
     const order: OrderResponse = (orderResponse as any).data;
 
-    const customer = customers.find((c: any) => c.customerId === order.customerId);
+    const matchedCustomer = customers.find((c: any) => c.customerId === order.customerId);
+    const customerUserId =
+      (matchedCustomer as any)?.userId || (matchedCustomer as any)?.user?.userId || '';
+
     methods.setValue('step1.orderName', order.orderName || '');
     methods.setValue('step1.doctorId', order.specifyId?.doctorId || '');
-    methods.setValue('step1.customerId', order.customerId || '');
+    methods.setValue('step1.customerId', customerUserId || '');
     methods.setValue('step1.staffAnalystId', order.staffAnalystId || '');
     methods.setValue('step1.sampleCollectorId', order.sampleCollectorId || '');
     methods.setValue('step1.barcodeId', order.barcodeId || '');
@@ -228,10 +301,7 @@ export default function UpdateOrderWizardScreen() {
     methods.setValue('step6.paymentAmount', order.paymentAmount?.toString() || '');
     methods.setValue('step6.paymentType', (order.paymentType as any) || 'CASH');
     methods.setValue('step6.samplingSite', order.specifyId?.samplingSite || '');
-    methods.setValue(
-      'step6.sampleCollectDate',
-      formatDateInput(order.specifyId?.sampleCollectDate)
-    );
+    methods.setValue('step6.sampleCollectDate', formatDateInput(order.specifyId?.sampleCollectDate));
     methods.setValue('step6.embryoNumber', order.specifyId?.embryoNumber?.toString() || '');
     methods.setValue('step6.specifyVoteImagePath', order.specifyVoteImagePath || '');
 
@@ -240,6 +310,7 @@ export default function UpdateOrderWizardScreen() {
       'step7.geneticTestResultsRelationship',
       order.specifyId?.geneticTestResultsRelationship || ''
     );
+    methods.setValue('step7.orderNote', order.orderNote || '');
 
     if (order.specifyId) {
       const specify = order.specifyId;
@@ -256,7 +327,7 @@ export default function UpdateOrderWizardScreen() {
           methods.setValue('step3.testContent', test.testDescription || '');
 
           if (test?.service?.name) {
-            const serviceName = test.service.name.toLowerCase();
+            const serviceName = String(test.service.name).toLowerCase();
             if (serviceName.includes('embryo') || serviceName === 'embryo') {
               methods.setValue('step5.serviceType', 'embryo');
             } else if (serviceName.includes('disease') || serviceName === 'disease') {
@@ -334,7 +405,6 @@ export default function UpdateOrderWizardScreen() {
     if (!isValid) return;
 
     if (currentStep === TOTAL_STEPS) {
-      // Validate before submit
       const formData = methods.getValues();
       if (!formData.step1.orderName?.trim()) {
         Alert.alert('Lỗi', 'Vui lòng nhập tên đơn hàng');
@@ -351,226 +421,113 @@ export default function UpdateOrderWizardScreen() {
     else router.back();
   };
 
-  const updateOrderMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log('[UpdateOrderWizard] Updating order with payload:', JSON.stringify(data, null, 2));
-      const response = await orderService.update(orderId!, data);
-      console.log('[UpdateOrderWizard] Order update response:', response);
-      if (!response.success) {
-        const errorMsg = response.error || 'Không thể cập nhật đơn hàng';
-        console.error('[UpdateOrderWizard] Order update failed:', errorMsg);
-        throw new Error(errorMsg);
-      }
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      setShowSuccessModal(true);
-    },
-    onError: (error: any) => {
-      console.error('[UpdateOrderWizard] Order update error:', error);
-      const errorMessage = error?.message || error?.response?.data?.error || 'Không thể cập nhật đơn hàng. Vui lòng thử lại.';
-      Alert.alert('Lỗi cập nhật đơn hàng', errorMessage);
-    },
-  });
-
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     try {
       const formData = methods.getValues();
-
-      // Get current order data for fallback values
       const currentOrderData = (orderResponse as any)?.data as OrderResponse | undefined;
-      const currentSpecifyId =
-        currentOrderData?.specifyId?.specifyVoteID || currentOrderData?.specifyId?.specifyVoteID;
+      if (!currentOrderData) throw new Error('Không tải được dữ liệu đơn hàng');
 
-      let selectedCustomer: any = null;
-      const customerId = formData.step1.customerId?.trim();
-      if (customerId) {
-        selectedCustomer = customers.find((c: any) => c.customerId === customerId);
-        if (!selectedCustomer) return Alert.alert('Lỗi', 'Khách hàng được chọn không hợp lệ.');
-        if (!selectedCustomer.userId)
-          return Alert.alert(
-            'Lỗi',
-            `Khách hàng "${selectedCustomer.customerName}" không có userId.`
-          );
-      }
+      const specifyVoteID = currentOrderData?.specifyId?.specifyVoteID;
+      if (!specifyVoteID) throw new Error('Đơn hàng chưa có specifyVoteID');
 
-      let finalSpecifyId = (formData.step2.specifyId || '').trim() || currentSpecifyId || undefined;
+      const serviceId = findServiceIdByType(formData.step5.serviceType);
+      if (!serviceId) throw new Error('Không tìm thấy serviceId theo nhóm xét nghiệm');
 
-      // Get patientId (create if needed)
-      let patientId = (formData.step2.patientId || '').trim();
+      if (!formData.step3.genomeTestId?.trim()) throw new Error('Vui lòng chọn xét nghiệm');
+      if (!formData.step2.patientId?.trim()) throw new Error('Không tìm thấy patientId');
 
-      if (!patientId && formData.step2.patientName.trim()) {
-        const generateUUID = () =>
-          'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-          });
+      const paymentAmount = formData.step6.paymentAmount?.trim()
+        ? Number(formData.step6.paymentAmount)
+        : undefined;
 
-        patientId = generateUUID();
-
-        const patientPayload = {
-          patientId,
-          patientName: formData.step2.patientName.trim(),
-          patientPhone: formData.step2.patientPhone.trim() || '0000000000',
-          patientDob: toISO(formData.step2.patientDob),
-          gender: formData.step2.patientGender || undefined,
-          patientEmail: formData.step2.patientEmail?.trim() || undefined,
-          patientJob: formData.step2.patientJob?.trim() || undefined,
-          patientContactName: formData.step2.patientContactName?.trim() || undefined,
-          patientContactPhone: formData.step2.patientContactPhone?.trim() || undefined,
-          patientAddress: formData.step2.patientAddress?.trim() || undefined,
-          hospitalId: user?.hospitalId ? String(user.hospitalId) : undefined,
-        };
-
-        const patientResponse = await patientService.create(patientPayload);
-        if (!patientResponse.success)
-          throw new Error(patientResponse.error || 'Không thể tạo bệnh nhân');
-        // Update form with created patientId
-        methods.setValue('step2.patientId', patientId, { shouldDirty: true, shouldTouch: true });
-      }
-
-      // Create/update service based on serviceType
-      // Note: In update-order-wizard, step5 is "Thông tin nhóm xét nghiệm" (service type selection)
-      const serviceType = formData.step5?.serviceType?.toLowerCase() || formData.step3?.serviceType?.toLowerCase();
-      if (serviceType && patientId && patientId.trim() !== '') {
-        // Find service by name (can be English or Vietnamese)
-        const selectedService = services.find((s) => {
-          const serviceName = s.name?.toLowerCase();
-          return serviceName === serviceType || 
-                 (serviceType === 'reproduction' && (serviceName === 'sản' || serviceName === 'reproduction')) ||
-                 (serviceType === 'embryo' && (serviceName === 'phôi' || serviceName === 'embryo')) ||
-                 (serviceType === 'disease' && (serviceName === 'bệnh lý' || serviceName === 'disease'));
-        });
-        if (!selectedService || !selectedService.serviceId || selectedService.serviceId.trim() === '') {
-          throw new Error('Không tìm thấy thông tin dịch vụ. Vui lòng chọn lại nhóm xét nghiệm.');
-        }
-
-        console.log('Creating/updating service with:', { serviceType, serviceId: selectedService.serviceId, patientId });
-
-        if (serviceType === 'reproduction') {
-          const reproductionPayload: any = {
-            serviceId: selectedService.serviceId.trim(),
-            patientId: patientId.trim(),
-            fetusesNumber: formData.step3.fetusesNumber ? parseInt(String(formData.step3.fetusesNumber), 10) : undefined,
-            fetusesWeek: formData.step3.fetusesWeek ? parseInt(String(formData.step3.fetusesWeek), 10) : undefined,
-            fetusesDay: formData.step3.fetusesDay ? parseInt(String(formData.step3.fetusesDay), 10) : undefined,
-            ultrasoundDay: toISO(formData.step3.ultrasoundDay),
-            headRumpLength: formData.step3.headRumpLength ? parseFloat(String(formData.step3.headRumpLength)) : undefined,
-            neckLength: formData.step3.neckLength ? parseFloat(String(formData.step3.neckLength)) : undefined,
-            combinedTestResult: formData.step3.combinedTestResult?.trim() || undefined,
-            ultrasoundResult: formData.step3.ultrasoundResult?.trim() || undefined,
-          };
-
-          console.log('Reproduction service payload:', JSON.stringify(reproductionPayload, null, 2));
-          const reproductionResponse = await reproductionService.create(reproductionPayload);
-          console.log('Reproduction service response:', reproductionResponse);
-          if (!reproductionResponse.success) {
-            throw new Error(reproductionResponse.error || 'Không thể tạo/cập nhật thông tin nhóm Sản');
-          }
-        } else if (serviceType === 'embryo') {
-          const embryoPayload: any = {
-            serviceId: selectedService.serviceId.trim(),
-            patientId: patientId.trim(),
-            biospy: formData.step3.biospy?.trim() || undefined,
-            biospyDate: toISO(formData.step3.biospyDate),
-            cellContainingSolution: formData.step3.cellContainingSolution?.trim() || undefined,
-            embryoCreate: formData.step3.embryoCreate ? parseInt(String(formData.step3.embryoCreate), 10) : undefined,
-            embryoStatus: formData.step3.embryoStatus?.trim() || undefined,
-            morphologicalAssessment: formData.step3.morphologicalAssessment?.trim() || undefined,
-            cellNucleus: formData.step3.cellNucleus !== undefined ? Boolean(formData.step3.cellNucleus) : undefined,
-            negativeControl: formData.step3.negativeControl?.trim() || undefined,
-          };
-
-          const embryoResponse = await embryoService.create(embryoPayload);
-          if (!embryoResponse.success) {
-            throw new Error(embryoResponse.error || 'Không thể tạo/cập nhật thông tin nhóm Phôi');
-          }
-        } else if (serviceType === 'disease') {
-          const diseasePayload: any = {
-            serviceId: selectedService.serviceId.trim(),
-            patientId: patientId.trim(),
-            symptom: formData.step3.symptom?.trim() || undefined,
-            diagnose: formData.step3.diagnose?.trim() || undefined,
-            diagnoseImage: formData.step3.diagnoseImage?.trim() || undefined,
-            testRelated: formData.step3.testRelated?.trim() || undefined,
-            treatmentMethods: formData.step3.treatmentMethods?.trim() || undefined,
-            treatmentTimeDay: formData.step3.treatmentTimeDay ? parseInt(String(formData.step3.treatmentTimeDay), 10) : undefined,
-            drugResistance: formData.step3.drugResistance?.trim() || undefined,
-            relapse: formData.step3.relapse?.trim() || undefined,
-          };
-
-          const diseaseResponse = await diseaseService.create(diseasePayload);
-          if (!diseaseResponse.success) {
-            throw new Error(diseaseResponse.error || 'Không thể tạo/cập nhật thông tin nhóm Bệnh lý');
-          }
-        }
-      }
-
-      const genomeTestId = formData.step5.genomeTestId?.trim();
-      if (!finalSpecifyId && formData.step2.patientName.trim() && genomeTestId) {
-
-        const selectedGenomeTest: any = genomeTests.find(
-          (t: any) => t.testId === genomeTestId
-        );
-        if (!selectedGenomeTest) throw new Error('Không tìm thấy xét nghiệm đã chọn');
-        if (!selectedGenomeTest.service?.serviceId)
-          throw new Error('Xét nghiệm không có thông tin dịch vụ. Vui lòng chọn xét nghiệm khác.');
-
-        const specifyPayload: any = {
-          serviceId: selectedGenomeTest.service.serviceId,
-          patientId,
-          genomeTestId: genomeTestId.trim(),
-          doctorId: formData.step1.doctorId?.trim() || undefined,
-          hospitalId: user?.hospitalId ? String(user.hospitalId) : undefined,
-          samplingSite: formData.step6.samplingSite?.trim() || undefined,
-          sampleCollectDate: toISO(formData.step6.sampleCollectDate),
-          embryoNumber: formData.step6.embryoNumber ? parseInt(String(formData.step6.embryoNumber), 10) : undefined,
-          geneticTestResults: formData.step7.geneticTestResults?.trim() || undefined,
-          geneticTestResultsRelationship: formData.step7.geneticTestResultsRelationship?.trim() || undefined,
-          specifyNote: (formData.step2.specifyImagePath || '').trim() || undefined,
-          sendEmailPatient: false,
-        };
-
-        const specifyResponse = await specifyVoteTestService.create(specifyPayload);
-        if (!specifyResponse.success)
-          throw new Error(specifyResponse.error || 'Không thể tạo phiếu chỉ định');
-        finalSpecifyId =
-          (specifyResponse.data as any)?.specifyVoteID || (specifyResponse.data as any)?.specifyId;
-      }
-
-      const payload: any = {
+      const orderReq: any = {
         orderName: formData.step1.orderName.trim(),
-        orderStatus:
-          formData.step1.orderStatus || currentOrderData?.orderStatus || ORDER_STATUS_DEFAULT,
-        paymentStatus: currentOrderData?.paymentStatus || 'PENDING',
-        paymentType: formData.step6.paymentType || currentOrderData?.paymentType || 'CASH',
-        specifyVoteImagePath: (formData.step6.specifyVoteImagePath || '').trim() || undefined,
+        customerId: formData.step1.customerId?.trim() || undefined,
+        sampleCollectorId: formData.step1.sampleCollectorId?.trim() || undefined,
+        staffAnalystId: formData.step1.staffAnalystId?.trim() || undefined,
+        barcodeId: formData.step1.barcodeId?.trim() || undefined,
+        specifyId: specifyVoteID,
+        specifyVoteImagePath: formData.step6.specifyVoteImagePath?.trim() || undefined,
+        orderStatus: (formData.step1.orderStatus ||
+          currentOrderData.orderStatus ||
+          ORDER_STATUS_DEFAULT) as any,
+        paymentStatus: (currentOrderData.paymentStatus || 'PENDING') as any,
+        paymentType: (formData.step6.paymentType || currentOrderData.paymentType || 'CASH') as any,
+        paymentAmount:
+          typeof paymentAmount === 'number' && !Number.isNaN(paymentAmount)
+            ? paymentAmount
+            : undefined,
+        invoiceLink: currentOrderData.invoiceLink || undefined,
+        orderNote: formData.step7.orderNote?.trim() || undefined,
       };
 
-      if (finalSpecifyId) {
-        payload.specifyId = finalSpecifyId;
+      const specifyReq: any = {
+        serviceId,
+        patientId: formData.step2.patientId.trim(),
+        genomeTestId: formData.step3.genomeTestId.trim(),
+        embryoNumber: formData.step6.embryoNumber?.trim()
+          ? Number(formData.step6.embryoNumber)
+          : undefined,
+        hospitalId: currentOrderData.specifyId?.hospitalId || undefined,
+        doctorId: formData.step1.doctorId?.trim() || undefined,
+        samplingSite: formData.step6.samplingSite?.trim() || undefined,
+        sampleCollectDate: formData.step6.sampleCollectDate?.trim()
+          ? new Date(formData.step6.sampleCollectDate.trim()).toISOString()
+          : undefined,
+        geneticTestResults: formData.step7.geneticTestResults?.trim() || undefined,
+        geneticTestResultsRelationship:
+          formData.step7.geneticTestResultsRelationship?.trim() || undefined,
+        specifyNote: formData.step2.specifyImagePath?.trim() || undefined,
+        sendEmailPatient: false,
+      };
+
+      const orderUpdateRes = await orderService.update(orderId!, orderReq);
+      if (!orderUpdateRes?.success) {
+        const msg =
+          orderUpdateRes?.error || orderUpdateRes?.message || 'Cập nhật đơn hàng thất bại';
+        throw new Error(msg);
       }
 
-      if (selectedCustomer?.userId) payload.customerId = String(selectedCustomer.userId).trim();
-      if (formData.step1.sampleCollectorId?.trim())
-        payload.sampleCollectorId = formData.step1.sampleCollectorId.trim();
-      if (formData.step1.staffAnalystId?.trim())
-        payload.staffAnalystId = formData.step1.staffAnalystId.trim();
-      if (formData.step1.barcodeId?.trim()) payload.barcodeId = formData.step1.barcodeId.trim();
-
-      if (formData.step6.paymentAmount?.trim()) {
-        const amount = parseFloat(formData.step6.paymentAmount);
-        if (!isNaN(amount) && amount > 0) payload.paymentAmount = amount;
+      const specifyUpdateRes = await specifyVoteTestService.update(specifyVoteID, specifyReq);
+      if (!specifyUpdateRes?.success) {
+        const msg =
+          specifyUpdateRes?.error ||
+          specifyUpdateRes?.message ||
+          'Cập nhật phiếu chỉ định thất bại';
+        throw new Error(msg);
       }
 
-      console.log('[UpdateOrderWizard] Submitting payload:', payload);
-      updateOrderMutation.mutate(payload);
-    } catch (e: any) {
-      console.error('[UpdateOrderWizard] Submit error:', e);
-      Alert.alert('Lỗi', e?.message || 'Không thể cập nhật đơn hàng. Vui lòng thử lại.');
+      if (orderReq.barcodeId) {
+        try {
+          await barcodeService.update(orderReq.barcodeId, { status: BarcodeStatus.NOT_PRINTED });
+        } catch {}
+      }
+
+      const orderStatusString =
+        typeof orderReq.orderStatus === 'string'
+          ? orderReq.orderStatus
+          : String(orderReq.orderStatus);
+
+      if (orderStatusString === OrderStatusEnum.FORWARD_ANALYSIS && specifyVoteID) {
+        try {
+          await specifyVoteTestService.updateStatus(specifyVoteID, SpecifyStatus.FORWARD_ANALYSIS);
+        } catch {}
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['specify-vote-tests'] });
+
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      const errorMessage =
+        error?.message || error?.response?.data?.error || 'Không thể cập nhật. Vui lòng thử lại.';
+      Alert.alert('Lỗi cập nhật', errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -598,7 +555,7 @@ export default function UpdateOrderWizardScreen() {
         label="Khách hàng"
         options={customers}
         getLabel={c => c.customerName}
-        getValue={c => c.customerId}
+        getValue={c => (c as any).userId || (c as any).user?.userId || c.customerId}
         placeholder="Lựa chọn"
         modalTitle="Chọn khách hàng"
       />
@@ -689,8 +646,8 @@ export default function UpdateOrderWizardScreen() {
 
   const renderStep3 = () => {
     const testName = methods.watch('step3.testName');
-    const genomeTestId = methods.watch('step3.genomeTestId');
     const currentServiceType = methods.watch('step5.serviceType');
+
     const currentFilteredGenomeTests = (() => {
       if (!currentServiceType) return genomeTests;
       return genomeTests.filter(test => {
@@ -802,11 +759,7 @@ export default function UpdateOrderWizardScreen() {
   );
 
   const renderStep5 = () => {
-    const selectedServiceType = methods.watch("step5.serviceType");
-    const selectedService = services.find((s) => s.name === selectedServiceType);
-    const serviceLabel = selectedServiceType 
-      ? (SERVICE_TYPE_MAPPER[selectedServiceType] || selectedServiceType)
-      : null;
+    const selectedServiceType = methods.watch('step5.serviceType');
 
     return (
       <View className="bg-white rounded-3xl border border-slate-200 p-4">
@@ -815,34 +768,69 @@ export default function UpdateOrderWizardScreen() {
           label="Nhóm xét nghiệm"
           required
           options={serviceOptions}
-          getLabel={(o) => o.label}
-          getValue={(o) => o.value}
+          getLabel={o => o.label}
+          getValue={o => o.value}
           placeholder="Lựa chọn"
           modalTitle="Chọn nhóm xét nghiệm"
         />
 
-        {selectedServiceType === "reproduction" && (
+        {selectedServiceType === 'reproduction' && (
           <>
             <View className="h-px bg-slate-100 my-3" />
             <Text className="text-[14px] font-extrabold text-slate-900 mb-3">
               Thông tin nhóm Sản
             </Text>
             <FormFieldGroup>
-              <FormNumericInput name="step3.fetusesNumber" label="Số thai" type="integer" placeholder="VD: 1" />
-              <FormNumericInput name="step3.fetusesWeek" label="Tuần thai" type="integer" placeholder="VD: 12" />
+              <FormNumericInput
+                name="step3.fetusesNumber"
+                label="Số thai"
+                type="integer"
+                placeholder="VD: 1"
+              />
+              <FormNumericInput
+                name="step3.fetusesWeek"
+                label="Tuần thai"
+                type="integer"
+                placeholder="VD: 12"
+              />
             </FormFieldGroup>
-            <FormNumericInput name="step3.fetusesDay" label="Ngày thai" type="integer" placeholder="VD: 3" />
+            <FormNumericInput
+              name="step3.fetusesDay"
+              label="Ngày thai"
+              type="integer"
+              placeholder="VD: 3"
+            />
             <FormInput name="step3.ultrasoundDay" label="Ngày siêu âm" placeholder="YYYY-MM-DD" />
             <FormFieldGroup>
-              <FormNumericInput name="step3.headRumpLength" label="Chiều dài đầu mông (mm)" type="decimal" placeholder="VD: 50.5" />
-              <FormNumericInput name="step3.neckLength" label="Chiều dài cổ (mm)" type="decimal" placeholder="VD: 2.5" />
+              <FormNumericInput
+                name="step3.headRumpLength"
+                label="Chiều dài đầu mông (mm)"
+                type="decimal"
+                placeholder="VD: 50.5"
+              />
+              <FormNumericInput
+                name="step3.neckLength"
+                label="Chiều dài cổ (mm)"
+                type="decimal"
+                placeholder="VD: 2.5"
+              />
             </FormFieldGroup>
-            <FormTextarea name="step3.combinedTestResult" label="Kết quả xét nghiệm kết hợp" placeholder="Nhập kết quả" minHeight={90} />
-            <FormTextarea name="step3.ultrasoundResult" label="Kết quả siêu âm" placeholder="Nhập kết quả" minHeight={90} />
+            <FormTextarea
+              name="step3.combinedTestResult"
+              label="Kết quả xét nghiệm kết hợp"
+              placeholder="Nhập kết quả"
+              minHeight={90}
+            />
+            <FormTextarea
+              name="step3.ultrasoundResult"
+              label="Kết quả siêu âm"
+              placeholder="Nhập kết quả"
+              minHeight={90}
+            />
           </>
         )}
 
-        {selectedServiceType === "embryo" && (
+        {selectedServiceType === 'embryo' && (
           <>
             <View className="h-px bg-slate-100 my-3" />
             <Text className="text-[14px] font-extrabold text-slate-900 mb-3">
@@ -850,19 +838,33 @@ export default function UpdateOrderWizardScreen() {
             </Text>
             <FormInput name="step3.biospy" label="Sinh thiết" placeholder="Nhập thông tin sinh thiết" />
             <FormInput name="step3.biospyDate" label="Ngày sinh thiết" placeholder="YYYY-MM-DD" />
-            <FormInput name="step3.cellContainingSolution" label="Dung dịch chứa tế bào" placeholder="Nhập dung dịch" />
-            <FormNumericInput name="step3.embryoCreate" label="Số phôi tạo" type="integer" placeholder="VD: 5" />
+            <FormInput
+              name="step3.cellContainingSolution"
+              label="Dung dịch chứa tế bào"
+              placeholder="Nhập dung dịch"
+            />
+            <FormNumericInput
+              name="step3.embryoCreate"
+              label="Số phôi tạo"
+              type="integer"
+              placeholder="VD: 5"
+            />
             <FormInput name="step3.embryoStatus" label="Trạng thái phôi" placeholder="Nhập trạng thái" />
-            <FormTextarea name="step3.morphologicalAssessment" label="Đánh giá hình thái" placeholder="Nhập đánh giá" minHeight={90} />
+            <FormTextarea
+              name="step3.morphologicalAssessment"
+              label="Đánh giá hình thái"
+              placeholder="Nhập đánh giá"
+              minHeight={90}
+            />
             <FormSelect
               name="step3.cellNucleus"
               label="Nhân tế bào"
               options={[
-                { value: true, label: "Có" },
-                { value: false, label: "Không" },
+                { value: true, label: 'Có' },
+                { value: false, label: 'Không' },
               ]}
-              getLabel={(o) => o.label}
-              getValue={(o) => o.value}
+              getLabel={o => o.label}
+              getValue={o => o.value}
               placeholder="Lựa chọn"
               modalTitle="Chọn nhân tế bào"
             />
@@ -870,7 +872,7 @@ export default function UpdateOrderWizardScreen() {
           </>
         )}
 
-        {selectedServiceType === "disease" && (
+        {selectedServiceType === 'disease' && (
           <>
             <View className="h-px bg-slate-100 my-3" />
             <Text className="text-[14px] font-extrabold text-slate-900 mb-3">
@@ -880,8 +882,18 @@ export default function UpdateOrderWizardScreen() {
             <FormTextarea name="step3.diagnose" label="Chẩn đoán" placeholder="Nhập chẩn đoán" minHeight={90} />
             <FormInput name="step3.diagnoseImage" label="Ảnh chẩn đoán" placeholder="Nhập đường dẫn ảnh" />
             <FormInput name="step3.testRelated" label="Xét nghiệm liên quan" placeholder="Nhập xét nghiệm" />
-            <FormTextarea name="step3.treatmentMethods" label="Phương pháp điều trị" placeholder="Nhập phương pháp" minHeight={90} />
-            <FormNumericInput name="step3.treatmentTimeDay" label="Thời gian điều trị (ngày)" type="integer" placeholder="VD: 7" />
+            <FormTextarea
+              name="step3.treatmentMethods"
+              label="Phương pháp điều trị"
+              placeholder="Nhập phương pháp"
+              minHeight={90}
+            />
+            <FormNumericInput
+              name="step3.treatmentTimeDay"
+              label="Thời gian điều trị (ngày)"
+              type="integer"
+              placeholder="VD: 7"
+            />
             <FormInput name="step3.drugResistance" label="Kháng thuốc" placeholder="Nhập thông tin kháng thuốc" />
             <FormInput name="step3.relapse" label="Tái phát" placeholder="Nhập thông tin tái phát" />
           </>
@@ -915,11 +927,7 @@ export default function UpdateOrderWizardScreen() {
         />
       </FormFieldGroup>
 
-      <FormInput
-        name="step6.samplingSite"
-        label="Địa điểm lấy mẫu"
-        placeholder="Nhập địa điểm lấy mẫu"
-      />
+      <FormInput name="step6.samplingSite" label="Địa điểm lấy mẫu" placeholder="Nhập địa điểm lấy mẫu" />
 
       <FormFieldGroup>
         <FormInput name="step6.sampleCollectDate" label="Ngày lấy mẫu" placeholder="YYYY-MM-DD" />
@@ -955,6 +963,16 @@ export default function UpdateOrderWizardScreen() {
         label="Mối quan hệ"
         placeholder="Nhập mối quan hệ"
       />
+
+      <View className="h-px bg-slate-100 my-4" />
+
+      <FormTextarea
+        name="step7.orderNote"
+        label="Ghi chú đơn hàng"
+        placeholder="Nhập ghi chú cho đơn hàng (nếu có)"
+        minHeight={120}
+        maxLength={500}
+      />
     </View>
   );
 
@@ -977,9 +995,7 @@ export default function UpdateOrderWizardScreen() {
       default:
         return (
           <View className="bg-white rounded-3xl border border-slate-200 p-8 items-center">
-            <Text className="text-sm font-bold text-slate-500">
-              Bước {currentStep} - Đang phát triển
-            </Text>
+            <Text className="text-sm font-bold text-slate-500">Bước {currentStep}</Text>
           </View>
         );
     }
@@ -997,7 +1013,9 @@ export default function UpdateOrderWizardScreen() {
   return (
     <FormProvider {...methods}>
       <SafeAreaView className="flex-1 bg-slate-50" edges={['top', 'left', 'right']}>
+        <Stack.Screen options={{ headerShown: false }} />
         <StatusBar barStyle="dark-content" />
+
         <View className="pb-4 px-5 bg-white border-b border-slate-200">
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
@@ -1042,96 +1060,83 @@ export default function UpdateOrderWizardScreen() {
               <Text className="text-sm font-extrabold text-cyan-700">{currentStep}</Text>
             </View>
           </View>
-          <View className="mt-4 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <View
-              className="h-full bg-cyan-600 rounded-full"
-              style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
-            />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 12, paddingBottom: 2, gap: 8 }}
-          >
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => {
-              const stepNum = i + 1;
-              const isActive = stepNum === currentStep;
-              const isDone = stepNum < currentStep;
 
-              return (
-                <View
-                  key={i}
-                  className={`flex-row items-center px-3 py-2 rounded-full border ${
-                    isActive
-                      ? 'bg-cyan-600 border-sky-700'
-                      : isDone
-                        ? 'bg-emerald-500 border-emerald-500'
-                        : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <View
-                    className={`w-5 h-5 rounded-full items-center justify-center ${
-                      isActive ? 'bg-white/20' : isDone ? 'bg-white/20' : 'bg-slate-100'
-                    }`}
-                  >
-                    {isDone ? (
-                      <Check size={12} color="#fff" strokeWidth={3} />
-                    ) : (
-                      <Text
-                        className={`text-[11px] font-extrabold ${
-                          isActive ? 'text-white' : 'text-slate-600'
-                        }`}
-                      >
-                        {stepNum}
-                      </Text>
-                    )}
-                  </View>
-
-                  <Text
-                    className={`ml-2 text-[11px] font-extrabold ${
-                      isActive || isDone ? 'text-white' : 'text-slate-600'
-                    }`}
-                    numberOfLines={1}
-                  >
-                    {`B${stepNum}`}
-                  </Text>
-                </View>
-              );
-            })}
-          </ScrollView>
+          <Stepper totalSteps={TOTAL_STEPS} currentStep={currentStep} onStepPress={s => setCurrentStep(s)} />
         </View>
 
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-          <View className="bg-white rounded-2xl border border-slate-200 p-4">
-            {renderCurrentStep()}
-          </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 140 + insets.bottom,
+          }}
+        >
+          {renderCurrentStep()}
         </ScrollView>
 
-        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex-row gap-3">
-          <TouchableOpacity
-            className="flex-1 h-12 rounded-2xl items-center justify-center bg-white border border-slate-200"
-            onPress={handleBack}
-            activeOpacity={0.8}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: isWeb ? 'fixed' : 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: 'white',
+              borderTopWidth: 1,
+              borderTopColor: '#E2E8F0',
+              padding: 16,
+              paddingBottom: Math.max(16, insets.bottom),
+              flexDirection: 'row',
+              gap: 12,
+            }}
           >
-            <Text className="text-[15px] font-extrabold text-slate-700">
-              {currentStep === 1 ? 'Huỷ' : 'Quay lại'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-1 h-12 rounded-2xl items-center justify-center bg-cyan-600"
-            onPress={handleNext}
-            activeOpacity={0.85}
-            disabled={updateOrderMutation.isPending}
-          >
-            {updateOrderMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-[15px] font-extrabold text-white">
-                {currentStep === TOTAL_STEPS ? 'Lưu thay đổi' : 'Tiếp theo'}
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'white',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+              }}
+              onPress={handleBack}
+              activeOpacity={0.8}
+              disabled={isSubmitting}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#334155' }}>
+                {currentStep === 1 ? 'Huỷ' : 'Quay lại'}
               </Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: isSubmitting ? '#22D3EE' : '#0891B2',
+              }}
+              onPress={handleNext}
+              activeOpacity={0.85}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: '800', color: 'white' }}>
+                  {currentStep === TOTAL_STEPS ? 'Hoàn thành' : 'Tiếp theo'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Modal

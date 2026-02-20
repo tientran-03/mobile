@@ -59,6 +59,75 @@ const STEP_TITLES = [
   'Ghi chú đơn hàng',
 ];
 
+function Stepper({
+  totalSteps,
+  currentStep,
+  onStepPress,
+}: {
+  totalSteps: number;
+  currentStep: number;
+  onStepPress?: (step: number) => void;
+}) {
+  return (
+    <View className="mt-4">
+      <View className="absolute left-0 right-0 top-[14px] h-[2px] bg-slate-200" />
+      <View
+        className="absolute left-0 top-[14px] h-[2px] bg-cyan-600"
+        style={{
+          width:
+            totalSteps <= 1
+              ? '0%'
+              : `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+        }}
+      />
+      <View className="flex-row items-center justify-between">
+        {Array.from({ length: totalSteps }, (_, i) => {
+          const stepNum = i + 1;
+          const isDone = stepNum < currentStep;
+          const isActive = stepNum === currentStep;
+
+          const circleBg = isDone ? 'bg-cyan-600' : 'bg-white';
+          const circleBorder = isDone
+            ? 'border-cyan-600'
+            : isActive
+              ? 'border-cyan-600'
+              : 'border-slate-300';
+
+          const textColor = isDone
+            ? 'text-white'
+            : isActive
+              ? 'text-cyan-700'
+              : 'text-slate-500';
+
+          return (
+            <TouchableOpacity
+              key={stepNum}
+              activeOpacity={onStepPress && isDone ? 0.7 : 1}
+              onPress={() => {
+                if (onStepPress && isDone) onStepPress(stepNum);
+              }}
+              disabled={!onStepPress || !isDone}
+              className="items-center"
+            >
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center border-2 ${circleBg} ${circleBorder}`}
+              >
+                {isDone ? (
+                  <Check size={16} color="#fff" strokeWidth={3} />
+                ) : (
+                  <Text className={`text-[12px] font-extrabold ${textColor}`}>
+                    {stepNum}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function CreateOrderScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -129,8 +198,6 @@ export default function CreateOrderScreen() {
     () => getApiResponseData<BarcodeResponse>(barcodesResponse) || [],
     [barcodesResponse]
   );
-
-  // Get all orders to check which specify already have orders
   const orders = useMemo(
     () => getApiResponseData<OrderResponse>(ordersResponse) || [],
     [ordersResponse]
@@ -140,8 +207,8 @@ export default function CreateOrderScreen() {
     const ids = new Set<string>();
     orders.forEach(order => {
       if (order.specifyId) {
-        if (typeof order.specifyId === 'object' && order.specifyId.specifyVoteID) {
-          ids.add(order.specifyId.specifyVoteID);
+        if (typeof order.specifyId === 'object' && (order.specifyId as any).specifyVoteID) {
+          ids.add((order.specifyId as any).specifyVoteID);
         } else if (typeof order.specifyId === 'string') {
           ids.add(order.specifyId);
         }
@@ -164,33 +231,39 @@ export default function CreateOrderScreen() {
     return allHospitalStaff.filter(s => s.staffPosition === StaffPosition.STAFF);
   }, [allHospitalStaff]);
 
-  const staffAnalystList = useMemo(() => {
-    const options: {
-      id: string;
-      name: string;
-      position: string;
-      type: 'doctor' | 'staff';
-    }[] = [];
-
-    doctors
-      .filter(d => d.hospitalId === '1')
-      .forEach(d => {
-        options.push({
-          id: d.doctorId,
-          name: d.doctorName,
-          position: 'doctor',
-          type: 'doctor',
-        });
-      });
-
-    return options;
-  }, [doctors]);
-
   const sampleCollectorList = useMemo(() => {
-    return allHospitalStaff.filter(
-      s => s.staffPosition === StaffPosition.LAB_TECHNICIAN || s.staffPosition === 'LAB_TECHNICIAN'
+    // Filter LAB_TECHNICIAN staff - backend uses "lab_technician" (lowercase)
+    // StaffPosition.LAB_TECHNICIAN = "lab_technician"
+    const filtered = allHospitalStaff.filter(
+      s => {
+        const position = s.staffPosition;
+        return (
+          position === StaffPosition.LAB_TECHNICIAN || // "lab_technician"
+          position === 'lab_technician' ||
+          position === 'LAB_TECHNICIAN' ||
+          (typeof position === 'string' && position.toLowerCase() === 'lab_technician')
+        );
+      }
     );
+    console.log('[CreateOrder] Total hospital staff:', allHospitalStaff.length);
+    console.log('[CreateOrder] Filtered sampleCollectorList:', filtered.length, 'items');
+    if (filtered.length === 0 && allHospitalStaff.length > 0) {
+      console.warn('[CreateOrder] No LAB_TECHNICIAN found. Available positions:', 
+        [...new Set(allHospitalStaff.map(s => s.staffPosition).filter(Boolean))]);
+    }
+    return filtered;
   }, [allHospitalStaff]);
+
+  // Staff analyst list - must be same as sample collector (LAB_TECHNICIAN staff)
+  const staffAnalystList = useMemo(() => {
+    // Use same list as sampleCollectorList - nhân viên phụ trách = nhân viên thu mẫu
+    return sampleCollectorList.map(s => ({
+      id: s.staffId,
+      name: s.staffName,
+      position: s.staffPosition || 'lab_technician',
+      type: 'staff' as const,
+    }));
+  }, [sampleCollectorList]);
 
   const hospitalName = useMemo(() => {
     const selectedDoctor = doctors.find(d => d.doctorId === doctorId);
@@ -200,7 +273,6 @@ export default function CreateOrderScreen() {
   useEffect(() => {
     const fetchCurrentUserStaff = async () => {
       if (!user?.id) return;
-
       try {
         const currentStaff = allHospitalStaff.find((s: any) => s.userId === user.id);
         if (currentStaff && !getValues('staffId')) {
@@ -210,11 +282,31 @@ export default function CreateOrderScreen() {
         console.error('Failed to fetch current user staff:', error);
       }
     };
-
     if (allHospitalStaff.length > 0) {
       fetchCurrentUserStaff();
     }
   }, [user?.id, allHospitalStaff, setValue, getValues]);
+
+
+  // Auto-sync staffAnalystId with sampleCollectorId - nhân viên phụ trách = nhân viên thu mẫu
+  const sampleCollectorId = watch('sampleCollectorId');
+  useEffect(() => {
+    if (sampleCollectorId && sampleCollectorId.trim() !== '') {
+      // Set staffAnalystId to same value as sampleCollectorId
+      const currentStaffAnalystId = getValues('staffAnalystId');
+      if (currentStaffAnalystId !== sampleCollectorId) {
+        console.log('[CreateOrder] Auto-syncing staffAnalystId with sampleCollectorId:', sampleCollectorId);
+        setValue('staffAnalystId', sampleCollectorId, { shouldValidate: true, shouldDirty: true });
+      }
+    } else {
+      // Clear staffAnalystId if sampleCollectorId is cleared
+      const currentStaffAnalystId = getValues('staffAnalystId');
+      if (currentStaffAnalystId && currentStaffAnalystId.trim() !== '') {
+        console.log('[CreateOrder] Clearing staffAnalystId because sampleCollectorId is empty');
+        setValue('staffAnalystId', '', { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  }, [sampleCollectorId, setValue, getValues]);
 
   const specifyId = watch('specifyId');
   useEffect(() => {
@@ -223,7 +315,7 @@ export default function CreateOrderScreen() {
     const selectedSpecify = specifyList.find(s => s.specifyVoteID === specifyId);
     if (!selectedSpecify) return;
 
-    const patient = selectedSpecify.patient;
+    const patient = (selectedSpecify as any).patient;
     if (patient) {
       setValue('patientPhone', patient.patientPhone || '');
       setValue('patientName', patient.patientName || '');
@@ -234,35 +326,32 @@ export default function CreateOrderScreen() {
       setValue('patientContactName', patient.patientContactName || '');
       setValue('patientContactPhone', patient.patientContactPhone || '');
       setValue('patientAddress', patient.patientAddress || '');
-      
-      // Note: customerId sẽ được xử lý riêng nếu cần
-      // Không set customerId ở đây để tránh lỗi validation
     }
 
-    if (selectedSpecify.genomeTest) {
-      setValue('genomeTestId', selectedSpecify.genomeTestId || '');
-      setValue('testName', selectedSpecify.genomeTest.testName || '');
-      setValue('testContent', selectedSpecify.genomeTest.testDescription || '');
-      setValue('testSample', selectedSpecify.genomeTest.testSample?.join(', ') || '');
+    if ((selectedSpecify as any).genomeTest) {
+      setValue('genomeTestId', (selectedSpecify as any).genomeTestId || '');
+      setValue('testName', (selectedSpecify as any).genomeTest.testName || '');
+      setValue('testContent', (selectedSpecify as any).genomeTest.testDescription || '');
+      setValue('testSample', ((selectedSpecify as any).genomeTest.testSample || []).join(', '));
     }
 
-    setValue('samplingSite', selectedSpecify.samplingSite || '');
+    setValue('samplingSite', (selectedSpecify as any).samplingSite || '');
     setValue(
       'sampleCollectDate',
-      selectedSpecify.sampleCollectDate
-        ? new Date(selectedSpecify.sampleCollectDate).toISOString().slice(0, 16)
+      (selectedSpecify as any).sampleCollectDate
+        ? new Date((selectedSpecify as any).sampleCollectDate).toISOString().slice(0, 16)
         : ''
     );
-    setValue('embryoNumber', selectedSpecify.embryoNumber?.toString() || '');
+    setValue('embryoNumber', (selectedSpecify as any).embryoNumber?.toString() || '');
 
-    setValue('geneticTestResults', selectedSpecify.geneticTestResults || '');
+    setValue('geneticTestResults', (selectedSpecify as any).geneticTestResults || '');
     setValue(
       'geneticTestResultsRelationship',
-      selectedSpecify.geneticTestResultsRelationship || ''
+      (selectedSpecify as any).geneticTestResultsRelationship || ''
     );
 
-    if (selectedSpecify.serviceType && !manualServiceTypeSet) {
-      const sType = String(selectedSpecify.serviceType).toLowerCase();
+    if ((selectedSpecify as any).serviceType && !manualServiceTypeSet) {
+      const sType = String((selectedSpecify as any).serviceType).toLowerCase();
       if (sType === 'reproduction' || sType === 'embryo' || sType === 'disease') {
         setValue('serviceType', sType as any);
       }
@@ -272,84 +361,113 @@ export default function CreateOrderScreen() {
   const genomeTestId = watch('genomeTestId');
   useEffect(() => {
     if (!genomeTestId) return;
-
     const selectedTest = genomeTests.find(t => t.testId === genomeTestId);
     if (selectedTest) {
       setValue('testName', selectedTest.testName || '');
       setValue('testContent', selectedTest.testDescription || '');
-      setValue('testSample', selectedTest.testSample?.join(', ') || '');
+      setValue('testSample', (selectedTest.testSample || []).join(', '));
     }
   }, [genomeTestId, genomeTests, setValue]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (data: OrderFormData) => {
-      if (!user?.id) {
-        throw new Error('Không tìm thấy thông tin người dùng');
+      if (!user?.id) throw new Error('Không tìm thấy thông tin người dùng');
+
+      // Validate paymentType - must be a valid PaymentType enum, not empty string
+      if (!data.paymentType || data.paymentType === "") {
+        console.error('[CreateOrder] PaymentType is empty or missing:', data.paymentType);
+        throw new Error('Vui lòng chọn hình thức thanh toán');
       }
 
-      const createRequest = {
+      const paymentTypeValue = data.paymentType as PaymentType;
+      if (paymentTypeValue !== PaymentType.CASH && paymentTypeValue !== PaymentType.ONLINE_PAYMENT) {
+        console.error('[CreateOrder] Invalid PaymentType:', paymentTypeValue);
+        throw new Error('Hình thức thanh toán không hợp lệ');
+      }
+
+      // Build request
+      // staffAnalystId is automatically synced with sampleCollectorId, so it's always valid
+      const createRequest: any = {
         orderName: data.orderName.trim(),
-        customerId: data.customerId || undefined,
+        customerId: user.id, // Use user.id from auth context, matching frontend behavior
         specifyId: data.specifyId || undefined,
-        paymentType: data.paymentType as PaymentType,
+        paymentType: paymentTypeValue,
         orderNote: data.orderNote?.trim() || undefined,
         orderStatus: OrderStatus.INITIATION,
         paymentStatus: PaymentStatus.PENDING,
         ...(data.staffId && { staffId: data.staffId }),
-        ...(data.paymentAmount && {
-          paymentAmount: parseFloat(data.paymentAmount),
-        }),
+        ...(data.paymentAmount && { paymentAmount: parseFloat(data.paymentAmount as any) }),
+        // staffAnalystId is same as sampleCollectorId (synced via useEffect)
         ...(data.staffAnalystId && { staffAnalystId: data.staffAnalystId }),
-        ...(data.sampleCollectorId && {
-          sampleCollectorId: data.sampleCollectorId,
-        }),
+        ...(data.sampleCollectorId && { sampleCollectorId: data.sampleCollectorId }),
         ...(data.barcodeId && { barcodeId: data.barcodeId }),
-        ...(data.specifyVoteTestImagePath && {
-          specifyVoteImagePath: data.specifyVoteTestImagePath,
-        }),
+        ...(data.specifyVoteTestImagePath && { specifyVoteImagePath: data.specifyVoteTestImagePath }),
       };
 
-      console.log('Creating order with payload:', JSON.stringify(createRequest, null, 2));
+      console.log('[CreateOrder] Sending request:', JSON.stringify(createRequest, null, 2));
+      console.log('[CreateOrder] Form data staffAnalystId:', data.staffAnalystId);
+      console.log('[CreateOrder] Form data sampleCollectorId:', data.sampleCollectorId);
+      console.log('[CreateOrder] Form data staffId:', data.staffId);
+      console.log('[CreateOrder] Form data barcodeId:', data.barcodeId);
 
-      const response = await orderService.create(createRequest);
-      if (!response.success) {
-        throw new Error(response.message || 'Tạo đơn hàng thất bại');
-      }
-
-      if (data.barcodeId) {
-        try {
-        } catch (barcodeError) {
-          console.error('Failed to update barcode status:', barcodeError);
+      try {
+        const response = await orderService.create(createRequest);
+        console.log('[CreateOrder] Response:', JSON.stringify(response, null, 2));
+        
+        if (!response.success) {
+          // Extract detailed error message from response
+          let errorMessage = response.message || response.error || 'Tạo đơn hàng thất bại';
+          
+          // If response has data array (validation errors), format them
+          if (response.data && Array.isArray(response.data)) {
+            const validationErrors = response.data.map((err: any) => {
+              if (typeof err === 'object' && err.message) {
+                return err.message;
+              }
+              return String(err);
+            }).join('; ');
+            if (validationErrors) {
+              errorMessage = `${errorMessage}: ${validationErrors}`;
+            }
+          }
+          
+          console.error('[CreateOrder] API error:', errorMessage, response);
+          throw new Error(errorMessage);
         }
+        return response;
+      } catch (error: any) {
+        console.error('[CreateOrder] Exception:', error);
+        // If it's already an Error object, re-throw it
+        if (error instanceof Error) {
+          throw error;
+        }
+        // Otherwise, wrap it in an Error
+        throw new Error(error?.message || 'Tạo đơn hàng thất bại');
       }
-
-      return response;
     },
-    onSuccess: (response) => {
+    onSuccess: response => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      
-      // Store created order data for payment navigation
+
       if (response.data) {
-        const orderData = response.data;
+        const orderData = response.data as any;
         const formData = getValues();
-        const paymentAmount = typeof formData.paymentAmount === 'string' 
-          ? parseFloat(formData.paymentAmount) || 0 
-          : formData.paymentAmount || 0;
+        const paymentAmount =
+          typeof (formData as any).paymentAmount === 'string'
+            ? parseFloat((formData as any).paymentAmount) || 0
+            : (formData as any).paymentAmount || 0;
+
         setCreatedOrderData({
           orderId: orderData.orderId,
-          orderName: orderData.orderName || formData.orderName,
-          paymentAmount: paymentAmount,
-          specifyId: formData.specifyId,
+          orderName: orderData.orderName || (formData as any).orderName,
+          paymentAmount,
+          specifyId: (formData as any).specifyId,
         });
       }
-      
+
       setShowSuccessModal(true);
     },
     onError: (error: any) => {
-      Alert.alert(
-        'Lỗi tạo đơn hàng',
-        error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.'
-      );
+      Alert.alert('Lỗi tạo đơn hàng', error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.');
     },
   });
 
@@ -371,13 +489,6 @@ export default function CreateOrderScreen() {
 
         return true;
       }
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-      case 6:
-      case 7:
-        return true;
       default:
         return true;
     }
@@ -437,7 +548,6 @@ export default function CreateOrderScreen() {
     try {
       return uri;
     } catch (error) {
-      console.error('Error uploading image:', error);
       Alert.alert('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.');
       return null;
     } finally {
@@ -460,16 +570,10 @@ export default function CreateOrderScreen() {
           />
         );
       case 2:
-        return (
-          <Step2SpecifyImage isUploading={isUploadingImage} onImageSelect={handleImageUpload} />
-        );
+        return <Step2SpecifyImage isUploading={isUploadingImage} onImageSelect={handleImageUpload} />;
       case 3:
         return (
-          <Step3SpecifyInfo
-            specifyList={specifyList}
-            genomeTests={genomeTests}
-            isEditMode={false}
-          />
+          <Step3SpecifyInfo specifyList={specifyList} genomeTests={genomeTests} isEditMode={false} />
         );
       case 4:
         return <Step4ClinicalInfo isEditMode={false} />;
@@ -556,63 +660,22 @@ export default function CreateOrderScreen() {
               <Text className="text-sm font-extrabold text-cyan-700">{currentStep}</Text>
             </View>
           </View>
-          <View className="mt-4 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <View
-              className="h-full bg-cyan-600 rounded-full"
-              style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
-            />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 12, paddingBottom: 2, gap: 8 }}
-          >
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => {
-              const stepNum = i + 1;
-              const isActive = stepNum === currentStep;
-              const isDone = stepNum < currentStep;
 
-              return (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => {
-                    if (isDone) {
-                      setCurrentStep(stepNum);
-                    }
-                  }}
-                  className={`flex-row items-center px-3 py-2 rounded-full border ${
-                    isActive
-                      ? 'bg-cyan-600 border-sky-700'
-                      : isDone
-                        ? 'bg-emerald-500 border-emerald-500'
-                        : 'bg-white border-slate-200'
-                  }`}
-                  activeOpacity={isDone ? 0.7 : 1}
-                >
-                  <View
-                    className={`w-5 h-5 rounded-full items-center justify-center ${isActive ? 'bg-white/20' : isDone ? 'bg-white/20' : 'bg-slate-100'}`}
-                  >
-                    {isDone ? (
-                      <Check size={12} color="#fff" strokeWidth={3} />
-                    ) : (
-                      <Text
-                        className={`text-[11px] font-extrabold ${isActive ? 'text-white' : 'text-slate-600'}`}
-                      >
-                        {stepNum}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <Stepper
+            totalSteps={TOTAL_STEPS}
+            currentStep={currentStep}
+            onStepPress={step => setCurrentStep(step)}
+          />
         </View>
 
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 110 + insets.bottom }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ padding: 16, paddingBottom: 110 + insets.bottom }}
+        >
           {renderCurrentStep()}
         </ScrollView>
 
-        <View 
+        <View
           className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex-row gap-3"
           style={{ paddingBottom: Math.max(16, insets.bottom) }}
         >

@@ -1,13 +1,6 @@
-import React from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
-import { COLORS } from '@/constants/colors';
+import React from "react";
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
+import { COLORS } from "@/constants/colors";
 
 interface OrderFormFooterProps {
   onCancel: () => void;
@@ -20,58 +13,67 @@ export function OrderFormFooter({
   onCancel,
   onSubmit,
   isPending,
-  submitText = 'Tạo đơn hàng',
+  submitText = "Tạo đơn hàng",
 }: OrderFormFooterProps) {
   return (
-    <View style={styles.footer}>
+    <View
+      className="absolute bottom-0 left-0 right-0 flex-row gap-3 px-4 py-4"
+      style={{
+        backgroundColor: COLORS.card,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.border,
+      }}
+    >
       <TouchableOpacity
-        style={[styles.button, styles.cancelButton]}
         onPress={onCancel}
+        activeOpacity={0.85}
+        className="flex-1 items-center justify-center rounded-2xl h-[52px]"
+        style={{
+          backgroundColor: COLORS.card,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
       >
-        <Text style={styles.cancelButtonText}>Huỷ</Text>
+        <Text className="text-[15px] font-extrabold" style={{ color: COLORS.sub }}>
+          Huỷ
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.button, styles.submitButton]}
         onPress={onSubmit}
+        activeOpacity={0.85}
         disabled={isPending}
+        className={[
+          "flex-1 items-center justify-center rounded-2xl h-[52px]",
+          isPending ? "opacity-80" : "opacity-100",
+        ].join(" ")}
+        style={{
+          backgroundColor: COLORS.primary,
+          ...Platform.select({
+            ios: {
+              shadowColor: COLORS.primary,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.22,
+              shadowRadius: 10,
+            },
+            android: {
+              elevation: 6,
+            },
+            web: {
+              boxShadow: "0px 6px 10px rgba(0, 0, 0, 0.22)",
+            },
+          }),
+        }}
       >
         {isPending ? (
-          <ActivityIndicator color="#fff" />
+          <View className="flex-row items-center gap-2">
+            <ActivityIndicator color="#fff" />
+            <Text className="text-[14px] font-bold text-white">Đang xử lý...</Text>
+          </View>
         ) : (
-          <Text style={styles.submitButtonText}>{submitText}</Text>
+          <Text className="text-[15px] font-extrabold text-white">{submitText}</Text>
         )}
       </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: COLORS.card,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    height: 50,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelButtonText: { fontSize: 15, fontWeight: '800', color: COLORS.sub },
-  submitButton: { backgroundColor: COLORS.primary },
-  submitButtonText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-});

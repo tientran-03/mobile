@@ -43,8 +43,6 @@ export default function Step1BasicOrderInfo({
       <Text className="text-[15px] font-extrabold text-slate-900 mb-4">
         Thông tin cơ bản đơn hàng
       </Text>
-
-      {/* Order Name */}
       <FormInput
         name="orderName"
         label="Tên đơn hàng"
@@ -52,8 +50,6 @@ export default function Step1BasicOrderInfo({
         placeholder="Nhập tên đơn hàng"
         editable={!isEditMode}
       />
-
-      {/* Doctor Selection */}
       <FormSelect
         name="doctorId"
         label="Bác sĩ chỉ định"
@@ -66,7 +62,6 @@ export default function Step1BasicOrderInfo({
         disabled={isEditMode}
       />
 
-      {/* Hospital (read-only from doctor) */}
       <FormReadOnly
         label="P.khám/Bệnh viện"
         value={hospitalName}
@@ -74,7 +69,6 @@ export default function Step1BasicOrderInfo({
       />
 
       <FormFieldGroup>
-        {/* Staff - người thu tiền */}
         <FormSelect
           name="staffId"
           label="Người thu tiền"
@@ -86,7 +80,6 @@ export default function Step1BasicOrderInfo({
           searchable
         />
 
-        {/* Payment Amount */}
         <FormInput
           name="paymentAmount"
           label="Số tiền đã thu"
@@ -96,19 +89,6 @@ export default function Step1BasicOrderInfo({
       </FormFieldGroup>
 
       <FormFieldGroup>
-        {/* Staff Analyst - nhân viên phụ trách */}
-        <FormSelect
-          name="staffAnalystId"
-          label="Nhân viên phụ trách"
-          options={staffAnalystList}
-          getLabel={s => `${s.name} - ${getStaffPositionDisplayName(s.type)}`}
-          getValue={s => s.id}
-          placeholder="Lựa chọn"
-          modalTitle="Chọn nhân viên phụ trách"
-          searchable
-        />
-
-        {/* Sample Collector - nhân viên thu mẫu */}
         <FormSelect
           name="sampleCollectorId"
           label="Nhân viên thu mẫu"
@@ -119,9 +99,18 @@ export default function Step1BasicOrderInfo({
           modalTitle="Chọn nhân viên thu mẫu"
           searchable
         />
+        <FormSelect
+          name="staffAnalystId"
+          label="Nhân viên phụ trách"
+          options={staffAnalystList}
+          getLabel={s => `${s.name} - ${getStaffPositionDisplayName(s.position)}`}
+          getValue={s => s.id}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn nhân viên phụ trách"
+          searchable
+          disabled={true}
+        />
       </FormFieldGroup>
-
-      {/* Barcode Selection */}
       <FormSelect
         name="barcodeId"
         label="Mã vạch"
@@ -132,8 +121,6 @@ export default function Step1BasicOrderInfo({
         modalTitle="Chọn mã vạch"
         searchable
       />
-
-      {/* Payment Type */}
       <FormSelect
         name="paymentType"
         label="Hình thức thanh toán"

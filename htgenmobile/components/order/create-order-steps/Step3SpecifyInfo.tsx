@@ -79,8 +79,6 @@ export default function Step3SpecifyInfo({
       <Text className="text-[15px] font-extrabold text-slate-900 mb-4">
         Thông tin phiếu xét nghiệm
       </Text>
-
-      {/* Specify Selection */}
       <FormSelect
         name="specifyId"
         label="Mã phiếu xét nghiệm"
@@ -92,8 +90,6 @@ export default function Step3SpecifyInfo({
         searchable
         disabled={isEditMode}
       />
-
-      {/* Patient Info Section */}
       <View className="mt-4 pt-4 border-t border-slate-100">
         <Text className="text-[13px] font-bold text-slate-600 mb-3">
           Thông tin người làm xét nghiệm
@@ -167,8 +163,6 @@ export default function Step3SpecifyInfo({
           editable={false}
         />
       </View>
-
-      {/* Test Info Section */}
       <View className="mt-4 pt-4 border-t border-slate-100">
         <Text className="text-[13px] font-bold text-slate-600 mb-3">Thông tin xét nghiệm</Text>
 

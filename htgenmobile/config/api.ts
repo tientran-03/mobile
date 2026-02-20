@@ -1,23 +1,20 @@
-
 import { Platform } from "react-native";
 
 const getApiBaseUrl = () => {
-  return "http://192.168.20.68:8080"
-  // if (__DEV__) {
-  //   if (Platform.OS === "android") {
-  //     return "http://10.0.2.2:8080";
-  //   } else if (Platform.OS === "ios") {
-  //     return "http://localhost:8080";
-  //   } else {
-  //     return "http://localhost:8080";
-  //   }
-  // } else {
-  //   return "https://your-production-api.com";
-  // }
+  if (__DEV__) {
+    if (Platform.OS === "android") {
+      return "http://10.0.2.2:8080";
+    } else if (Platform.OS === "ios") {
+      return "http://localhost:8080";
+    } else {
+      return "http://localhost:8080";
+    }
+  } else {
+    return "https://your-production-api.com";
+  }
 };
 
 export const API_BASE_URL = getApiBaseUrl();
-
 export const API_ENDPOINTS = {
   LOGIN: "/api/auth/login",
   LOGOUT: "/api/auth/logout",
@@ -43,6 +40,7 @@ export const API_ENDPOINTS = {
 
   USERS: "/api/v1/user/list",
   USER_INFO: "/api/v1/user/info",
+  USER_PROFILE: "/api/v1/user/profile",
 
   CUSTOMERS: "/api/v1/customers",
   CUSTOMER_BY_ID: (id: string) => `/api/v1/customers/${id}`,
@@ -75,5 +73,10 @@ export const API_ENDPOINTS = {
   DISEASE_SERVICES: "/api/v1/disease-services",
   
   PATIENT_METADATA: "/api/v1/patient-metadata",
+  PATIENT_METADATA_BY_ID: (labcode: string) => `/api/v1/patient-metadata/${labcode}`,
   PATIENT_METADATA_BY_PATIENT_ID: (patientId: string) => `/api/v1/patient-metadata/patient/${patientId}`,
+  PATIENT_METADATA_BY_SPECIFY_ID: (specifyId: string) => `/api/v1/patient-metadata/specify/${specifyId}`,
+  
+  PATIENT_APPENDICES: "/api/v1/patient-appendices",
+  PATIENT_TEST_RESULTS: "/api/v1/patient-test-results",
 };

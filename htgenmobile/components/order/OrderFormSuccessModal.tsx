@@ -1,8 +1,8 @@
-import { Check } from 'lucide-react-native';
-import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Check } from "lucide-react-native";
+import React from "react";
+import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from "react-native";
 
-import { COLORS } from '@/constants/colors';
+import { COLORS } from "@/constants/colors";
 
 interface OrderFormSuccessModalProps {
   visible: boolean;
@@ -16,38 +16,86 @@ export function OrderFormSuccessModal({
   onViewOrders,
 }: OrderFormSuccessModalProps) {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Check size={32} color={COLORS.success} strokeWidth={3} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 items-center justify-center bg-black/55 px-5">
+        <Pressable className="absolute inset-0" onPress={onClose} />
+        <View
+          className="w-full max-w-[420px] overflow-hidden rounded-3xl bg-white shadow-2xl"
+          style={{ backgroundColor: COLORS.card }}
+        >
+          <View className="items-center px-6 pb-5 pt-7">
+            <View
+              className="mb-5 h-[76px] w-[76px] items-center justify-center rounded-full"
+              style={{
+                backgroundColor: `${COLORS.success}1A`,
+                borderWidth: 2,
+                borderColor: `${COLORS.success}33`,
+              }}
+            >
+              <Check size={34} color={COLORS.success} strokeWidth={3} />
             </View>
-            <Text style={styles.title}>Thành công</Text>
-            <Text style={styles.message}>Đơn hàng đã được tạo thành công!</Text>
-            <Text style={styles.subMessage}>
+
+            <Text
+              className="text-center text-[22px] font-extrabold"
+              style={{ color: COLORS.text }}
+            >
+              Thành công
+            </Text>
+
+            <Text
+              className="mt-2 text-center text-[16px] font-bold"
+              style={{ color: COLORS.text }}
+            >
+              Đơn hàng đã được tạo thành công!
+            </Text>
+
+            <Text
+              className="mt-2 text-center text-[14px] font-semibold leading-5"
+              style={{ color: COLORS.sub }}
+            >
               Bạn có thể xem đơn hàng trong danh sách đơn hàng.
             </Text>
           </View>
-          <View style={styles.actions}>
+          <View className="h-px" style={{ backgroundColor: COLORS.border }} />
+          <View className="flex-row gap-3 px-4 py-4">
             <TouchableOpacity
-              style={[styles.button, styles.buttonSecondary]}
               onPress={onClose}
               activeOpacity={0.85}
+              className="flex-1 items-center justify-center rounded-2xl py-3.5"
+              style={{
+                backgroundColor: COLORS.bg,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
             >
-              <Text style={styles.buttonSecondaryText}>Đóng</Text>
+              <Text className="text-[15px] font-extrabold" style={{ color: COLORS.sub }}>
+                Đóng
+              </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.button, styles.buttonPrimary]}
               onPress={onViewOrders}
               activeOpacity={0.85}
+              className="flex-1 items-center justify-center rounded-2xl py-3.5"
+              style={{
+                backgroundColor: COLORS.primary,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: COLORS.primary,
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 10,
+                  },
+                  android: {
+                    elevation: 6,
+                  },
+                  web: {
+                    boxShadow: "0px 6px 10px rgba(0, 0, 0, 0.25)",
+                  },
+                }),
+              }}
             >
-              <Text style={styles.buttonPrimaryText}>Xem danh sách</Text>
+              <Text className="text-[15px] font-extrabold text-white">Xem danh sách</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -55,98 +103,3 @@ export function OrderFormSuccessModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  content: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    maxWidth: 400,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  header: {
-    alignItems: 'center',
-    padding: 24,
-    paddingBottom: 20,
-  },
-  iconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: COLORS.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subMessage: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.sub,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  actions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    padding: 16,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonSecondary: {
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  buttonSecondaryText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.sub,
-  },
-  buttonPrimary: {
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonPrimaryText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-  },
-});

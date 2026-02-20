@@ -1,7 +1,6 @@
-import { CheckCircle2, XCircle, AlertTriangle, Info, X } from "lucide-react-native";
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, TouchableOpacity, View, Platform, StatusBar } from "react-native";
-import { COLORS } from "@/constants/colors";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, Platform, Pressable, StatusBar, Text, View } from "react-native";
 import type { NotificationData } from "@/contexts/NotificationContext";
 
 interface NotificationProps {
@@ -9,164 +8,125 @@ interface NotificationProps {
   onHide: () => void;
 }
 
+type Tone = {
+  accent: string;
+  icon: string;
+};
+
 export const Notification: React.FC<NotificationProps> = ({ notification, onHide }) => {
-  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const slideAnim = useRef(new Animated.Value(-120)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Slide in animation
     Animated.parallel([
       Animated.spring(slideAnim, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 65,
+        tension: 70,
         friction: 10,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 220,
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [opacityAnim, slideAnim]);
 
   const handleHide = () => {
     Animated.parallel([
       Animated.timing(slideAnim, {
-        toValue: -100,
-        duration: 250,
+        toValue: -120,
+        duration: 200,
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
-        duration: 250,
+        duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      onHide();
-    });
+    ]).start(onHide);
   };
 
-  const getIcon = () => {
-    const iconSize = 24;
-    const iconColor = getIconColor();
+  const tone: Tone = useMemo(() => {
     switch (notification.type) {
       case "success":
-        return <CheckCircle2 size={iconSize} color={iconColor} fill={iconColor} />;
+        return { accent: "#10B981", icon: "#10B981" };
       case "error":
-        return <XCircle size={iconSize} color={iconColor} fill={iconColor} />;
+        return { accent: "#EF4444", icon: "#EF4444" };
       case "warning":
-        return <AlertTriangle size={iconSize} color={iconColor} fill={iconColor} />;
+        return { accent: "#F59E0B", icon: "#F59E0B" };
       case "info":
-        return <Info size={iconSize} color={iconColor} fill={iconColor} />;
+      default:
+        return { accent: "#3B82F6", icon: "#3B82F6" };
     }
-  };
+  }, [notification.type]);
 
-  const getBackgroundColor = () => {
+  const icon = useMemo(() => {
+    const size = 20;
     switch (notification.type) {
       case "success":
-        return "#10B981"; // emerald-500
+        return <CheckCircle2 size={size} color={tone.icon} />;
       case "error":
-        return "#EF4444"; // red-500
+        return <XCircle size={size} color={tone.icon} />;
       case "warning":
-        return "#F59E0B"; // amber-500
+        return <AlertTriangle size={size} color={tone.icon} />;
       case "info":
-        return "#3B82F6"; // blue-500
+      default:
+        return <Info size={size} color={tone.icon} />;
     }
-  };
+  }, [notification.type, tone.icon]);
 
-  const getIconColor = () => {
-    return "#FFFFFF";
-  };
+  const topPadding = Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 10 : 10;
 
-  const backgroundColor = getBackgroundColor();
-
-  const topPadding = Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 8;
+  const accentBg = `${tone.accent}1A`;
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        {
-          transform: [{ translateY: slideAnim }],
-          opacity: opacityAnim,
-          paddingTop: topPadding,
-        },
-      ]}
-      pointerEvents="box-none"
+      style={{
+        paddingTop: topPadding,
+        transform: [{ translateY: slideAnim }],
+        opacity: opacityAnim,
+        pointerEvents: "box-none",
+      }}
+      className="absolute left-0 right-0 top-0 z-[9999] px-4"
     >
-      <TouchableOpacity
-        style={[styles.notification, { backgroundColor }]}
-        activeOpacity={0.9}
+      <Pressable
         onPress={notification.onPress}
         onLongPress={handleHide}
+        className="overflow-hidden rounded-3xl border border-black/10 bg-white/95 shadow-2xl"
+        style={{ borderLeftWidth: 5, borderLeftColor: tone.accent }}
       >
-        <View style={styles.content}>
-          <View style={styles.iconContainer}>{getIcon()}</View>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{notification.title}</Text>
-            {notification.message && (
-              <Text style={styles.message}>{notification.message}</Text>
+        <View className="flex-row items-center px-3 py-3">
+          <View
+            className="mr-3 h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: accentBg }}
+          >
+            {icon}
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-[14.5px] font-extrabold text-slate-900" numberOfLines={1}>
+              {notification.title}
+            </Text>
+
+            {!!notification.message && (
+              <Text
+                className="mt-0.5 text-[13px] font-medium leading-5 text-slate-600"
+                numberOfLines={2}
+              >
+                {notification.message}
+              </Text>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.closeButton}
+          <Pressable
             onPress={handleHide}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={10}
+            className="h-9 w-9 items-center justify-center rounded-2xl bg-black/5 active:opacity-80"
           >
-            <X size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+            <X size={18} color="#64748B" />
+          </Pressable>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  notification: {
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  content: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  iconContainer: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 4,
-  },
-  message: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#FFFFFF",
-    opacity: 0.95,
-    lineHeight: 18,
-  },
-  closeButton: {
-    marginLeft: 8,
-    padding: 4,
-  },
-});

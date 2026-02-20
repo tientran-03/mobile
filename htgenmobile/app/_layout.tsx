@@ -81,25 +81,33 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
-        name="pending-orders"
+        name="orders-in-progress"
         options={{
-          title: "Đơn hàng chờ cập nhật",
+          title: "Đơn hàng đang phân tích",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
         }}
       />
       <Stack.Screen
-        name="additional-samples"
+        name="patient-metadatas"
         options={{
-          title: "Danh sách mẫu bổ sung",
+          title: "Quản lý mẫu xét nghiệm",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
         }}
       />
       <Stack.Screen
-        name="new-sample-add"
+        name="patient-appendices"
         options={{
-          title: "Thêm mẫu bổ sung",
+          title: "Phụ lục bệnh nhân",
+          headerStyle: { backgroundColor: "#0891b2" },
+          headerTintColor: "#fff",
+        }}
+      />
+      <Stack.Screen
+        name="patient-test-results"
+        options={{
+          title: "Kết quả xét nghiệm",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
         }}

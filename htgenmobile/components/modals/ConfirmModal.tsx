@@ -1,7 +1,6 @@
-import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-import { COLORS } from '@/constants/colors';
+import React from "react";
+import { Modal, Pressable, Text, View } from "react-native";
+import { AlertTriangle, CheckCircle2, X } from "lucide-react-native";
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -18,138 +17,70 @@ export function ConfirmModal({
   visible,
   title,
   message,
-  confirmText = 'Xác nhận',
-  cancelText = 'Hủy',
+  confirmText = "Xác nhận",
+  cancelText = "Hủy",
   onConfirm,
   onCancel,
   destructive = false,
 }: ConfirmModalProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onCancel} />
-
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
+      <View className="flex-1 items-center justify-center bg-black/55 px-5">
+        <Pressable className="absolute inset-0" onPress={onCancel} />
+        <View className="w-full max-w-[360px] overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <View className="items-center pt-3">
+            <View className="h-1.5 w-12 rounded-full bg-slate-200" />
           </View>
+          <View className="flex-row items-start px-5 pb-3 pt-4">
+            <View
+              className={[
+                "mr-4 h-12 w-12 items-center justify-center rounded-2xl",
+                destructive ? "bg-rose-500/15" : "bg-emerald-500/15",
+              ].join(" ")}
+            >
+              {destructive ? (
+                <AlertTriangle size={22} color="#F43F5E" />
+              ) : (
+                <CheckCircle2 size={22} color="#10B981" />
+              )}
+            </View>
 
-          <View style={styles.body}>
-            <Text style={styles.message}>{message}</Text>
-          </View>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonCancel]}
+            <View className="flex-1 pr-2">
+              <Text className="text-[17px] font-extrabold text-slate-900">{title}</Text>
+              <Text className="mt-1 text-[14px] leading-5 text-slate-500">{message}</Text>
+            </View>
+            <Pressable
               onPress={onCancel}
-              activeOpacity={0.8}
+              hitSlop={12}
+              className="h-10 w-10 items-center justify-center rounded-full bg-slate-100 active:opacity-80"
             >
-              <Text style={styles.buttonCancelText}>{cancelText}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.buttonConfirm,
-                destructive && styles.buttonDestructive,
-              ]}
-              onPress={onConfirm}
-              activeOpacity={0.8}
+              <X size={18} color="#0F172A" />
+            </Pressable>
+          </View>
+
+          <View className="h-px bg-slate-100" />
+          <View className="flex-row gap-3 px-5 py-4">
+            <Pressable
+              onPress={onCancel}
+              className="flex-1 rounded-2xl bg-slate-100 py-3 active:opacity-80"
             >
-              <Text
-                style={[
-                  styles.buttonConfirmText,
-                  destructive && styles.buttonDestructiveText,
-                ]}
-              >
-                {confirmText}
+              <Text className="text-center text-[15px] font-bold text-slate-700">
+                {cancelText}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
+
+            <Pressable
+              onPress={onConfirm}
+              className={[
+                "flex-1 rounded-2xl py-3 active:opacity-80",
+                destructive ? "bg-rose-600" : "bg-indigo-600",
+              ].join(" ")}
+            >
+              <Text className="text-center text-[15px] font-bold text-white">{confirmText}</Text>
+            </Pressable>
           </View>
         </View>
       </View>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'center',
-  },
-  body: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  message: {
-    fontSize: 15,
-    color: COLORS.sub,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonCancel: {
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  buttonCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  buttonConfirm: {
-    backgroundColor: COLORS.primary,
-  },
-  buttonConfirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  buttonDestructive: {
-    backgroundColor: COLORS.danger,
-  },
-  buttonDestructiveText: {
-    color: '#fff',
-  },
-});
