@@ -37,23 +37,11 @@ export const embryoService = {
     return apiClient.post<EmbryoServiceResponse>(API_ENDPOINTS.EMBRYO_SERVICES, data);
   },
 
-  update: async (id: string, data: EmbryoServiceRequest) => {
-    return apiClient.put<EmbryoServiceResponse>(`${API_ENDPOINTS.EMBRYO_SERVICES}/${id}`, data);
-  },
-
   getById: async (id: string) => {
     return apiClient.get<EmbryoServiceResponse>(`${API_ENDPOINTS.EMBRYO_SERVICES}/${id}`);
   },
 
   getAll: async () => {
     return apiClient.get<EmbryoServiceResponse[]>(API_ENDPOINTS.EMBRYO_SERVICES);
-  },
-
-  getByPatientId: async (patientId: string) => {
-    return apiClient.get<EmbryoServiceResponse[]>(`${API_ENDPOINTS.EMBRYO_SERVICES}/patient/${patientId}`);
-  },
-
-  getByServiceId: async (serviceId: string) => {
-    return apiClient.get<EmbryoServiceResponse[]>(`${API_ENDPOINTS.EMBRYO_SERVICES}/service/${serviceId}`);
   },
 };

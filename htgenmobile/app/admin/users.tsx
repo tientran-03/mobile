@@ -114,6 +114,7 @@ export default function AdminUsersScreen() {
   const [filterRole, setFilterRole] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [blockReason, setBlockReason] = useState("");
 
@@ -541,6 +542,10 @@ export default function AdminUsersScreen() {
                     <TouchableOpacity
                       className="flex-1 py-2.5 px-3 rounded-xl bg-sky-50 border border-sky-200 items-center"
                       activeOpacity={0.7}
+                      onPress={() => {
+                        setSelectedUser(userItem);
+                        setShowDetailModal(true);
+                      }}
                     >
                       <Eye size={16} color="#0284C7" />
                       <Text className="mt-1 text-xs font-bold text-sky-700">
@@ -587,6 +592,215 @@ export default function AdminUsersScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* User detail modal */}
+      <Modal
+        visible={showDetailModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setShowDetailModal(false);
+          setSelectedUser(null);
+        }}
+      >
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-6 max-h-[85%]">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-extrabold text-slate-900">Chi tiết người dùng</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDetailModal(false);
+                  setSelectedUser(null);
+                }}
+              >
+                <X size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedUser && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="gap-4">
+                  {/* Avatar and Name */}
+                  <View className="items-center mb-4">
+                    {selectedUser.avatarUrl ? (
+                      <Image
+                        source={{ uri: selectedUser.avatarUrl }}
+                        className="w-20 h-20 rounded-2xl border-2 border-sky-200"
+                      />
+                    ) : (
+                      <View className="w-20 h-20 rounded-2xl bg-sky-100 border-2 border-sky-200 items-center justify-center">
+                        <Text className="text-2xl font-bold text-sky-700">
+                          {selectedUser.name?.charAt(0)?.toUpperCase() || "U"}
+                        </Text>
+                      </View>
+                    )}
+                    <Text className="text-xl font-extrabold text-slate-900 mt-3">
+                      {selectedUser.name || "N/A"}
+                    </Text>
+                    <View className="flex-row items-center gap-2 mt-1">
+                      <Shield size={14} color="#64748B" />
+                      <Text className="text-sm text-slate-500">
+                        {getRoleLabel(selectedUser.role)}
+                      </Text>
+                    </View>
+                    <View
+                      className={`px-3 py-1.5 rounded-lg border mt-2 ${getStatusBadge(selectedUser).bg} ${getStatusBadge(selectedUser).bd}`}
+                    >
+                      <Text className={`text-xs font-bold ${getStatusBadge(selectedUser).fg}`}>
+                        {getStatusBadge(selectedUser).label}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Basic Information */}
+                  <View className="bg-sky-50 rounded-2xl p-4 border border-sky-200">
+                    <Text className="text-sm font-extrabold text-slate-900 mb-3">Thông tin cơ bản</Text>
+                    <View className="gap-3">
+                      <View>
+                        <Text className="text-xs font-bold text-slate-500 mb-1">User ID</Text>
+                        <Text className="text-sm font-bold text-slate-900">{selectedUser.userId}</Text>
+                      </View>
+                      <View>
+                        <Text className="text-xs font-bold text-slate-500 mb-1">Email</Text>
+                        <View className="flex-row items-center gap-2">
+                          <Mail size={14} color="#64748B" />
+                          <Text className="text-sm text-slate-700 flex-1">
+                            {selectedUser.email || "N/A"}
+                          </Text>
+                        </View>
+                      </View>
+                      {selectedUser.phone && (
+                        <View>
+                          <Text className="text-xs font-bold text-slate-500 mb-1">Số điện thoại</Text>
+                          <View className="flex-row items-center gap-2">
+                            <Phone size={14} color="#64748B" />
+                            <Text className="text-sm text-slate-700">{selectedUser.phone}</Text>
+                          </View>
+                        </View>
+                      )}
+                      <View>
+                        <Text className="text-xs font-bold text-slate-500 mb-1">Vai trò</Text>
+                        <View className="flex-row items-center gap-2">
+                          <Shield size={14} color="#64748B" />
+                          <Text className="text-sm text-slate-700">
+                            {getRoleLabel(selectedUser.role)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Hospital Information */}
+                  {selectedUser.hospitalName && (
+                    <View className="bg-emerald-50 rounded-2xl p-4 border border-emerald-200">
+                      <Text className="text-sm font-extrabold text-slate-900 mb-3">Bệnh viện/Cơ sở</Text>
+                      <View className="flex-row items-center gap-2">
+                        <Building2 size={16} color="#16A34A" />
+                        <Text className="text-sm font-bold text-slate-900 flex-1">
+                          {selectedUser.hospitalName}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Status Information */}
+                  <View className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                    <Text className="text-sm font-extrabold text-slate-900 mb-3">Trạng thái tài khoản</Text>
+                    <View className="gap-2">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-xs text-slate-600">Kích hoạt:</Text>
+                        <View
+                          className={`px-2 py-1 rounded ${
+                            selectedUser.enabled
+                              ? "bg-emerald-50 border border-emerald-200"
+                              : "bg-orange-50 border border-orange-200"
+                          }`}
+                        >
+                          <Text
+                            className={`text-[10px] font-bold ${
+                              selectedUser.enabled ? "text-emerald-700" : "text-orange-700"
+                            }`}
+                          >
+                            {selectedUser.enabled ? "Đã kích hoạt" : "Chưa kích hoạt"}
+                          </Text>
+                        </View>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-xs text-slate-600">Hoạt động:</Text>
+                        <View
+                          className={`px-2 py-1 rounded ${
+                            selectedUser.isActive
+                              ? "bg-emerald-50 border border-emerald-200"
+                              : "bg-red-50 border border-red-200"
+                          }`}
+                        >
+                          <Text
+                            className={`text-[10px] font-bold ${
+                              selectedUser.isActive ? "text-emerald-700" : "text-red-700"
+                            }`}
+                          >
+                            {selectedUser.isActive ? "Đang hoạt động" : "Đã khóa"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Block Reason */}
+                  {selectedUser.blockReason && (
+                    <View className="bg-red-50 rounded-2xl p-4 border border-red-200">
+                      <Text className="text-sm font-extrabold text-slate-900 mb-2">Lý do khóa</Text>
+                      <View className="flex-row items-start gap-2">
+                        <AlertCircle size={16} color="#DC2626" />
+                        <Text className="text-sm text-red-700 flex-1">
+                          {selectedUser.blockReason}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Actions */}
+                  <View className="flex-row gap-3 pt-2">
+                    {selectedUser.isActive ? (
+                      <TouchableOpacity
+                        className="flex-1 py-3 rounded-xl bg-red-50 border border-red-200 items-center"
+                        onPress={() => {
+                          setShowDetailModal(false);
+                          setSelectedUser(selectedUser);
+                          setShowBlockModal(true);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Lock size={18} color="#DC2626" />
+                        <Text className="mt-1 text-xs font-bold text-red-700">Khóa tài khoản</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        className="flex-1 py-3 rounded-xl bg-emerald-50 border border-emerald-200 items-center"
+                        onPress={() => {
+                          setShowDetailModal(false);
+                          handleUnblockUser(selectedUser.userId);
+                        }}
+                        activeOpacity={0.85}
+                        disabled={unblockMutation.isPending}
+                      >
+                        {unblockMutation.isPending ? (
+                          <ActivityIndicator size="small" color="#16A34A" />
+                        ) : (
+                          <>
+                            <LockOpen size={18} color="#16A34A" />
+                            <Text className="mt-1 text-xs font-bold text-emerald-700">Mở khóa</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Block user modal */}
       <Modal

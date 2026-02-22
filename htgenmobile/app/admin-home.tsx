@@ -125,6 +125,16 @@ export default function AdminHomeScreen() {
       route: "/admin/dashboard",
     },
     {
+      id: "14",
+      title: "Thống kê\nchi tiết",
+      icon: <Image
+            source={require("@/assets/images/5.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/admin/statistics",
+    },
+    {
       id: "5",
       title: "Cấu hình\ncơ bản",
       icon: <Image
@@ -143,6 +153,36 @@ export default function AdminHomeScreen() {
             resizeMode="contain"
           />,
       route: "/admin/permissions",
+    },
+    {
+      id: "12",
+      title: "Quản lý\nphiếu xét nghiệm",
+      icon: <Image
+            source={require("@/assets/images/4.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/admin/specifies",
+    },
+    {
+      id: "13",
+      title: "Quản lý\nquyền hạn",
+      icon: <Image
+            source={require("@/assets/images/7.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/admin/permissions-list",
+    },
+    {
+      id: "16",
+      title: "Kết quả\nxét nghiệm",
+      icon: <Image
+            source={require("@/assets/images/4.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/admin/test-results",
     },
     {
       id: "7",
@@ -164,6 +204,16 @@ export default function AdminHomeScreen() {
             resizeMode="contain"
           />,
       route: "/admin/monitoring",
+    },
+    {
+      id: "15",
+      title: "Quản lý\nlog hệ thống",
+      icon: <Image
+            source={require("@/assets/images/2.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/admin/logs",
     },
     {
       id: "9",
