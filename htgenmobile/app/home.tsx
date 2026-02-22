@@ -29,6 +29,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const { logout, canCreatePrescriptionSlip } = useAuth();
 
+  // Monitor for new orders with initiation status
+  useOrderNotification();
+
   const { data: ordersResponse } = useQuery({
     queryKey: ["orders"],
     queryFn: () => orderService.getAll(),
@@ -39,6 +42,13 @@ export default function HomeScreen() {
     if (!ordersResponse?.success || !ordersResponse.data) return 0;
     const orders = ordersResponse.data as OrderResponse[];
     return orders.filter((o) => isPendingStatus(o.orderStatus)).length;
+  }, [ordersResponse]);
+
+  // Count orders with status "initiation" for badge on orders menu item
+  const initiationOrdersCount = useMemo(() => {
+    if (!ordersResponse?.success || !ordersResponse.data) return 0;
+    const orders = ordersResponse.data as OrderResponse[];
+    return orders.filter((o) => String(o.orderStatus).toLowerCase() === 'initiation').length;
   }, [ordersResponse]);
 
   // Filter menu items based on permissions
@@ -104,6 +114,7 @@ export default function HomeScreen() {
               resizeMode="contain"
             />,
         route: "/orders",
+        badge: initiationOrdersCount > 0 ? initiationOrdersCount : undefined,
       },
       {
         id: "8",
@@ -174,7 +185,7 @@ export default function HomeScreen() {
       }
       return true;
     });
-  }, [canCreatePrescriptionSlip, pendingOrdersCount]);
+  }, [canCreatePrescriptionSlip, pendingOrdersCount, initiationOrdersCount]);
 
   const handleMenuPress = useCallback(
     (item: MenuItem) => {

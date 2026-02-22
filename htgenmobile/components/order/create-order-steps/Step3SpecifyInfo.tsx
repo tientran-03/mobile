@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 import {
-  FormInput,
-  FormSelect,
-  FormReadOnly,
-  FormFieldGroup,
   FormDatePicker,
+  FormFieldGroup,
+  FormInput,
+  FormReadOnly,
+  FormSelect,
 } from '@/components/form';
 import type { GenomeTestResponse } from '@/services/genomeTestService';
 import type { SpecifyVoteTestResponse } from '@/services/specifyVoteTestService';
@@ -30,7 +30,9 @@ export default function Step3SpecifyInfo({
   isEditMode = false,
 }: Step3Props) {
   const { watch, setValue } = useFormContext();
-  const _specifyId = watch('specifyId');
+  const specifyId = watch('specifyId');
+
+  const allowEdit = !isEditMode;
 
   const _handleSpecifyChange = (newSpecifyId: string) => {
     if (!newSpecifyId) return;
@@ -74,11 +76,18 @@ export default function Step3SpecifyInfo({
     );
   };
 
+  // Nếu user đã có specifyId sẵn (ví dụ load từ API), tự fill lần đầu
+  useEffect(() => {
+    if (specifyId) _handleSpecifyChange(specifyId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specifyId]);
+
   return (
     <View className="bg-white rounded-2xl border border-slate-100 p-4">
       <Text className="text-[15px] font-extrabold text-slate-900 mb-4">
         Thông tin phiếu xét nghiệm
       </Text>
+
       <FormSelect
         name="specifyId"
         label="Mã phiếu xét nghiệm"
@@ -89,7 +98,9 @@ export default function Step3SpecifyInfo({
         modalTitle="Chọn phiếu xét nghiệm"
         searchable
         disabled={isEditMode}
+        onChange={(val: string) => _handleSpecifyChange(val)}
       />
+
       <View className="mt-4 pt-4 border-t border-slate-100">
         <Text className="text-[13px] font-bold text-slate-600 mb-3">
           Thông tin người làm xét nghiệm
@@ -101,18 +112,23 @@ export default function Step3SpecifyInfo({
             label="Số điện thoại"
             placeholder="Nhập số điện thoại"
             keyboardType="phone-pad"
-            editable={false}
+            editable={allowEdit}
           />
           <FormInput
             name="patientName"
             label="Họ tên"
             placeholder="Nhập họ và tên"
-            editable={false}
+            editable={allowEdit}
           />
         </FormFieldGroup>
 
         <FormFieldGroup>
-          <FormDatePicker name="patientDob" label="Ngày sinh" placeholder="Chọn ngày" disabled />
+          <FormDatePicker
+            name="patientDob"
+            label="Ngày sinh"
+            placeholder="Chọn ngày"
+            disabled={!allowEdit}
+          />
           <FormSelect
             name="patientGender"
             label="Giới tính"
@@ -121,7 +137,7 @@ export default function Step3SpecifyInfo({
             getValue={o => o.value}
             placeholder="Chọn"
             modalTitle="Chọn giới tính"
-            disabled
+            disabled={!allowEdit}
           />
         </FormFieldGroup>
 
@@ -130,14 +146,14 @@ export default function Step3SpecifyInfo({
           label="Email"
           placeholder="Nhập email"
           keyboardType="email-address"
-          editable={false}
+          editable={allowEdit}
         />
 
         <FormInput
           name="patientJob"
           label="Nghề nghiệp"
           placeholder="Nhập nghề nghiệp"
-          editable={false}
+          editable={allowEdit}
         />
 
         <FormFieldGroup>
@@ -145,14 +161,14 @@ export default function Step3SpecifyInfo({
             name="patientContactName"
             label="Người liên hệ"
             placeholder="Nhập người liên hệ"
-            editable={false}
+            editable={allowEdit}
           />
           <FormInput
             name="patientContactPhone"
             label="SĐT người liên hệ"
             placeholder="Nhập số điện thoại"
             keyboardType="phone-pad"
-            editable={false}
+            editable={allowEdit}
           />
         </FormFieldGroup>
 
@@ -160,9 +176,10 @@ export default function Step3SpecifyInfo({
           name="patientAddress"
           label="Địa chỉ"
           placeholder="Nhập địa chỉ"
-          editable={false}
+          editable={allowEdit}
         />
       </View>
+
       <View className="mt-4 pt-4 border-t border-slate-100">
         <Text className="text-[13px] font-bold text-slate-600 mb-3">Thông tin xét nghiệm</Text>
 
@@ -182,7 +199,7 @@ export default function Step3SpecifyInfo({
           name="testName"
           label="Tên xét nghiệm"
           placeholder="Nhập tên xét nghiệm"
-          editable={false}
+          editable={allowEdit}
         />
 
         <FormReadOnly
@@ -195,14 +212,14 @@ export default function Step3SpecifyInfo({
           name="testContent"
           label="Nội dung xét nghiệm"
           placeholder="Nhập nội dung"
-          editable={false}
+          editable={allowEdit}
         />
 
         <FormInput
           name="samplingSite"
           label="Địa điểm thu mẫu"
           placeholder="Nhập địa điểm"
-          editable={!isEditMode}
+          editable={allowEdit}
         />
 
         <FormFieldGroup>
@@ -210,14 +227,14 @@ export default function Step3SpecifyInfo({
             name="sampleCollectDate"
             label="Ngày thu mẫu"
             placeholder="Chọn ngày"
-            disabled={isEditMode}
+            disabled={!allowEdit}
           />
           <FormInput
             name="embryoNumber"
             label="Số lượng phôi"
             placeholder="Nhập số"
             keyboardType="numeric"
-            editable={!isEditMode}
+            editable={allowEdit}
           />
         </FormFieldGroup>
       </View>

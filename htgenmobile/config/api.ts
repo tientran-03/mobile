@@ -77,4 +77,7 @@ export const API_ENDPOINTS = {
   
   PATIENT_APPENDICES: "/api/v1/patient-appendices",
   PATIENT_TEST_RESULTS: "/api/v1/patient-test-results",
+  
+  NOTIFICATIONS: "/api/v1/notifications",
+  NOTIFICATION_REGISTER_TOKEN: "/api/v1/notifications/register-token",
 };

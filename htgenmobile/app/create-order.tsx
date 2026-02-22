@@ -2,17 +2,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
+  StatusBar,
   Text,
   TouchableOpacity,
   View,
-  Alert,
-  ActivityIndicator,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,14 +27,14 @@ import {
 } from '@/components/order/create-order-steps';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  orderFormSchema,
+  BarcodeStatus,
   defaultOrderFormValues,
-  PaymentType,
+  orderFormSchema,
   OrderStatus,
   PaymentStatus,
-  BarcodeStatus,
-  StaffPosition,
+  PaymentType,
   SpecifyStatus,
+  StaffPosition,
   type OrderFormData,
 } from '@/lib/schemas/order-form-schema';
 import { getApiResponseData } from '@/lib/types/api-types';
@@ -47,6 +47,11 @@ import {
   specifyVoteTestService,
   type SpecifyVoteTestResponse,
 } from '@/services/specifyVoteTestService';
+import { patientService } from '@/services/patientService';
+import { serviceService, type ServiceResponse } from '@/services/serviceService';
+import { reproductionService } from '@/services/reproductionService';
+import { embryoService } from '@/services/embryoService';
+import { diseaseService } from '@/services/diseaseService';
 
 const TOTAL_STEPS = 7;
 const STEP_TITLES = [
@@ -58,6 +63,11 @@ const STEP_TITLES = [
   'Thông tin nhóm xét nghiệm',
   'Ghi chú đơn hàng',
 ];
+
+// Generate patient ID for new patients
+const generatePatientId = () => {
+  return `PAT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 function Stepper({
   totalSteps,
@@ -74,10 +84,7 @@ function Stepper({
       <View
         className="absolute left-0 top-[14px] h-[2px] bg-cyan-600"
         style={{
-          width:
-            totalSteps <= 1
-              ? '0%'
-              : `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
+          width: totalSteps <= 1 ? '0%' : `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
         }}
       />
       <View className="flex-row items-center justify-between">
@@ -93,11 +100,7 @@ function Stepper({
               ? 'border-cyan-600'
               : 'border-slate-300';
 
-          const textColor = isDone
-            ? 'text-white'
-            : isActive
-              ? 'text-cyan-700'
-              : 'text-slate-500';
+          const textColor = isDone ? 'text-white' : isActive ? 'text-cyan-700' : 'text-slate-500';
 
           return (
             <TouchableOpacity
@@ -115,9 +118,7 @@ function Stepper({
                 {isDone ? (
                   <Check size={16} color="#fff" strokeWidth={3} />
                 ) : (
-                  <Text className={`text-[12px] font-extrabold ${textColor}`}>
-                    {stepNum}
-                  </Text>
+                  <Text className={`text-[12px] font-extrabold ${textColor}`}>{stepNum}</Text>
                 )}
               </View>
             </TouchableOpacity>
@@ -186,6 +187,11 @@ export default function CreateOrderScreen() {
     queryFn: () => genomeTestService.getAll(),
   });
 
+  const { data: servicesResponse } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => serviceService.getAll(),
+  });
+
   const doctors = useMemo(
     () => getApiResponseData<DoctorResponse>(doctorsResponse) || [],
     [doctorsResponse]
@@ -201,6 +207,10 @@ export default function CreateOrderScreen() {
   const orders = useMemo(
     () => getApiResponseData<OrderResponse>(ordersResponse) || [],
     [ordersResponse]
+  );
+  const services = useMemo(
+    () => getApiResponseData<ServiceResponse>(servicesResponse) || [],
+    [servicesResponse]
   );
 
   const usedSpecifyIds = useMemo(() => {
@@ -232,24 +242,21 @@ export default function CreateOrderScreen() {
   }, [allHospitalStaff]);
 
   const sampleCollectorList = useMemo(() => {
-    // Filter LAB_TECHNICIAN staff - backend uses "lab_technician" (lowercase)
-    // StaffPosition.LAB_TECHNICIAN = "lab_technician"
-    const filtered = allHospitalStaff.filter(
-      s => {
-        const position = s.staffPosition;
-        return (
-          position === StaffPosition.LAB_TECHNICIAN || // "lab_technician"
-          position === 'lab_technician' ||
-          position === 'LAB_TECHNICIAN' ||
-          (typeof position === 'string' && position.toLowerCase() === 'lab_technician')
-        );
-      }
-    );
+    const filtered = allHospitalStaff.filter(s => {
+      const position = s.staffPosition;
+      return (
+        position === StaffPosition.LAB_TECHNICIAN || // "lab_technician"
+        position === 'lab_technician' ||
+        position === 'LAB_TECHNICIAN' ||
+        (typeof position === 'string' && position.toLowerCase() === 'lab_technician')
+      );
+    });
     console.log('[CreateOrder] Total hospital staff:', allHospitalStaff.length);
     console.log('[CreateOrder] Filtered sampleCollectorList:', filtered.length, 'items');
     if (filtered.length === 0 && allHospitalStaff.length > 0) {
-      console.warn('[CreateOrder] No LAB_TECHNICIAN found. Available positions:', 
-        [...new Set(allHospitalStaff.map(s => s.staffPosition).filter(Boolean))]);
+      console.warn('[CreateOrder] No LAB_TECHNICIAN found. Available positions:', [
+        ...new Set(allHospitalStaff.map(s => s.staffPosition).filter(Boolean)),
+      ]);
     }
     return filtered;
   }, [allHospitalStaff]);
@@ -287,19 +294,18 @@ export default function CreateOrderScreen() {
     }
   }, [user?.id, allHospitalStaff, setValue, getValues]);
 
-
-  // Auto-sync staffAnalystId with sampleCollectorId - nhân viên phụ trách = nhân viên thu mẫu
   const sampleCollectorId = watch('sampleCollectorId');
   useEffect(() => {
     if (sampleCollectorId && sampleCollectorId.trim() !== '') {
-      // Set staffAnalystId to same value as sampleCollectorId
       const currentStaffAnalystId = getValues('staffAnalystId');
       if (currentStaffAnalystId !== sampleCollectorId) {
-        console.log('[CreateOrder] Auto-syncing staffAnalystId with sampleCollectorId:', sampleCollectorId);
+        console.log(
+          '[CreateOrder] Auto-syncing staffAnalystId with sampleCollectorId:',
+          sampleCollectorId
+        );
         setValue('staffAnalystId', sampleCollectorId, { shouldValidate: true, shouldDirty: true });
       }
     } else {
-      // Clear staffAnalystId if sampleCollectorId is cleared
       const currentStaffAnalystId = getValues('staffAnalystId');
       if (currentStaffAnalystId && currentStaffAnalystId.trim() !== '') {
         console.log('[CreateOrder] Clearing staffAnalystId because sampleCollectorId is empty');
@@ -369,25 +375,178 @@ export default function CreateOrderScreen() {
     }
   }, [genomeTestId, genomeTests, setValue]);
 
+  // Helper function to get serviceId from serviceType
+  const getServiceId = (serviceType?: string): string | undefined => {
+    if (!serviceType || !services.length) return undefined;
+    const service = services.find(
+      (s) => s.name?.toLowerCase() === serviceType.toLowerCase() || s.serviceId?.toLowerCase() === serviceType.toLowerCase()
+    );
+    return service?.serviceId || serviceType;
+  };
+
   const createOrderMutation = useMutation({
     mutationFn: async (data: OrderFormData) => {
       if (!user?.id) throw new Error('Không tìm thấy thông tin người dùng');
 
-      if (!data.paymentType ) {
+      if (!data.paymentType) {
         console.error('[CreateOrder] PaymentType is empty or missing:', data.paymentType);
         throw new Error('Vui lòng chọn hình thức thanh toán');
       }
 
       const paymentTypeValue = data.paymentType as PaymentType;
-      if (paymentTypeValue !== PaymentType.CASH && paymentTypeValue !== PaymentType.ONLINE_PAYMENT) {
+      if (
+        paymentTypeValue !== PaymentType.CASH &&
+        paymentTypeValue !== PaymentType.ONLINE_PAYMENT
+      ) {
         console.error('[CreateOrder] Invalid PaymentType:', paymentTypeValue);
         throw new Error('Hình thức thanh toán không hợp lệ');
       }
 
+      let finalSpecifyId = data.specifyId;
+
+      if (!finalSpecifyId && data.patientName?.trim() && data.patientPhone?.trim()) {
+        console.log('[CreateOrder] Creating new patient and specify...');
+        
+        if (!data.serviceType || !data.genomeTestId) {
+          throw new Error('Vui lòng chọn loại xét nghiệm và mã xét nghiệm để tạo bệnh nhân mới');
+        }
+
+        const patientRequest: any = {
+          patientId: generatePatientId(),
+          patientPhone: data.patientPhone.trim(),
+          patientName: data.patientName.trim(),
+          patientDob: data.patientDob ? new Date(data.patientDob).toISOString() : undefined,
+          gender: data.patientGender?.toLowerCase() || undefined,
+          patientEmail: data.patientEmail?.trim() || undefined,
+          patientJob: data.patientJob?.trim() || undefined,
+          patientContactName: data.patientContactName?.trim() || undefined,
+          patientContactPhone: data.patientContactPhone?.trim() || undefined,
+          patientAddress: data.patientAddress?.trim() || undefined,
+          hospitalId: user.hospitalId || undefined,
+        };
+
+        console.log('[CreateOrder] Creating patient:', JSON.stringify(patientRequest, null, 2));
+        const patientRes = await patientService.create(patientRequest);
+        
+        if (!patientRes.success) {
+          throw new Error(patientRes.error || patientRes.message || 'Không thể tạo bệnh nhân');
+        }
+
+        const finalPatientId = patientRes.data?.patientId || patientRequest.patientId;
+        console.log('[CreateOrder] Patient created with ID:', finalPatientId);
+
+        const serviceId = getServiceId(data.serviceType);
+        if (!serviceId) {
+          throw new Error('Không tìm thấy dịch vụ tương ứng với loại xét nghiệm');
+        }
+
+        if (data.serviceType === 'reproduction') {
+          const reproductionRequest: any = {
+            serviceId,
+            patientId: finalPatientId,
+            fetusesNumber: data.fetusesNumber ? parseInt(data.fetusesNumber) : undefined,
+            fetusesWeek: data.fetusesWeek ? parseInt(data.fetusesWeek) : undefined,
+            fetusesDay: data.fetusesDay ? parseInt(data.fetusesDay) : undefined,
+            ultrasoundDay: data.ultrasoundDay || undefined,
+            headRumpLength: data.headRumpLength ? parseFloat(data.headRumpLength) : undefined,
+            neckLength: data.neckLength ? parseFloat(data.neckLength) : undefined,
+            combinedTestResult: data.combinedTestResult || undefined,
+            ultrasoundResult: data.ultrasoundResult || undefined,
+          };
+          await reproductionService.create(reproductionRequest);
+        } else if (data.serviceType === 'embryo') {
+          const embryoRequest: any = {
+            serviceId,
+            patientId: finalPatientId,
+            biospy: data.biospy || undefined,
+            biospyDate: data.biospyDate || undefined,
+            cellContainingSolution: data.cellContainingSolution || undefined,
+            embryoCreate: data.embryoCreate ? parseInt(data.embryoCreate) : undefined,
+            embryoStatus: data.embryoStatus || undefined,
+            morphologicalAssessment: data.morphologicalAssessment || undefined,
+            cellNucleus: data.cellNucleus || false,
+            negativeControl: data.negativeControl || undefined,
+          };
+          await embryoService.create(embryoRequest);
+        } else if (data.serviceType === 'disease') {
+          const diseaseRequest: any = {
+            serviceId,
+            patientId: finalPatientId,
+            symptom: data.symptom || undefined,
+            diagnose: data.diagnose || undefined,
+            testRelated: data.testRelated || undefined,
+            treatmentMethods: data.treatmentMethods || undefined,
+            treatmentTimeDay: data.treatmentTimeDay ? parseInt(data.treatmentTimeDay) : undefined,
+            drugResistance: data.drugResistance || undefined,
+            relapse: data.relapse || undefined,
+          };
+          await diseaseService.create(diseaseRequest);
+        }
+
+        const specifyRequest: any = {
+          serviceId,
+          patientId: finalPatientId,
+          genomeTestId: data.genomeTestId,
+          embryoNumber: data.embryoNumber ? parseInt(data.embryoNumber) : undefined,
+          hospitalId: user.hospitalId || undefined,
+          doctorId: data.doctorId || undefined,
+          samplingSite: data.samplingSite?.trim() || undefined,
+          sampleCollectDate: data.sampleCollectDate
+            ? new Date(data.sampleCollectDate).toISOString()
+            : undefined,
+          geneticTestResults: data.geneticTestResults?.trim() || undefined,
+          geneticTestResultsRelationship: data.geneticTestResultsRelationship?.trim() || undefined,
+          specifyNote: data.orderNote?.trim() || undefined,
+          sendEmailPatient: false,
+        };
+
+        console.log('[CreateOrder] Creating specify:', JSON.stringify(specifyRequest, null, 2));
+        const specifyRes = await specifyVoteTestService.create(specifyRequest);
+        
+        if (!specifyRes.success) {
+          throw new Error(specifyRes.error || specifyRes.message || 'Không thể tạo phiếu chỉ định');
+        }
+
+        finalSpecifyId = specifyRes.data?.specifyVoteID;
+      if (finalSpecifyId && data.sendEmailToPatient && data.patientEmail?.trim()) {
+        try {
+          console.log('[CreateOrder] Updating specify to enable email sending BEFORE creating order:', finalSpecifyId);
+          const specifyDetail = await specifyVoteTestService.getById(finalSpecifyId);
+          if (specifyDetail.success && specifyDetail.data) {
+            const specify = specifyDetail.data;
+            if (!specify.sendEmailPatient) {
+              const updateRequest: any = {
+                serviceId: specify.serviceID || '',
+                patientId: specify.patientId || '',
+                genomeTestId: specify.genomeTestId || '',
+                embryoNumber: specify.embryoNumber || undefined,
+                hospitalId: specify.hospitalId || undefined,
+                doctorId: specify.doctorId || undefined,
+                samplingSite: specify.samplingSite || undefined,
+                sampleCollectDate: specify.sampleCollectDate || undefined,
+                geneticTestResults: specify.geneticTestResults || undefined,
+                geneticTestResultsRelationship: specify.geneticTestResultsRelationship || undefined,
+                specifyNote: specify.specifyNote || undefined,
+                sendEmailPatient: true,
+              };
+              await specifyVoteTestService.update(finalSpecifyId, updateRequest);
+              console.log('[CreateOrder] Specify updated to enable email sending');
+            } else {
+              console.log('[CreateOrder] Specify already has sendEmailPatient = true');
+            }
+          }
+        } catch (updateError) {
+          console.error('[CreateOrder] Failed to update specify for email sending:', updateError);
+        }
+      }
+        console.log('[CreateOrder] Specify created with ID:', finalSpecifyId);
+      }
+
+
       const createRequest: any = {
         orderName: data.orderName.trim(),
-        customerId: user.id, 
-        specifyId: data.specifyId || undefined,
+        ...(user.role === 'ROLE_CUSTOMER' && { customerId: user.id }),
+        specifyId: finalSpecifyId || undefined,
         paymentType: paymentTypeValue,
         orderNote: data.orderNote?.trim() || undefined,
         orderStatus: OrderStatus.INITIATION,
@@ -397,47 +556,68 @@ export default function CreateOrderScreen() {
         ...(data.staffAnalystId && { staffAnalystId: data.staffAnalystId }),
         ...(data.sampleCollectorId && { sampleCollectorId: data.sampleCollectorId }),
         ...(data.barcodeId && { barcodeId: data.barcodeId }),
-        ...(data.specifyVoteTestImagePath && { specifyVoteImagePath: data.specifyVoteTestImagePath }),
+        ...(data.specifyVoteTestImagePath && {
+          specifyVoteImagePath: data.specifyVoteTestImagePath,
+        }),
       };
 
-      console.log('[CreateOrder] Sending request:', JSON.stringify(createRequest, null, 2));
-      console.log('[CreateOrder] Form data staffAnalystId:', data.staffAnalystId);
-      console.log('[CreateOrder] Form data sampleCollectorId:', data.sampleCollectorId);
-      console.log('[CreateOrder] Form data staffId:', data.staffId);
-      console.log('[CreateOrder] Form data barcodeId:', data.barcodeId);
+      console.log('[CreateOrder] Creating order:', JSON.stringify(createRequest, null, 2));
 
       try {
         const response = await orderService.create(createRequest);
-        console.log('[CreateOrder] Response:', JSON.stringify(response, null, 2));
-        
+        console.log('[CreateOrder] Order creation response:', JSON.stringify(response, null, 2));
+
         if (!response.success) {
           let errorMessage = response.message || response.error || 'Tạo đơn hàng thất bại';
           if (response.data && Array.isArray(response.data)) {
-            const validationErrors = response.data.map((err: any) => {
-              if (typeof err === 'object' && err.message) {
-                return err.message;
-              }
-              return String(err);
-            }).join('; ');
+            const validationErrors = response.data
+              .map((err: any) => {
+                if (typeof err === 'object' && err.message) {
+                  return err.message;
+                }
+                return String(err);
+              })
+              .join('; ');
             if (validationErrors) {
               errorMessage = `${errorMessage}: ${validationErrors}`;
             }
           }
-          
+
           console.error('[CreateOrder] API error:', errorMessage, response);
           throw new Error(errorMessage);
         }
+
+        if (data.sendZaloToPatient && data.patientPhone?.trim()) {
+          console.log('[CreateOrder] Zalo notification requested');
+          console.log('[CreateOrder] Patient phone:', data.patientPhone);
+        }
+
         return response;
       } catch (error: any) {
         console.error('[CreateOrder] Exception:', error);
+        let errorMessage = 'Tạo đơn hàng thất bại';
+        
         if (error instanceof Error) {
-          throw error;
+          errorMessage = error.message;
+          if (errorMessage.includes('already used') || errorMessage.includes('duplicate key') || errorMessage.includes('uk66b7ribqen473vde5ay62u050')) {
+            errorMessage = 'Phiếu chỉ định này đã được sử dụng cho một đơn hàng khác. Vui lòng chọn phiếu chỉ định khác hoặc tạo phiếu chỉ định mới.';
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+          if (errorMessage.includes('already used') || errorMessage.includes('duplicate key') || errorMessage.includes('uk66b7ribqen473vde5ay62u050')) {
+            errorMessage = 'Phiếu chỉ định này đã được sử dụng cho một đơn hàng khác. Vui lòng chọn phiếu chỉ định khác hoặc tạo phiếu chỉ định mới.';
+          }
         }
-        throw new Error(error?.message || 'Tạo đơn hàng thất bại');
+        
+        throw new Error(errorMessage);
       }
+
+        return response;
     },
     onSuccess: response => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['specify-vote-tests'] });
 
       if (response.data) {
         const orderData = response.data as any;
@@ -458,7 +638,10 @@ export default function CreateOrderScreen() {
       setShowSuccessModal(true);
     },
     onError: (error: any) => {
-      Alert.alert('Lỗi tạo đơn hàng', error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.');
+      Alert.alert(
+        'Lỗi tạo đơn hàng',
+        error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.'
+      );
     },
   });
 
@@ -561,10 +744,16 @@ export default function CreateOrderScreen() {
           />
         );
       case 2:
-        return <Step2SpecifyImage isUploading={isUploadingImage} onImageSelect={handleImageUpload} />;
+        return (
+          <Step2SpecifyImage isUploading={isUploadingImage} onImageSelect={handleImageUpload} />
+        );
       case 3:
         return (
-          <Step3SpecifyInfo specifyList={specifyList} genomeTests={genomeTests} isEditMode={false} />
+          <Step3SpecifyInfo
+            specifyList={specifyList}
+            genomeTests={genomeTests}
+            isEditMode={false}
+          />
         );
       case 4:
         return <Step4ClinicalInfo isEditMode={false} />;
