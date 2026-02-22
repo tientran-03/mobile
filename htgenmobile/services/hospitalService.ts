@@ -6,6 +6,10 @@ export interface HospitalResponse {
   hospitalName: string;
 }
 
+export interface HospitalRequest {
+  hospitalName: string;
+}
+
 export const hospitalService = {
   /**
    * Get all hospitals
@@ -40,5 +44,38 @@ export const hospitalService = {
       return Array.isArray(response.data) ? response.data : [];
     }
     throw new Error(response.error || "Failed to search hospitals");
+  },
+
+  /**
+   * Create a new hospital
+   */
+  create: async (data: HospitalRequest): Promise<HospitalResponse> => {
+    const response = await apiClient.post<HospitalResponse>(API_ENDPOINTS.HOSPITALS, data);
+    if (response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response.error || "Failed to create hospital");
+  },
+
+  /**
+   * Update a hospital
+   */
+  update: async (id: string | number, data: HospitalRequest): Promise<HospitalResponse> => {
+    const response = await apiClient.put<HospitalResponse>(API_ENDPOINTS.HOSPITAL_BY_ID(id), data);
+    if (response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response.error || "Failed to update hospital");
+  },
+
+  /**
+   * Delete a hospital
+   */
+  delete: async (id: string | number): Promise<boolean> => {
+    const response = await apiClient.delete(API_ENDPOINTS.HOSPITAL_BY_ID(id));
+    if (response.success) {
+      return true;
+    }
+    throw new Error(response.error || "Failed to delete hospital");
   },
 };

@@ -46,8 +46,15 @@ export default function AdminConfigScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTestResultModal, setShowTestResultModal] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<SystemConfigResponse | null>(null);
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{
+    configName: string;
+    success: boolean;
+    message: string;
+    details?: Record<string, any>;
+  } | null>(null);
 
   // Guard: Chỉ ADMIN mới được vào màn hình này
   useEffect(() => {
@@ -102,12 +109,20 @@ export default function AdminConfigScreen() {
     setTestingConnection(configName);
     try {
       const result = await systemConfigService.testConnection(configName);
-      Alert.alert(
-        result.success ? "Thành công" : "Thất bại",
-        result.message || (result.success ? "Kết nối thành công" : "Kết nối thất bại")
-      );
+      setTestResult({
+        configName,
+        success: result.success,
+        message: result.message || (result.success ? "Kết nối thành công" : "Kết nối thất bại"),
+        details: result.details,
+      });
+      setShowTestResultModal(true);
     } catch (error: any) {
-      Alert.alert("Lỗi", error.message || "Không thể kiểm tra kết nối");
+      setTestResult({
+        configName,
+        success: false,
+        message: error.message || "Không thể kiểm tra kết nối",
+      });
+      setShowTestResultModal(true);
     } finally {
       setTestingConnection(null);
     }
@@ -348,6 +363,16 @@ export default function AdminConfigScreen() {
           setShowCreateModal(false);
         }}
       />
+
+      {/* Test Result Modal */}
+      <TestResultModal
+        visible={showTestResultModal}
+        result={testResult}
+        onClose={() => {
+          setShowTestResultModal(false);
+          setTestResult(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -585,6 +610,116 @@ function ConfigEditModal({
               )}
             </TouchableOpacity>
           </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// Test Result Modal Component
+function TestResultModal({
+  visible,
+  result,
+  onClose,
+}: {
+  visible: boolean;
+  result: {
+    configName: string;
+    success: boolean;
+    message: string;
+    details?: Record<string, any>;
+  } | null;
+  onClose: () => void;
+}) {
+  if (!result) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 bg-black/50 justify-center items-center px-4">
+        <View className="bg-white rounded-3xl p-6 w-full max-w-[400px]">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-extrabold text-slate-900">Kết quả kiểm tra</Text>
+            <TouchableOpacity onPress={onClose}>
+              <XCircle size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="mb-4">
+            <Text className="text-xs font-bold text-slate-500 mb-1">Cấu hình</Text>
+            <Text className="text-sm font-bold text-slate-900">
+              {getConfigLabel(result.configName)}
+            </Text>
+          </View>
+
+          <View className="mb-4">
+            <View className="flex-row items-center mb-2">
+              {result.success ? (
+                <>
+                  <CheckCircle size={20} color="#16A34A" />
+                  <Text className="ml-2 text-base font-extrabold text-emerald-700">
+                    Thành công
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <XCircle size={20} color="#DC2626" />
+                  <Text className="ml-2 text-base font-extrabold text-red-700">Thất bại</Text>
+                </>
+              )}
+            </View>
+            <View
+              className={`rounded-xl p-3 border ${
+                result.success
+                  ? "bg-emerald-50 border-emerald-200"
+                  : "bg-red-50 border-red-200"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${
+                  result.success ? "text-emerald-900" : "text-red-900"
+                }`}
+              >
+                {result.message}
+              </Text>
+            </View>
+          </View>
+
+          {result.details && Object.keys(result.details).length > 0 && (
+            <View className="mb-4">
+              <Text className="text-xs font-bold text-slate-500 mb-2">Chi tiết</Text>
+              <View className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                {Object.entries(result.details).map(([key, value], index) => (
+                  <View
+                    key={key}
+                    className={`flex-row items-start ${
+                      index < Object.keys(result.details || {}).length - 1 ? "mb-3 pb-3 border-b border-slate-200" : ""
+                    }`}
+                  >
+                    <View className="flex-1">
+                      <Text className="text-xs font-bold text-slate-600 mb-1">
+                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1").trim()}:
+                      </Text>
+                      <Text className="text-sm text-slate-900 font-semibold">
+                        {typeof value === "object" && value !== null
+                          ? JSON.stringify(value, null, 2)
+                          : value === null || value === undefined
+                          ? "N/A"
+                          : String(value)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity
+            className="mt-4 py-3 rounded-2xl bg-sky-600 items-center"
+            onPress={onClose}
+            activeOpacity={0.85}
+          >
+            <Text className="text-white text-sm font-extrabold">Đóng</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

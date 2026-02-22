@@ -56,9 +56,11 @@ export const userService = {
    * Unblock a user
    */
   unblock: async (userId: string): Promise<boolean> => {
+    console.log("🔓 Unblocking user:", userId);
     const response = await apiClient.post<boolean>(API_ENDPOINTS.USER_UNBLOCK, {
       userId,
     });
+    console.log("🔓 Unblock response:", response);
     if (response.success) {
       return true;
     }

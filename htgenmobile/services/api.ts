@@ -136,10 +136,30 @@ class ApiClient {
         };
       }
 
+      // For successful responses (200 OK)
+      // If data exists, return it; otherwise return success
+      if (data) {
+        // Check if response follows ApiResponse format
+        if (data.success !== undefined) {
+          // Backend returns ApiResponse format
+          return {
+            success: data.success,
+            message: data.message,
+            data: data.data,
+          };
+        } else {
+          // Backend returns data directly
+          return {
+            success: true,
+            message: data?.message,
+            data: data?.data || data,
+          };
+        }
+      }
+
+      // No body (204 or empty 200)
       return {
         success: true,
-        message: data?.message,
-        data: data?.data,
       };
     } catch (error: any) {
       const errorDetails = {

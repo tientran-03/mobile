@@ -126,24 +126,46 @@ export default function AdminServicesScreen() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      console.log("Delete mutation called:", id);
+      console.log("🗑️ Delete mutation called:", id);
       return serviceEntityService.delete(id);
     },
     onSuccess: () => {
-      console.log("Delete success");
+      console.log("✅ Delete success");
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      Alert.alert("Thành công", "Đã xóa dịch vụ");
+      Alert.alert("Thành công", "Đã xóa dịch vụ thành công");
     },
     onError: (error: any) => {
-      console.error("Delete error:", error);
-      const errorMessage = error?.message || error?.toString() || "Không thể xóa dịch vụ";
-      Alert.alert("Lỗi", errorMessage);
+      console.error("❌ Delete error:", error);
+      console.error("❌ Delete error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response,
+      });
+      
+      let errorMessage = error?.message || error?.toString() || "Không thể xóa dịch vụ";
+      
+      // Provide more helpful error messages
+      if (
+        errorMessage.includes("foreign key") || 
+        errorMessage.includes("constraint") ||
+        errorMessage.includes("đang được sử dụng") ||
+        errorMessage.includes("genome tests") ||
+        errorMessage.includes("specify vote tests")
+      ) {
+        errorMessage = "Không thể xóa dịch vụ này vì đang được sử dụng trong hệ thống:\n\n• Genome tests\n• Specify vote tests\n• Đơn hàng\n\nVui lòng xóa các dữ liệu liên quan trước khi xóa dịch vụ.";
+      } else if (errorMessage.includes("not found")) {
+        errorMessage = "Dịch vụ không tồn tại hoặc đã bị xóa";
+      }
+      
+      Alert.alert("Không thể xóa dịch vụ", errorMessage);
     },
   });
 
   // Filter services
   const filteredServices = useMemo(() => {
-    let result = [...services];
+    // Ensure services is always an array
+    const servicesArray = Array.isArray(services) ? services : [];
+    let result = [...servicesArray];
 
     // Search filter
     if (searchQuery.trim()) {
@@ -233,15 +255,23 @@ export default function AdminServicesScreen() {
   };
 
   const handleDelete = (service: ServiceEntityResponse) => {
+    console.log("🗑️ handleDelete called for service:", service);
     Alert.alert(
       "Xác nhận xóa",
       `Bạn có chắc chắn muốn xóa dịch vụ "${service.name}"?`,
       [
-        { text: "Hủy", style: "cancel" },
+        { 
+          text: "Hủy", 
+          style: "cancel",
+          onPress: () => console.log("❌ Delete cancelled by user"),
+        },
         {
           text: "Xóa",
           style: "destructive",
-          onPress: () => deleteMutation.mutate(service.serviceId),
+          onPress: () => {
+            console.log("✅ Delete confirmed, calling mutation with serviceId:", service.serviceId);
+            deleteMutation.mutate(service.serviceId);
+          },
         },
       ]
     );

@@ -159,13 +159,21 @@ export default function AdminUsersScreen() {
 
   // Unblock user mutation
   const unblockMutation = useMutation({
-    mutationFn: (userId: string) => userService.unblock(userId),
+    mutationFn: (userId: string) => {
+      console.log("🔓 Attempting to unblock user:", userId);
+      return userService.unblock(userId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      setShowDetailModal(false);
       Alert.alert("Thành công", "Đã mở khóa tài khoản người dùng");
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error.message || "Không thể mở khóa tài khoản");
+      console.error("❌ Unblock error:", error);
+      Alert.alert(
+        "Lỗi",
+        error.message || "Không thể mở khóa tài khoản. Vui lòng thử lại."
+      );
     },
   });
 

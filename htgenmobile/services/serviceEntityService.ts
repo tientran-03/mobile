@@ -19,8 +19,18 @@ export const serviceEntityService = {
     const response = await apiClient.get<ServiceEntityResponse[]>(
       API_ENDPOINTS.SERVICES
     );
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [];
+    if (response.success) {
+      // Ensure we always return an array
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          return response.data;
+        }
+        // If data is not an array, log warning
+        console.warn("⚠️ Services API returned non-array data:", response.data);
+        return [];
+      }
+      // If no data but success, return empty array
+      return [];
     }
     throw new Error(response.error || "Failed to fetch services");
   },
@@ -79,16 +89,31 @@ export const serviceEntityService = {
    * Delete a service
    */
   delete: async (id: string): Promise<boolean> => {
-    console.log("Deleting service:", id);
-    const response = await apiClient.delete<void>(
-      API_ENDPOINTS.SERVICE_BY_ID(id)
-    );
-    console.log("Delete response:", response);
-    if (response.success) {
-      return true;
+    console.log("🗑️ Deleting service:", id);
+    console.log("🗑️ Delete endpoint:", API_ENDPOINTS.SERVICE_BY_ID(id));
+    
+    try {
+      const response = await apiClient.delete<void>(
+        API_ENDPOINTS.SERVICE_BY_ID(id)
+      );
+      console.log("🗑️ Delete response:", JSON.stringify(response, null, 2));
+      
+      if (response.success) {
+        console.log("✅ Delete successful");
+        return true;
+      }
+      
+      const errorMsg = response.error || response.message || "Failed to delete service";
+      console.error("❌ Delete failed:", errorMsg);
+      throw new Error(errorMsg);
+    } catch (error: any) {
+      console.error("❌ Delete exception:", error);
+      console.error("❌ Delete exception details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+      throw error;
     }
-    const errorMsg = response.error || response.message || "Failed to delete service";
-    console.error("Delete error:", errorMsg);
-    throw new Error(errorMsg);
   },
 };
