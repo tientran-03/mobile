@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
 
@@ -9,30 +9,18 @@ interface OrderDetailSectionProps {
   children: React.ReactNode;
 }
 
-export function OrderDetailSection({ title, icon, children }: OrderDetailSectionProps) {
+export function OrderDetailSection({
+  title,
+  icon,
+  children,
+}: OrderDetailSectionProps) {
   return (
-    <View
-      className="rounded-2xl p-4 mb-3 border"
-      style={{
-        backgroundColor: COLORS.card,
-        borderColor: COLORS.border,
-      }}
-    >
-      <View className="flex-row items-center mb-3 gap-2">
-        {icon && (
-          <View
-            className="w-7 h-7 rounded-md items-center justify-center"
-            style={{ backgroundColor: COLORS.primarySoft }}
-          >
-            {icon}
-          </View>
-        )}
-        <Text className="text-[15px] font-bold" style={{ color: COLORS.text }}>
-          {title}
-        </Text>
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        {icon && <View style={styles.sectionIcon}>{icon}</View>}
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
-
-      <View className="gap-2">{children}</View>
+      <View style={styles.sectionContent}>{children}</View>
     </View>
   );
 }
@@ -50,22 +38,13 @@ export function OrderDetailRow({
   valueColor,
   highlight = false,
 }: OrderDetailRowProps) {
-  if (value === null || value === undefined || value === '') return null;
+  if (!value && value !== 0) return null;
 
   return (
-    <View
-      className={[
-        'flex-row items-center justify-between py-1.5',
-        highlight ? 'px-3 rounded-lg' : '',
-      ].join(' ')}
-      style={highlight ? { backgroundColor: COLORS.bg } : undefined}
-    >
-      <Text className="text-sm font-medium" style={{ color: COLORS.sub }}>
-        {label}
-      </Text>
+    <View style={[styles.row, highlight && styles.rowHighlight]}>
+      <Text style={styles.rowLabel}>{label}</Text>
       <Text
-        className="text-sm font-semibold flex-1 text-right ml-3"
-        style={{ color: valueColor ?? COLORS.text }}
+        style={[styles.rowValue, valueColor && { color: valueColor }]}
         numberOfLines={1}
       >
         {value}
@@ -79,7 +58,10 @@ interface OrderDetailStatusBadgeProps {
   type?: 'order' | 'payment';
 }
 
-export function OrderDetailStatusBadge({ status, type = 'order' }: OrderDetailStatusBadgeProps) {
+export function OrderDetailStatusBadge({
+  status,
+  type = 'order',
+}: OrderDetailStatusBadgeProps) {
   const getStatusColor = () => {
     const s = status.toLowerCase();
     if (type === 'payment') {
@@ -88,6 +70,7 @@ export function OrderDetailStatusBadge({ status, type = 'order' }: OrderDetailSt
       if (ps === 'PENDING') return COLORS.warning;
       if (ps === 'FAILED' || ps === 'UNPAID') return COLORS.danger;
     }
+    // Order status colors
     if (s === 'completed') return COLORS.success;
     if (s === 'in_progress' || s === 'forward_analysis') return COLORS.primary;
     if (s === 'rejected' || s === 'sample_error') return COLORS.danger;
@@ -107,6 +90,7 @@ export function OrderDetailStatusBadge({ status, type = 'order' }: OrderDetailSt
       };
       return statusMap[ps] || status;
     }
+    // Order status labels
     const statusMap: Record<string, string> = {
       initiation: 'Khởi tạo',
       forward_analysis: 'Chuyển tiếp phân tích',
@@ -125,14 +109,83 @@ export function OrderDetailStatusBadge({ status, type = 'order' }: OrderDetailSt
   const label = getStatusLabel();
 
   return (
-    <View
-      className="flex-row items-center px-3 py-1.5 rounded-full self-start"
-      style={{ backgroundColor: `${color}15` }}
-    >
-      <View className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: color }} />
-      <Text className="text-[13px] font-semibold" style={{ color }}>
-        {label}
-      </Text>
+    <View style={[styles.badge, { backgroundColor: `${color}15` }]}>
+      <View style={[styles.badgeDot, { backgroundColor: color }]} />
+      <Text style={[styles.badgeText, { color }]}>{label}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  section: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  sectionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  sectionContent: {
+    gap: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  rowHighlight: {
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  rowLabel: {
+    fontSize: 14,
+    color: COLORS.sub,
+    fontWeight: '500',
+  },
+  rowValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});

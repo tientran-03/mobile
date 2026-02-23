@@ -119,6 +119,21 @@ export default function CustomerDetailScreen() {
           </View>
 
           <View className="flex-row gap-2">
+            {/* TODO: Implement edit-customer screen */}
+            {/* <TouchableOpacity
+              onPress={() => {
+                if (customerId) {
+                  router.push({
+                    pathname: "/edit-customer",
+                    params: { customerId },
+                  });
+                }
+              }}
+              className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center"
+              activeOpacity={0.8}
+            >
+              <Edit size={18} color="#0284C7" />
+            </TouchableOpacity> */}
             <TouchableOpacity
               onPress={handleDelete}
               disabled={deleteMutation.isPending}

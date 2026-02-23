@@ -30,6 +30,9 @@ export function FormSelect<T = any>({
 
   const hasError = !!error;
   const borderColor = hasError ? "border-red-400" : disabled ? "border-slate-100" : "border-slate-200";
+
+  // Ensure options is always an array and filter out any undefined/null items
+  // Also ensure getLabel and getValue are functions
   const safeOptions = useMemo(() => {
     if (!options || !Array.isArray(options)) return [];
     if (typeof getLabel !== 'function' || typeof getValue !== 'function') return [];
@@ -185,11 +188,13 @@ export function FormSelect<T = any>({
                           try {
                             itemLabel = getLabel(item) || '';
                             itemValue = getValue(item);
+                            // Always use uniqueKey from item if available, otherwise use index-based key
                             uniqueKey = (item as any)?.uniqueKey || (item as any)?.serviceId || `option-${index}-${itemValue}` || `option-${index}`;
                           } catch {
                             return null;
                           }
                           const selected = isSelected(item);
+
                           if (renderOption) {
                             return (
                               <View key={uniqueKey}>
@@ -197,6 +202,7 @@ export function FormSelect<T = any>({
                               </View>
                             );
                           }
+
                           return (
                             <TouchableOpacity
                               key={uniqueKey}
@@ -226,6 +232,7 @@ export function FormSelect<T = any>({
           );
         }}
       />
+
       {error && (
         <Text className="text-[11px] text-red-500 mt-1">
           {(error as FieldError)?.message?.toString() || "Giá trị không hợp lệ"}

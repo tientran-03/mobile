@@ -1,6 +1,6 @@
-import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
-import { Check, X } from 'lucide-react-native';
+import React from "react";
+import { Modal, Pressable, Text, View } from "react-native";
+import { Check, X } from "lucide-react-native";
 
 type SuccessModalProps = {
   visible: boolean;
@@ -14,8 +14,8 @@ export function SuccessModal({
   visible,
   message,
   onClose,
-  title = 'Thành công',
-  buttonText = 'OK',
+  title = "Thành công",
+  buttonText = "OK",
 }: SuccessModalProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -34,14 +34,25 @@ export function SuccessModal({
               <Check size={34} color="#10B981" />
             </View>
 
-            <Text className="mt-4 text-center text-lg font-extrabold text-slate-900">{title}</Text>
+            <Text className="mt-4 text-center text-lg font-extrabold text-slate-900">
+              {title}
+            </Text>
 
-            <Text className="mt-2 text-center text-[14px] leading-5 text-slate-500">{message}</Text>
+            <Text className="mt-2 text-center text-[14px] leading-5 text-slate-500">
+              {message}
+            </Text>
           </View>
-          <Pressable onPress={onClose} className="mt-6 rounded-2xl bg-indigo-600 py-3.5 shadow">
-            <Text className="text-center text-[15px] font-bold text-white">{buttonText}</Text>
+          <Pressable
+            onPress={onClose}
+            className="mt-6 rounded-2xl bg-indigo-600 py-3.5 shadow"
+          >
+            <Text className="text-center text-[15px] font-bold text-white">
+              {buttonText}
+            </Text>
           </Pressable>
-          <Text className="mt-3 text-center text-xs text-slate-400">Nhấn ra ngoài để đóng</Text>
+          <Text className="mt-3 text-center text-xs text-slate-400">
+            Nhấn ra ngoài để đóng
+          </Text>
         </View>
       </View>
     </Modal>

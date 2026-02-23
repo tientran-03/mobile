@@ -416,8 +416,17 @@ export default function PatientDetailScreen() {
                 </Text>
               ) : (
                 patientSpecifies.map((s) => (
-                  <View
+                  <TouchableOpacity
                     key={s.specifyVoteID}
+                    onPress={() => {
+                      if (s.specifyVoteID) {
+                        router.push({
+                          pathname: "/prescription-slip-detail",
+                          params: { specifyVoteID: s.specifyVoteID },
+                        });
+                      }
+                    }}
+                    activeOpacity={0.7}
                     className="py-3 border-b border-slate-100"
                   >
                     {/* Dòng 1: Mã phiếu (to hơn) */}
@@ -454,7 +463,7 @@ export default function PatientDetailScreen() {
                         Vị trí lấy mẫu: {s.samplingSite}
                       </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))
               )}
             </View>
