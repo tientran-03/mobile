@@ -129,9 +129,6 @@ function Pill({
 export default function OrdersScreen() {
   const router = useRouter();
 
-  // Monitor for new orders with initiation status
-  useOrderNotification();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");

@@ -86,16 +86,10 @@ export const orderService = {
   },
 
   updateStatus: async (id: string, status: string) => {
-    return apiClient.patch<OrderResponse>(
-      `${API_ENDPOINTS.ORDER_BY_ID(id)}/status?status=${status}`
-    );
-  },
-
-  reject: async (id: string, rejectReason: string) => {
-    return apiClient.patch<OrderResponse>(
-      `${API_ENDPOINTS.ORDER_BY_ID(id)}/reject`,
-      { rejectReason }
-    );
+    const encodedStatus = encodeURIComponent(status);
+    const endpoint = `${API_ENDPOINTS.ORDER_BY_ID(id)}/status?status=${encodedStatus}`;
+    console.log(`[OrderService] updateStatus: id=${id}, status=${status}, endpoint=${endpoint}`);
+    return apiClient.patch<OrderResponse>(endpoint);
   },
 
   delete: async (id: string) => {

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Alert, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
@@ -59,14 +59,16 @@ export default function CreateGenomeTestScreen() {
   });
 
   const services = getApiResponseData<ServiceResponse>(servicesResponse) || [];
-  const serviceOptions = services.map((service) => ({
+  const serviceOptions = services.map(service => ({
     value: service.serviceId,
     label: SERVICE_TYPE_MAPPER[service.name] || service.name,
   }));
 
   useEffect(() => {
     if (serviceType && services.length > 0) {
-      const matchingService = services.find(service => service.name.toLowerCase() === serviceType.toLowerCase());
+      const matchingService = services.find(
+        service => service.name.toLowerCase() === serviceType.toLowerCase()
+      );
       if (matchingService) {
         methods.setValue('serviceId', matchingService.serviceId);
       }
@@ -81,10 +83,10 @@ export default function CreateGenomeTestScreen() {
       }
       return response;
     },
-    onSuccess: async (response) => {
+    onSuccess: async response => {
       queryClient.invalidateQueries({ queryKey: ['genome-tests'] });
       const testId = response.data?.testId;
-      
+
       if (testId) {
         try {
           await AsyncStorage.setItem('newlyCreatedTestId', testId);
@@ -92,7 +94,7 @@ export default function CreateGenomeTestScreen() {
           console.log('Error saving test ID:', error);
         }
       }
-      
+
       Alert.alert('Thành công', 'Xét nghiệm đã được tạo thành công', [
         {
           text: 'OK',
@@ -178,9 +180,11 @@ export default function CreateGenomeTestScreen() {
 
         <ScrollView className="flex-1 px-3 pt-3" contentContainerStyle={{ paddingBottom: 96 }}>
           <View className="bg-white rounded-2xl border border-slate-200 p-3">
-            {/* Inline fields (label + input cùng 1 dòng). Mô tả giữ 1 mình 1 dòng. */}
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Mã xét nghiệm <Text className="text-red-500">*</Text>
               </Text>
               <View className="flex-1">
@@ -193,20 +197,22 @@ export default function CreateGenomeTestScreen() {
             </View>
 
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Mã code
               </Text>
               <View className="flex-1">
-                <FormInput
-                  containerClassName="mb-0"
-                  name="code"
-                  placeholder="Nhập mã code"
-                />
+                <FormInput containerClassName="mb-0" name="code" placeholder="Nhập mã code" />
               </View>
             </View>
 
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Tên xét nghiệm <Text className="text-red-500">*</Text>
               </Text>
               <View className="flex-1">
@@ -219,7 +225,10 @@ export default function CreateGenomeTestScreen() {
             </View>
 
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Nhóm dịch vụ <Text className="text-red-500">*</Text>
               </Text>
               <View className="flex-1">
@@ -227,18 +236,21 @@ export default function CreateGenomeTestScreen() {
                   containerClassName="mb-0"
                   name="serviceId"
                   options={serviceOptions}
-                  getLabel={(o) => o.label}
-                  getValue={(o) => o.value}
+                  getLabel={o => o.label}
+                  getValue={o => o.value}
                   placeholder="Chọn nhóm dịch vụ"
                   modalTitle="Chọn nhóm dịch vụ"
                   disabled={!!serviceType}
-                  helperText={serviceType ? "Đã được chọn từ bước trước" : undefined}
+                  helperText={serviceType ? 'Đã được chọn từ bước trước' : undefined}
                 />
               </View>
             </View>
 
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Giá tiền (VNĐ) <Text className="text-red-500">*</Text>
               </Text>
               <View className="flex-1">
@@ -252,7 +264,10 @@ export default function CreateGenomeTestScreen() {
             </View>
 
             <View className="flex-row items-center mb-2">
-              <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+              <Text
+                numberOfLines={1}
+                className="w-[112px] text-[12px] font-extrabold text-slate-700"
+              >
                 Thuế suất (%)
               </Text>
               <View className="flex-1">
@@ -267,7 +282,10 @@ export default function CreateGenomeTestScreen() {
 
             <View className="mt-1">
               <View className="flex-row items-center mb-1.5">
-                <Text numberOfLines={1} className="w-[112px] text-[12px] font-extrabold text-slate-700">
+                <Text
+                  numberOfLines={1}
+                  className="w-[112px] text-[12px] font-extrabold text-slate-700"
+                >
                   Mẫu xét nghiệm
                 </Text>
                 <View className="flex-1">

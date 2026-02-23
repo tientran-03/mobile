@@ -1,82 +1,52 @@
 import { API_ENDPOINTS } from "@/config/api";
 import { apiClient } from "./api";
 
-export interface UserResponse {
+export interface UpdateProfileRequest {
   userId: string;
-  name: string;
-  gender?: string;
-  dob?: string;
-  email: string;
+  displayName?: string;
   phone?: string;
-  hospitalName?: string;
-  role: string;
+  address?: string;
+  dob?: string; // Format: dd/MM/yyyy (will be parsed to LocalDate by backend)
+  gender?: "male" | "female"; // Backend enum: male, female (lowercase)
   avatarUrl?: string;
-  isActive?: boolean;
-  blockReason?: string;
-  enabled?: boolean;
-  otpVerified?: boolean;
 }
 
-export interface BlockUserRequest {
+export interface HospitalUser {
   userId: string;
-  reason: string;
+  email: string;
+  displayName?: string;
+  phone?: string;
+  address?: string;
+  dob?: string;
+  gender?: string;
+  avatarUrl?: string;
+  hospitalName?: string;
+  role?: string;
+  hospitalId?: number | string;
+  username?: string;
 }
 
-export interface UnblockUserRequest {
-  userId: string;
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
 }
 
 export const userService = {
-  /**
-   * Get all users
-   */
-  getAll: async (): Promise<UserResponse[]> => {
-    const response = await apiClient.get<UserResponse[]>(API_ENDPOINTS.USERS);
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [];
+  updateProfile: async (data: UpdateProfileRequest): Promise<ApiResponse<HospitalUser>> => {
+    try {
+      const response = await apiClient.put<HospitalUser>(
+        API_ENDPOINTS.USER_PROFILE,
+        data
+      );
+      return response;
+    } catch (error: any) {
+      console.error("[UserService] Error updating profile:", error);
+      return {
+        success: false,
+        error: error?.message || "Không thể cập nhật thông tin",
+      };
     }
-    throw new Error(response.error || "Failed to fetch users");
-  },
-
-  /**
-   * Block a user
-   */
-  block: async (userId: string, reason: string): Promise<boolean> => {
-    const response = await apiClient.post<boolean>(API_ENDPOINTS.USER_BLOCK, {
-      userId,
-      reason,
-    });
-    if (response.success) {
-      return true;
-    }
-    throw new Error(response.error || "Failed to block user");
-  },
-
-  /**
-   * Unblock a user
-   */
-  unblock: async (userId: string): Promise<boolean> => {
-    console.log("🔓 Unblocking user:", userId);
-    const response = await apiClient.post<boolean>(API_ENDPOINTS.USER_UNBLOCK, {
-      userId,
-    });
-    console.log("🔓 Unblock response:", response);
-    if (response.success) {
-      return true;
-    }
-    throw new Error(response.error || "Failed to unblock user");
-  },
-
-  /**
-   * Count users by role
-   */
-  countByRole: async (role: string): Promise<number> => {
-    const response = await apiClient.get<number>(
-      API_ENDPOINTS.USER_COUNT_BY_ROLE(role)
-    );
-    if (response.success && response.data !== undefined) {
-      return response.data;
-    }
-    throw new Error(response.error || "Failed to count users");
   },
 };

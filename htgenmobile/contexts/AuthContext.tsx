@@ -4,26 +4,25 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 
 import { apiClient } from "@/services/api";
-import { userService, UpdateUserProfilePayload } from "@/services/userService";
 import { User } from "@/types";
 
-// Kiểm tra role có được phép dùng app mobile không (STAFF hoặc ADMIN)
-const canUseMobileApp = (hospitalUser: any): boolean => {
+const isHTGenStaff = (hospitalUser: any): boolean => {
   if (!hospitalUser) {
     return false;
   }
-  const role = hospitalUser.role;
-  // Cho phép cả STAFF và ADMIN
-  return role === "ROLE_STAFF" || role === "ROLE_ADMIN";
-};
-
-// Hàm điều hướng theo role
-const navigateByRole = (role: string | undefined, router: any) => {
-  if (role === "ROLE_ADMIN") {
-    router.replace("/admin-home");
-  } else {
-    router.replace("/home");
+  if (hospitalUser.role !== "ROLE_STAFF") {
+    return false;
   }
+  
+  const hospitalId = hospitalUser.hospitalId;
+  if (hospitalId == null || hospitalId === undefined) {
+    return true;
+  }
+
+  if (hospitalId !== 1 && hospitalId !== "1") {
+    return false;
+  }
+  return true;
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -36,43 +35,35 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const checkAuth = useCallback(async () => {
     try {
-      // Luôn gọi API để lấy role mới nhất từ backend (đảm bảo role luôn đúng)
-      const userResponse = await apiClient.getCurrentUser();
-      if (userResponse.success && userResponse.data) {
-        const hospitalUser = (userResponse.data as any).hospitalUser;
-        if (hospitalUser) {
-          if (!canUseMobileApp(hospitalUser)) {
-            await AsyncStorage.removeItem("user");
-            await apiClient.logout();
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
-          const userData = mapHospitalUserToUser(hospitalUser);
-          await AsyncStorage.setItem("user", JSON.stringify(userData));
-          setUser(userData);
-          // Navigate ngay sau khi set user
-          if (userData.role === "ROLE_ADMIN") {
-            router.replace("/admin-home");
-          } else {
+      const storedUser = await AsyncStorage.getItem("user");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        router.replace("/home");
+      } else {
+        const userResponse = await apiClient.getCurrentUser();
+        if (userResponse.success && userResponse.data) {
+          const hospitalUser = (userResponse.data as any).hospitalUser;
+          if (hospitalUser) {
+            if (!isHTGenStaff(hospitalUser)) {
+              await AsyncStorage.removeItem("user");
+              await apiClient.logout();
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+            const userData = mapHospitalUserToUser(hospitalUser);
+            await AsyncStorage.setItem("user", JSON.stringify(userData));
+            setUser(userData);
             router.replace("/home");
           }
+        } else if (userResponse.error) {
+          setAuthError(userResponse.error);
+          await AsyncStorage.removeItem("user");
+          await apiClient.logout();
         }
-      } else {
-        // Không có session, xóa dữ liệu cũ
-        await AsyncStorage.removeItem("user");
-        setUser(null);
-        setAuthError(userResponse.error || null);
       }
     } catch (error) {
       console.error("Error checking auth:", error);
-      // Nếu có lỗi, thử dùng dữ liệu trong AsyncStorage
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        navigateByRole(parsedUser.role, router);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -90,50 +81,60 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       hospitalName: hospitalUser.hospitalName || "Trống",
       dateOfBirth: hospitalUser.dob || "Trống",
       hospitalId: hospitalUser.hospitalId || null,
-      avatarUrl: hospitalUser.avatarUrl || undefined,
-      role: hospitalUser.role || undefined,
+      role: hospitalUser.role || null, // Store user role for permission checks
     };
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setAuthError(null);
+      console.log("[AuthContext] Starting login for:", email);
+      
       const response = await apiClient.login(email, password);
+      console.log("[AuthContext] Login response:", response.success ? "Success" : "Failed", response.error);
 
       if (!response.success) {
         setAuthError(response.error || "Đăng nhập thất bại");
         return false;
       }
 
+      // Wait a bit to ensure token is saved to AsyncStorage
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      console.log("[AuthContext] Getting current user...");
       const userResponse = await apiClient.getCurrentUser();
+      console.log("[AuthContext] GetCurrentUser response:", userResponse.success ? "Success" : "Failed", userResponse.error);
+
       if (userResponse.success && userResponse.data) {
         const hospitalUser = (userResponse.data as any).hospitalUser;
         if (hospitalUser) {
-          if (!canUseMobileApp(hospitalUser)) {
+          if (!isHTGenStaff(hospitalUser)) {
+            console.log("[AuthContext] User is not HTGen staff");
             await apiClient.logout();
-            setAuthError("Bạn không có quyền truy cập ứng dụng mobile (chỉ STAFF và ADMIN được phép).");
+            setAuthError("Bạn không có quyền truy cập");
             return false;
           }
           const userData = mapHospitalUserToUser(hospitalUser);
           await AsyncStorage.setItem("user", JSON.stringify(userData));
-          // Set user vào state và navigate ngay lập tức
           setUser(userData);
-          // Navigate ngay sau khi set user
-          if (userData.role === "ROLE_ADMIN") {
-            router.replace("/admin-home");
-          } else {
-            router.replace("/home");
-          }
+          router.replace("/home");
           return true;
+        } else {
+          console.log("[AuthContext] No hospitalUser in response");
         }
       } else {
+        console.error("[AuthContext] Failed to get current user:", userResponse.error);
         setAuthError(userResponse.error || "Không thể lấy thông tin người dùng");
       }
 
       return false;
-    } catch (error) {
-      console.error("Error logging in:", error);
-      setAuthError("Có lỗi xảy ra khi đăng nhập");
+    } catch (error: any) {
+      console.error("[AuthContext] Error logging in:", error);
+      if (error.message?.includes("Failed to fetch") || error.message?.includes("Network")) {
+        setAuthError("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo backend server đang chạy.");
+      } else {
+        setAuthError("Có lỗi xảy ra khi đăng nhập");
+      }
       return false;
     }
   };
@@ -154,61 +155,49 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   };
 
+  const updateUser = useCallback(async (updatedUserData: Partial<User>) => {
+    try {
+      const currentUser = user;
+      if (!currentUser) return;
+
+      const updatedUser: User = {
+        ...currentUser,
+        ...updatedUserData,
+      };
+
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+    }
+  }, [user]);
+
   const clearAuthError = () => {
     setAuthError(null);
   };
 
-  const updateUserProfile = async (
-    payload: Partial<Omit<UpdateUserProfilePayload, "userId">>,
-  ): Promise<boolean> => {
-    try {
-      setAuthError(null);
-
-      if (!user?.id) {
-        setAuthError("Không tìm thấy thông tin người dùng hiện tại");
-        return false;
-      }
-
-      const response = await userService.updateProfile({
-        userId: user.id,
-        ...payload,
-      });
-
-      if (!response.success) {
-        setAuthError(response.error || "Cập nhật hồ sơ thất bại");
-        return false;
-      }
-
-      // backend trả về HospitalUser trong data
-      const hospitalUser = response.data as any;
-      if (hospitalUser) {
-        if (!canUseMobileApp(hospitalUser)) {
-          await AsyncStorage.removeItem("user");
-          await apiClient.logout();
-          setUser(null);
-          setAuthError("Bạn không có quyền truy cập");
-          return false;
-        }
-        const userData = mapHospitalUserToUser(hospitalUser);
-
-        // Nếu FE vừa gửi dob thì luôn ưu tiên hiển thị theo dob đó
-        if (payload.dob) {
-          userData.dateOfBirth = payload.dob;
-        }
-
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        return true;
-      }
-
-      setAuthError("Không thể lấy thông tin người dùng sau khi cập nhật");
-      return false;
-    } catch (error) {
-      console.error("Error updating user profile:", error);
-      setAuthError("Có lỗi xảy ra khi cập nhật hồ sơ");
-      return false;
-    }
-  };
+  /**
+   * Check if user has permission to create prescription slips
+   * Based on backend permissions:
+   * - ROLE_DOCTOR: allowed
+   * - ROLE_CUSTOMER: allowed
+   * - ROLE_STAFF: allowed
+   * - ROLE_ADMIN: allowed
+   * - ROLE_SAMPLE_COLLECTOR: not allowed
+   * - ROLE_LAB_TECHNICIAN: not allowed
+   */
+  const canCreatePrescriptionSlip = useCallback((): boolean => {
+    if (!user?.role) return false;
+    const role = user.role.toUpperCase();
+    const allowedRoles = [
+      "ROLE_DOCTOR",
+      "ROLE_CUSTOMER",
+      "ROLE_STAFF",
+      "ROLE_ADMIN",
+      "ROLE_ADMIN_HOSPITAL",
+    ];
+    return allowedRoles.includes(role);
+  }, [user]);
 
   useEffect(() => {
     checkAuth();
@@ -220,7 +209,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     authError,
     login,
     logout,
+    updateUser,
     clearAuthError,
-    updateUserProfile,
+    canCreatePrescriptionSlip,
   };
 });

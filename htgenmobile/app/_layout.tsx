@@ -10,12 +10,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
-<<<<<<< HEAD
-=======
-import { AuthProvider } from "@/contexts/AuthContext";
-import { NotificationProvider } from "@/contexts/NotificationContext";
-
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -25,43 +19,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: 'Quay lại' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="home" options={{ headerShown: false }} />
-<<<<<<< HEAD
 
-=======
-      <Stack.Screen name="admin-home" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="admin/orders"
-        options={{
-          title: "Quản lý đơn hàng",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      />
-      <Stack.Screen
-        name="admin/hospitals"
-        options={{
-          title: "Quản lý bệnh viện",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      />
-      <Stack.Screen
-        name="admin/users"
-        options={{
-          title: "Quản lý người dùng",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      />
-      <Stack.Screen
-        name="admin/services"
-        options={{
-          title: "Quản lý nội dung",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      />
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
       <Stack.Screen
         name="profile"
         options={{
@@ -139,39 +97,26 @@ function RootLayoutNav() {
       />
 
       <Stack.Screen
-        name="pending-orders"
+        name="orders-in-progress"
         options={{
-<<<<<<< HEAD
           title: 'Đơn hàng đang phân tích',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
-=======
-          title: "Đơn hàng chờ cập nhật",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
         }}
       />
 
       <Stack.Screen
-        name="additional-samples"
+        name="patient-metadatas"
         options={{
-<<<<<<< HEAD
           title: 'Quản lý mẫu xét nghiệm',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
-=======
-          title: "Danh sách mẫu bổ sung",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
         }}
       />
 
       <Stack.Screen
-        name="new-sample-add"
+        name="patient-appendices"
         options={{
-<<<<<<< HEAD
           title: 'Phụ lục bệnh nhân',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
@@ -184,11 +129,6 @@ function RootLayoutNav() {
           title: 'Kết quả xét nghiệm',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
-=======
-          title: "Thêm mẫu bổ sung",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
         }}
       />
 
@@ -264,19 +204,7 @@ function RootLayoutNav() {
           headerShown: false,
         }}
       />
-<<<<<<< HEAD
 
-=======
-      {/* TODO: Implement edit-prescription-slip screen */}
-      {/* <Stack.Screen
-        name="edit-prescription-slip"
-        options={{
-          title: "Sửa phiếu chỉ định",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      /> */}
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
       <Stack.Screen
         name="genome-tests"
         options={{
@@ -326,19 +254,7 @@ function RootLayoutNav() {
           headerTintColor: '#fff',
         }}
       />
-<<<<<<< HEAD
 
-=======
-      {/* TODO: Implement edit-customer screen */}
-      {/* <Stack.Screen
-        name="edit-customer"
-        options={{
-          title: "Sửa thông tin khách hàng",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
-        }}
-      /> */}
->>>>>>> cb60f84372c6bd502f90e74d7c48e52502bc63ba
       <Stack.Screen
         name="statistics"
         options={{

@@ -4,6 +4,8 @@ import { orderService, OrderResponse } from '@/services/orderService';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { useNotification } from '@/contexts/NotificationContext';
 
+const ENABLE_ORDER_NOTIFICATIONS = false;
+
 export function useOrderNotification() {
   const { showInfo } = useNotification();
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
@@ -20,6 +22,10 @@ export function useOrderNotification() {
   });
 
   useEffect(() => {
+    if (!ENABLE_ORDER_NOTIFICATIONS) {
+      return;
+    }
+
     if (!ordersResponse?.success || !ordersResponse.data) return;
 
     const orders = ordersResponse.data as OrderResponse[];

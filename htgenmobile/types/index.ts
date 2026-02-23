@@ -71,8 +71,7 @@ export interface User {
   hospitalName: string;
   dateOfBirth: string;
   hospitalId: string;
-  avatarUrl?: string;
-  role?: string; // ROLE_ADMIN, ROLE_STAFF, ...
+  role?: string; // User role: ROLE_DOCTOR, ROLE_STAFF, ROLE_CUSTOMER, etc.
 }
 
 export interface AdditionalSample {
