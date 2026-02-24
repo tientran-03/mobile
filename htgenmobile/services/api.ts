@@ -65,6 +65,7 @@ class ApiClient {
         url: fullUrl,
         baseURL: this.baseURL,
         endpoint,
+        headers: Object.keys(headers),
       });
       
       const response = await fetch(fullUrl, {
@@ -76,7 +77,21 @@ class ApiClient {
         status: response.status,
         statusText: response.statusText,
         url: fullUrl,
+        headers: Object.fromEntries(response.headers.entries()),
       });
+
+      // Handle specific error codes
+      if (response.status === 530) {
+        console.error("❌ Error 530: Origin is unreachable. Possible issues:");
+        console.error("  - Domain may not be configured correctly");
+        console.error("  - Backend server may not be running on this domain");
+        console.error("  - Cloudflare/reverse proxy configuration issue");
+        console.error("  - SSL/TLS certificate problem");
+        return {
+          success: false,
+          error: "Không thể kết nối đến server. Vui lòng kiểm tra:\n- Domain có đang hoạt động không?\n- Backend có đang chạy không?\n- Có thể thử dùng IP local khi phát triển",
+        };
+      }
 
       if (response.status === 401) {
         console.warn("Unauthorized - clearing token");
@@ -100,7 +115,13 @@ class ApiClient {
       if (hasBody) {
         try {
           data = await response.json();
-        } catch {
+        } catch (e) {
+          // If parse error, check if it's a 201 (might be empty body)
+          if (response.status === 201) {
+            return {
+              success: true,
+            };
+          }
           return {
             success: false,
             error: `Server error: ${response.status} ${response.statusText}`,
@@ -136,9 +157,41 @@ class ApiClient {
         };
       }
 
-      // For successful responses (200 OK)
+      // For successful responses (200 OK, 201 CREATED)
       // If data exists, return it; otherwise return success
       if (data) {
+        // Handle 201 CREATED responses
+        if (response.status === 201) {
+          if (data.success !== undefined) {
+            return {
+              success: data.success,
+              message: data.message,
+              data: data.data,
+            };
+          } else if (data.data) {
+            return {
+              success: true,
+              message: data.message,
+              data: data.data,
+            };
+          } else {
+            return {
+              success: true,
+              data: data,
+            };
+          }
+        }
+        // Log response data for debugging
+        if (__DEV__) {
+          console.log("📦 API Response Data:", {
+            hasSuccess: data.success !== undefined,
+            hasData: data.data !== undefined,
+            hasLogs: data.logs !== undefined,
+            keys: Object.keys(data),
+            dataType: Array.isArray(data) ? 'array' : typeof data,
+          });
+        }
+        
         // Check if response follows ApiResponse format
         if (data.success !== undefined) {
           // Backend returns ApiResponse format
@@ -146,13 +199,26 @@ class ApiClient {
             success: data.success,
             message: data.message,
             data: data.data,
+          } as ApiResponse<T>;
+        } else if (data.logs !== undefined) {
+          // Backend returns logs directly (for audit/security logs)
+          return {
+            success: true,
+            message: data?.message,
+            data: data as T,
+          };
+        } else if (Array.isArray(data)) {
+          // Backend returns array directly
+          return {
+            success: true,
+            data: data as T,
           };
         } else {
           // Backend returns data directly
           return {
             success: true,
             message: data?.message,
-            data: data?.data || data,
+            data: (data?.data || data) as T,
           };
         }
       }
@@ -169,15 +235,18 @@ class ApiClient {
         endpoint,
         fullUrl: `${this.baseURL}${endpoint}`,
         stack: error.stack,
+        cause: error.cause,
       };
       console.error("❌ API request error:", errorDetails);
       
       // Provide more helpful error messages
       let errorMessage = error.message || "Network error occurred";
       if (error.message?.includes("Network request failed")) {
-        errorMessage = `Không thể kết nối đến server. Kiểm tra:\n- Backend có đang chạy không?\n- IP address đúng chưa? (${this.baseURL})\n- Máy tính và điện thoại cùng WiFi?\n- Firewall có chặn không?`;
+        errorMessage = `Không thể kết nối đến server. Kiểm tra:\n- Backend có đang chạy không?\n- Domain/IP đúng chưa? (${this.baseURL})\n- Máy tính và điện thoại cùng WiFi?\n- Firewall có chặn không?\n- SSL certificate có hợp lệ không?`;
       } else if (error.message?.includes("Failed to fetch")) {
-        errorMessage = `Không thể kết nối đến server tại ${this.baseURL}. Vui lòng kiểm tra kết nối mạng.`;
+        errorMessage = `Không thể kết nối đến server tại ${this.baseURL}.\n\nCó thể do:\n- Domain chưa được cấu hình đúng\n- Backend chưa chạy trên domain này\n- Vấn đề với SSL certificate\n- Cloudflare/reverse proxy chưa được setup\n\nVui lòng kiểm tra kết nối mạng và cấu hình domain.`;
+      } else if (error.message?.includes("certificate") || error.message?.includes("SSL") || error.message?.includes("TLS")) {
+        errorMessage = `Lỗi SSL/TLS certificate khi kết nối đến ${this.baseURL}.\n\nCó thể do:\n- Certificate chưa được cấu hình đúng\n- Certificate đã hết hạn\n- Domain chưa được setup SSL`;
       }
       
       return {

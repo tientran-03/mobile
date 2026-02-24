@@ -298,6 +298,15 @@ export default function AdminOrdersScreen() {
           title: "Quản lý đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.push("/admin-home")} 
+              className="ml-2"
+              activeOpacity={0.7}
+            >
+              <ArrowLeft size={24} color="#fff" />
+            </TouchableOpacity>
+          ),
         }}
       />
 

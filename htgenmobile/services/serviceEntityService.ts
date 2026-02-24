@@ -54,14 +54,33 @@ export const serviceEntityService = {
   create: async (
     data: ServiceEntityRequest
   ): Promise<ServiceEntityResponse> => {
-    const response = await apiClient.post<ServiceEntityResponse>(
-      API_ENDPOINTS.SERVICES,
-      data
-    );
-    if (response.success && response.data) {
-      return response.data;
+    console.log("➕ Creating service:", data);
+    console.log("➕ Endpoint:", API_ENDPOINTS.SERVICES);
+    
+    try {
+      const response = await apiClient.post<ServiceEntityResponse>(
+        API_ENDPOINTS.SERVICES,
+        data
+      );
+      console.log("➕ Create response:", JSON.stringify(response, null, 2));
+      
+      if (response.success && response.data) {
+        console.log("✅ Service created successfully:", response.data);
+        return response.data;
+      }
+      
+      const errorMsg = response.error || response.message || "Failed to create service";
+      console.error("❌ Create failed:", errorMsg);
+      throw new Error(errorMsg);
+    } catch (error: any) {
+      console.error("❌ Create exception:", error);
+      console.error("❌ Create exception details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      });
+      throw error;
     }
-    throw new Error(response.error || "Failed to create service");
   },
 
   /**

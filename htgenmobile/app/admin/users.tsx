@@ -13,6 +13,8 @@ import {
   Building2,
   Shield,
   AlertCircle,
+  ArrowLeft,
+  Home,
 } from "lucide-react-native";
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -312,6 +314,15 @@ export default function AdminUsersScreen() {
           title: "Quản lý người dùng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.push("/admin-home")} 
+              className="ml-2"
+              activeOpacity={0.7}
+            >
+              <Home size={24} color="#fff" />
+            </TouchableOpacity>
+          ),
         }}
       />
 

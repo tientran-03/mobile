@@ -111,11 +111,77 @@ export default function AdminLogsScreen() {
       });
       return allEntries.slice(0, 100); // Limit to 100 entries
     } else if (activeTab === "audit") {
-      if (!auditLogsResponse?.success || !auditLogsResponse.data) return [];
-      return auditLogsResponse.data.logs || [];
+      // Handle different response formats
+      if (!auditLogsResponse) return [];
+      
+      // Check if response has success field
+      if (auditLogsResponse.success === false) return [];
+      
+      // Get data from response
+      const responseData = auditLogsResponse.data;
+      if (!responseData) {
+        console.warn("⚠️ Audit logs: No data in response");
+        return [];
+      }
+      
+      // Log data structure for debugging
+      if (__DEV__) {
+        console.log("📋 Audit logs data structure:", {
+          hasLogs: responseData.logs !== undefined,
+          isArray: Array.isArray(responseData),
+          hasContent: responseData.content !== undefined,
+          keys: Object.keys(responseData),
+        });
+      }
+      
+      // Handle different data formats
+      if (responseData.logs && Array.isArray(responseData.logs)) {
+        return responseData.logs;
+      } else if (Array.isArray(responseData)) {
+        return responseData;
+      } else if (responseData.content && Array.isArray(responseData.content)) {
+        // Paginated response
+        return responseData.content;
+      }
+      
+      console.warn("⚠️ Audit logs: Unknown data format", responseData);
+      return [];
     } else if (activeTab === "security") {
-      if (!securityLogsResponse?.success || !securityLogsResponse.data) return [];
-      return securityLogsResponse.data.logs || [];
+      // Handle different response formats
+      if (!securityLogsResponse) return [];
+      
+      // Check if response has success field
+      if (securityLogsResponse.success === false) return [];
+      
+      // Get data from response
+      const responseData = securityLogsResponse.data;
+      if (!responseData) {
+        console.warn("⚠️ Security logs: No data in response");
+        return [];
+      }
+      
+      // Log data structure for debugging
+      if (__DEV__) {
+        console.log("📋 Security logs data structure:", {
+          hasLogs: responseData.logs !== undefined,
+          isArray: Array.isArray(responseData),
+          hasContent: responseData.content !== undefined,
+          keys: Object.keys(responseData),
+        });
+      }
+      
+      // Handle different data formats
+      if (responseData.logs && Array.isArray(responseData.logs)) {
+        return responseData.logs;
+      } else if (Array.isArray(responseData)) {
+        return responseData;
+      } else if (responseData.content && Array.isArray(responseData.content)) {
+        // Paginated response
+        return responseData.content;
+      }
+      
+      console.warn("⚠️ Security logs: Unknown data format", responseData);
+      return [];
     }
     return [];
   }, [activeTab, systemLogsResponse, auditLogsResponse, securityLogsResponse]);

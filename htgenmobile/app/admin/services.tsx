@@ -11,6 +11,7 @@ import {
   Check,
   X as XIcon,
   ChevronDown,
+  ArrowLeft,
 } from "lucide-react-native";
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -89,16 +90,38 @@ export default function AdminServicesScreen() {
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: ServiceEntityRequest) =>
-      serviceEntityService.create(data),
-    onSuccess: () => {
+    mutationFn: (data: ServiceEntityRequest) => {
+      console.log("🔄 Create mutation called with:", data);
+      return serviceEntityService.create(data);
+    },
+    onSuccess: (data) => {
+      console.log("✅ Create mutation success:", data);
       queryClient.invalidateQueries({ queryKey: ["services"] });
       setShowCreateModal(false);
       resetForm();
       Alert.alert("Thành công", "Đã tạo dịch vụ mới");
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error.message || "Không thể tạo dịch vụ");
+      console.error("❌ Create mutation error:", error);
+      console.error("❌ Error details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        response: error?.response,
+      });
+      
+      let errorMessage = error?.message || error?.toString() || "Không thể tạo dịch vụ";
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes("already exists") || errorMessage.includes("duplicate")) {
+        errorMessage = "Mã dịch vụ đã tồn tại. Vui lòng sử dụng mã khác.";
+      } else if (errorMessage.includes("validation") || errorMessage.includes("invalid")) {
+        errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        errorMessage = "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.";
+      }
+      
+      Alert.alert("Lỗi", errorMessage);
     },
   });
 
@@ -200,28 +223,46 @@ export default function AdminServicesScreen() {
   };
 
   const handleServiceTypeSelect = (value: string) => {
+    console.log("🎯 Service type selected:", value);
     setFormName(value);
     setShowServiceTypePicker(false);
+    console.log("✅ Form name updated to:", value);
   };
 
   const handleCreate = () => {
+    console.log("📝 handleCreate called");
+    console.log("📝 Form data:", {
+      serviceId: formServiceId,
+      name: formName,
+      serviceIdTrimmed: formServiceId.trim(),
+      nameTrimmed: formName.trim(),
+    });
+    
     if (!formServiceId.trim() || !formName.trim()) {
+      console.warn("⚠️ Validation failed: Missing fields");
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin");
       return;
     }
+    
     // Validate service type
     const validTypes = SERVICE_TYPES.map((t) => t.value);
-    if (!validTypes.includes(formName.trim() as any)) {
+    const trimmedName = formName.trim();
+    if (!validTypes.includes(trimmedName as any)) {
+      console.warn("⚠️ Validation failed: Invalid service type", trimmedName);
       Alert.alert(
         "Lỗi",
         `Tên dịch vụ phải là một trong các giá trị: ${validTypes.join(", ")}`
       );
       return;
     }
-    createMutation.mutate({
+    
+    const requestData = {
       serviceId: formServiceId.trim(),
-      name: formName.trim(),
-    });
+      name: trimmedName,
+    };
+    
+    console.log("✅ Validation passed, calling mutation with:", requestData);
+    createMutation.mutate(requestData);
   };
 
   const handleEdit = (service: ServiceEntityResponse) => {
@@ -332,6 +373,15 @@ export default function AdminServicesScreen() {
           title: "Quản lý nội dung",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => router.push("/admin-home")} 
+              className="ml-2"
+              activeOpacity={0.7}
+            >
+              <ArrowLeft size={24} color="#fff" />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -572,7 +622,7 @@ export default function AdminServicesScreen() {
 
       {/* Create Modal */}
       <Modal
-        visible={showCreateModal}
+        visible={showCreateModal && !showServiceTypePicker}
         transparent
         animationType="fade"
         onRequestClose={() => {
@@ -606,6 +656,7 @@ export default function AdminServicesScreen() {
               <TouchableOpacity
                 className="h-11 rounded-xl px-3 bg-slate-50 border border-slate-200 flex-row items-center justify-between"
                 onPress={() => {
+                  console.log("📋 Opening service type picker for create");
                   setPickerFor("create");
                   setShowServiceTypePicker(true);
                 }}
@@ -661,7 +712,7 @@ export default function AdminServicesScreen() {
 
       {/* Edit Modal */}
       <Modal
-        visible={showEditModal}
+        visible={showEditModal && !showServiceTypePicker}
         transparent
         animationType="fade"
         onRequestClose={() => {
@@ -686,6 +737,7 @@ export default function AdminServicesScreen() {
               <TouchableOpacity
                 className="h-11 rounded-xl px-3 bg-slate-50 border border-slate-200 flex-row items-center justify-between"
                 onPress={() => {
+                  console.log("📋 Opening service type picker for edit");
                   setPickerFor("edit");
                   setShowServiceTypePicker(true);
                 }}
@@ -745,8 +797,14 @@ export default function AdminServicesScreen() {
           label: t.label,
         }))}
         selectedValue={formName}
-        onSelect={handleServiceTypeSelect}
-        onClose={() => setShowServiceTypePicker(false)}
+        onSelect={(value) => {
+          console.log("🎯 SelectionModal onSelect called with:", value);
+          handleServiceTypeSelect(value);
+        }}
+        onClose={() => {
+          console.log("❌ SelectionModal onClose called");
+          setShowServiceTypePicker(false);
+        }}
         placeholderSearch="Tìm kiếm loại dịch vụ..."
       />
     </SafeAreaView>

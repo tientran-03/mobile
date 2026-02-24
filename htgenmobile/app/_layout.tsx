@@ -1,8 +1,10 @@
 import "../global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { ArrowLeft, Home } from "lucide-react-native";
 import React, { useEffect } from "react";
+import { TouchableOpacity } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -12,6 +14,20 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+// Helper component for back button
+const BackButton = ({ toHome = false }: { toHome?: boolean }) => {
+  const router = useRouter();
+  return (
+    <TouchableOpacity 
+      onPress={() => toHome ? router.push("/admin-home") : router.back()} 
+      className="ml-2"
+      activeOpacity={0.7}
+    >
+      <ArrowLeft size={24} color="#fff" />
+    </TouchableOpacity>
+  );
+};
 
 function RootLayoutNav() {
   return (
@@ -57,6 +73,7 @@ function RootLayoutNav() {
           title: "Thông tin người dùng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -65,6 +82,7 @@ function RootLayoutNav() {
           title: "Danh sách đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -73,6 +91,7 @@ function RootLayoutNav() {
           title: "Danh sách bệnh nhân",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -81,6 +100,7 @@ function RootLayoutNav() {
           title: "Danh sách dịch vụ",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -89,6 +109,7 @@ function RootLayoutNav() {
           title: "Thêm mới đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -97,6 +118,7 @@ function RootLayoutNav() {
           title: "Tạo mới xét nghiệm",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -111,6 +133,7 @@ function RootLayoutNav() {
           title: "Thêm nhanh đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -119,6 +142,7 @@ function RootLayoutNav() {
           title: "Đơn hàng chờ cập nhật",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -127,6 +151,7 @@ function RootLayoutNav() {
           title: "Danh sách mẫu bổ sung",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -135,6 +160,7 @@ function RootLayoutNav() {
           title: "Thêm mẫu bổ sung",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -149,6 +175,7 @@ function RootLayoutNav() {
           title: "Cập nhật đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -163,6 +190,7 @@ function RootLayoutNav() {
           title: "Chi tiết đơn hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -171,6 +199,7 @@ function RootLayoutNav() {
           title: "Tạo mới bệnh nhân",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -185,6 +214,7 @@ function RootLayoutNav() {
           title: "Sửa thông tin bệnh nhân",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -193,6 +223,7 @@ function RootLayoutNav() {
           title: "Tạo mới phiếu chỉ định",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -216,6 +247,7 @@ function RootLayoutNav() {
           title: "Danh sách xét nghiệm",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -230,6 +262,7 @@ function RootLayoutNav() {
           title: "Sửa xét nghiệm",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -238,6 +271,7 @@ function RootLayoutNav() {
           title: "Danh sách khách hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
@@ -252,6 +286,7 @@ function RootLayoutNav() {
           title: "Tạo mới khách hàng",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       {/* TODO: Implement edit-customer screen */}
@@ -269,6 +304,7 @@ function RootLayoutNav() {
           title: "Báo cáo & Thống kê",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
         }}
       />
       <Stack.Screen
