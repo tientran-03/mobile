@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { API_BASE_URL } from "@/config/api";
+import { API_BASE_URL } from '@/config/api';
 
-const TOKEN_KEY = "@htgen:token";
+const TOKEN_KEY = '@htgen:token';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -22,7 +22,7 @@ class ApiClient {
     try {
       return await AsyncStorage.getItem(TOKEN_KEY);
     } catch (error) {
-      console.error("Error getting token:", error);
+      console.error('Error getting token:', error);
       return null;
     }
   }
@@ -31,7 +31,7 @@ class ApiClient {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
     } catch (error) {
-      console.error("Error setting token:", error);
+      console.error('Error setting token:', error);
     }
   }
 
@@ -39,26 +39,25 @@ class ApiClient {
     try {
       await AsyncStorage.removeItem(TOKEN_KEY);
     } catch (error) {
-      console.error("Error removing token:", error);
+      console.error('Error removing token:', error);
     }
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const token = await this.getToken();
 
-    const headers: HeadersInit & {Authorization?: string} = {
-      "Content-Type": "application/json",
+    const headers: HeadersInit & { Authorization?: string } = {
+      'Content-Type': 'application/json',
       ...options.headers,
     };
 
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-      console.log(`[API] ${options.method || "GET"} ${endpoint} - Token: ${token.substring(0, 20)}...`);
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log(
+        `[API] ${options.method || 'GET'} ${endpoint} - Token: ${token.substring(0, 20)}...`
+      );
     } else {
-      console.log(`[API] ${options.method || "GET"} ${endpoint} - No token`);
+      console.log(`[API] ${options.method || 'GET'} ${endpoint} - No token`);
     }
 
     const fullUrl = `${this.baseURL}${endpoint}`;
@@ -74,14 +73,20 @@ class ApiClient {
 
       if (response.status === 401) {
         console.warn(`[API] Unauthorized (401) for ${endpoint}`);
-        console.warn(`[API] Request had token:`, token ? `Yes (${token.substring(0, 20)}...)` : "No");
+        console.warn(
+          `[API] Request had token:`,
+          token ? `Yes (${token.substring(0, 20)}...)` : 'No'
+        );
         if (token) {
-          console.warn(`[API] Authorization header:`, headers["Authorization"]?.substring(0, 30) + "...");
+          console.warn(
+            `[API] Authorization header:`,
+            headers['Authorization']?.substring(0, 30) + '...'
+          );
         }
         await this.removeToken();
         return {
           success: false,
-          error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+          error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
         };
       }
 
@@ -92,7 +97,7 @@ class ApiClient {
       }
 
       let data;
-      const contentLength = response.headers.get("content-length");
+      const contentLength = response.headers.get('content-length');
       const hasBody = contentLength === null || parseInt(contentLength, 10) > 0;
 
       if (hasBody) {
@@ -107,34 +112,38 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        // Don't log 404 errors for patient clinical endpoints (normal - patient may not have clinical data yet)
-        const isPatientClinical404 = response.status === 404 && endpoint.includes("/patient-clinicals/patient/");
-        
+        const isPatientClinical404 =
+          response.status === 404 && endpoint.includes('/patient-clinicals/patient/');
+
         if (!isPatientClinical404) {
-          console.error("API error response:", {
+          console.error('API error response:', {
             status: response.status,
             statusText: response.statusText,
             data: JSON.stringify(data, null, 2),
           });
         }
-        
-        // Extract validation errors if available
-        let errorMessage = data?.error || data?.message || `Server error: ${response.status} ${response.statusText}`;
+
+        let errorMessage =
+          data?.error || data?.message || `Server error: ${response.status} ${response.statusText}`;
         if (data?.data && Array.isArray(data.data)) {
-          const validationErrors = data.data.map((err: any) => {
-            if (typeof err === 'object') {
-              return err.message || err.field ? `${err.field}: ${err.message}` : JSON.stringify(err);
-            }
-            return String(err);
-          }).join('; ');
+          const validationErrors = data.data
+            .map((err: any) => {
+              if (typeof err === 'object') {
+                return err.message || err.field
+                  ? `${err.field}: ${err.message}`
+                  : JSON.stringify(err);
+              }
+              return String(err);
+            })
+            .join('; ');
           if (validationErrors) {
             errorMessage = `${errorMessage}: ${validationErrors}`;
           }
           if (!isPatientClinical404) {
-            console.error("Validation errors:", data.data);
+            console.error('Validation errors:', data.data);
           }
         }
-        
+
         return {
           success: false,
           error: errorMessage,
@@ -147,87 +156,87 @@ class ApiClient {
         data: data?.data,
       };
     } catch (error: any) {
-      console.error("API request error:", error);
+      console.error('API request error:', error);
       return {
         success: false,
-        error: error.message || "Network error occurred",
+        error: error.message || 'Network error occurred',
       };
     }
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "GET" });
+    return this.request<T>(endpoint, { method: 'GET' });
   }
 
   async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "POST",
+      method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "PUT",
+      method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async patch<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "PATCH",
+      method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "DELETE" });
+    return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
   async login(email: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.post("/api/auth/login", { email, password });
+    const response = await this.post('/api/auth/login', { email, password });
 
-    console.log("[Login] Full response:", JSON.stringify(response, null, 2));
+    console.log('[Login] Full response:', JSON.stringify(response, null, 2));
 
     if (response.success && response.data) {
       const data = response.data as any;
-      console.log("[Login] Response data:", JSON.stringify(data, null, 2));
-      
-      // Support multiple possible token field names from backend
+      console.log('[Login] Response data:', JSON.stringify(data, null, 2));
+
       const token = data.sessionId || data.token || data.accessToken || data.jwt;
 
       if (token) {
-        console.log("[Login] Token extracted successfully:", { 
-          token: token.substring(0, 20) + "...", 
+        console.log('[Login] Token extracted successfully:', {
+          token: token.substring(0, 20) + '...',
           tokenType: Object.keys(data).find(k => data[k] === token),
-          tokenLength: token.length
+          tokenLength: token.length,
         });
         await this.setToken(token);
-        
-        // Verify token was saved
         const savedToken = await this.getToken();
-        console.log("[Login] Token saved verification:", savedToken ? "✅ Saved" : "❌ Not saved");
+        console.log('[Login] Token saved verification:', savedToken ? ' Saved' : ' Not saved');
         if (savedToken) {
-          console.log("[Login] Saved token preview:", savedToken.substring(0, 20) + "...");
+          console.log('[Login] Saved token preview:', savedToken.substring(0, 20) + '...');
         }
       } else {
-        console.error("[Login] No token found in login response. Available keys:", Object.keys(data));
-        console.error("[Login] Full data object:", data);
+        console.error(
+          '[Login] No token found in login response. Available keys:',
+          Object.keys(data)
+        );
+        console.error('[Login] Full data object:', data);
       }
     } else {
-      console.error("[Login] Login failed:", response.error || "Unknown error");
+      console.error('[Login] Login failed:', response.error || 'Unknown error');
     }
 
     return response;
   }
 
   async logout(): Promise<void> {
-    await this.post("/api/auth/logout");
+    await this.post('/api/auth/logout');
     await this.removeToken();
   }
 
   async getCurrentUser(): Promise<ApiResponse<any>> {
-    return this.get("/api/auth/me");
+    return this.get('/api/auth/me');
   }
 }
 
