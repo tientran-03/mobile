@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import React, { useCallback, useMemo } from "react";
-import { Image, ImageBackground, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image, ImageBackground, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,10 +27,7 @@ const isPendingStatus = (status: string): boolean => {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { logout, canCreatePrescriptionSlip } = useAuth();
-
-  // Monitor for new orders with initiation status
-  useOrderNotification();
+  const { logout } = useAuth();
 
   const { data: ordersResponse } = useQuery({
     queryKey: ["orders"],
@@ -51,141 +48,129 @@ export default function HomeScreen() {
     return orders.filter((o) => String(o.orderStatus).toLowerCase() === 'initiation').length;
   }, [ordersResponse]);
 
-  // Filter menu items based on permissions
-  const menuItems = useMemo(() => {
-    const canCreate = canCreatePrescriptionSlip();
-    const allMenuItems: MenuItem[] = [
-      {
-        id: "1",
-        title: "Thêm nhanh\nđơn hàng",
-        icon: <Image
-              source={require("@/assets/images/1.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/quick-order",
-      },
-      {
-        id: "2",
-        title: "Thêm mới\nđơn hàng",
-        icon: <Image
-              source={require("@/assets/images/1.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/create-order",
-      },
-      {
-        id: "3",
-        title: "Danh sách\nbệnh nhân",
-        icon: <Image
-              source={require("@/assets/images/3.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/patients",
-      },
-      {
-        id: "5",
-        title: "Danh sách\ndịch vụ",
-        icon: <Image
-              source={require("@/assets/images/4.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/services",
-      },
-      {
-        id: "6",
-        title: "Báo cáo\nthống kê",
-        icon: <Image
-              source={require("@/assets/images/5.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/statistics",
-      },
-      {
-        id: "7",
-        title: "Danh sách\nđơn hàng",
-        icon: <Image
-              source={require("@/assets/images/6.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/orders",
-        badge: initiationOrdersCount > 0 ? initiationOrdersCount : undefined,
-      },
-      {
-        id: "8",
-        title: "Thông tin\nngười dùng",
-        icon: <Image
-              source={require("@/assets/images/7.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/profile",
-      },
-      {
-        id: "9",
-        title: "Phiếu chỉ\nđịnh",
-        icon: <Image
-              source={require("@/assets/images/6.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/prescription-slips",
-      },
-      {
-        id: "10",
-        title: "Phiếu chỉ\nđịnh đã có k...",
-        icon: <Image
-              source={require("@/assets/images/8.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/prescription-slips",
-      },
-      {
-        id: "12",
-        title: "Đơn hàng đang\nphân tích",
-        icon: <Image
-              source={require("@/assets/images/6.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/orders-in-progress",
-      },
-      {
-        id: "13",
-        title: "Quản lý mẫu\nxét nghiệm",
-        icon: <Image
-              source={require("@/assets/images/3.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "/patient-metadatas",
-      },
-      {
-        id: "16",
-        title: "Đăng xuất",
-        icon: <Image
-              source={require("@/assets/images/9.png")}
-              className="w-16 h-16"
-              resizeMode="contain"
-            />,
-        route: "logout",
-      },
-    ];
-
-    // Hide prescription slip items (id "9" and "10") if user doesn't have permission
-    return allMenuItems.filter((item) => {
-      if ((item.id === "9" || item.id === "10") && !canCreate) {
-        return false;
-      }
-      return true;
-    });
-  }, [canCreatePrescriptionSlip, pendingOrdersCount, initiationOrdersCount]);
+  const menuItems: MenuItem[] = [
+    {
+      id: "1",
+      title: "Thêm nhanh\nđơn hàng",
+      icon: <Image
+            source={require("@/assets/images/1.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/quick-order",
+    },
+    {
+      id: "2",
+      title: "Thêm mới\nđơn hàng",
+      icon: <Image
+            source={require("@/assets/images/1.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/create-order",
+    },
+    {
+      id: "3",
+      title: "Thêm mẫu bổ\nsung",
+      icon: <Image
+            source={require("@/assets/images/2.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/additional-samples",
+    },
+    {
+      id: "4",
+      title: "Danh sách\nbệnh nhân",
+      icon: <Image
+            source={require("@/assets/images/3.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/patients",
+    },
+    {
+      id: "5",
+      title: "Danh sách\ndịch vụ",
+      icon: <Image
+            source={require("@/assets/images/4.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/services",
+    },
+    {
+      id: "6",
+      title: "Báo cáo\nthống kê",
+      icon: <Image
+            source={require("@/assets/images/5.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/statistics",
+    },
+    {
+      id: "7",
+      title: "Danh sách\nđơn hàng",
+      icon: <Image
+            source={require("@/assets/images/6.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/orders",
+    },
+    {
+      id: "8",
+      title: "Thông tin\nngười dùng",
+      icon: <Image
+            source={require("@/assets/images/7.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/profile",
+    },
+    {
+      id: "9",
+      title: "Phiếu chỉ\nđịnh",
+      icon: <Image
+            source={require("@/assets/images/6.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/prescription-slips",
+    },
+    {
+      id: "10",
+      title: "Phiếu chỉ\nđịnh đã có k...",
+      icon: <Image
+            source={require("@/assets/images/8.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/prescription-slips",
+    },
+    {
+      id: "11",
+      title: "Đơn hàng chờ\ncập nhật",
+      icon: <Image
+            source={require("@/assets/images/6.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "/pending-orders",
+      badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined,
+    },
+    {
+      id: "12",
+      title: "Đăng xuất",
+      icon: <Image
+            source={require("@/assets/images/9.png")}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />,
+      route: "logout",
+    },
+  ];
 
   const handleMenuPress = useCallback(
     (item: MenuItem) => {
@@ -205,20 +190,13 @@ export default function HomeScreen() {
       <ImageBackground
         source={require("@/assets/images/bg.png")}
         className="pt-12 pb-6 px-6"
-        style={Platform.select({
-          ios: {
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-          },
-          android: {
-            elevation: 3,
-          },
-          web: {
-            boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
-          },
-        })}
+        style={{ 
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        }}
         resizeMode="cover"
       >
         <View className="w-64 h-16">
@@ -239,20 +217,13 @@ export default function HomeScreen() {
             <View key={item.id} className="w-1/3 px-2 mb-4">
               <TouchableOpacity
                 className="bg-white rounded-xl p-4 items-center border border-gray-100"
-                style={Platform.select({
-                  ios: {
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 2,
-                  },
-                  android: {
-                    elevation: 1,
-                  },
-                  web: {
-                    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.05)",
-                  },
-                })}
+                style={{
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 2,
+                  elevation: 1,
+                }}
                 activeOpacity={0.7}
                 onPress={() => handleMenuPress(item)}
               >

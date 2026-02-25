@@ -22,21 +22,6 @@ export interface PatientMetadataRequest {
 }
 
 export const patientMetadataService = {
-  getAll: async (): Promise<ApiResponse<PatientMetadataResponse[]>> => {
-    try {
-      const response = await apiClient.get<PatientMetadataResponse[]>(
-        API_ENDPOINTS.PATIENT_METADATA
-      );
-      return response;
-    } catch (error: any) {
-      console.error("[PatientMetadataService] Error fetching all patient metadata:", error);
-      return {
-        success: false,
-        error: error?.message || "Không thể lấy danh sách patient metadata",
-      };
-    }
-  },
-
   getByPatientId: async (patientId: string): Promise<ApiResponse<PatientMetadataResponse[]>> => {
     try {
       console.log("[PatientMetadataService] Fetching metadata for patientId:", patientId);

@@ -116,9 +116,12 @@ export default function QuickOrderScreen() {
   const orders = (ordersResponse as any)?.success
     ? ((ordersResponse as any).data as OrderResponse[]) || []
     : [];
+
+  // Get set of specify IDs that already have orders
   const usedSpecifyIds = useMemo(() => {
     const ids = new Set<string>();
     orders.forEach(order => {
+      // specifyId can be an object with specifyVoteID or a string
       if (order.specifyId) {
         if (typeof order.specifyId === 'object' && order.specifyId.specifyVoteID) {
           ids.add(order.specifyId.specifyVoteID);
@@ -129,6 +132,8 @@ export default function QuickOrderScreen() {
     });
     return ids;
   }, [orders]);
+
+  // Filter specifies to exclude those that already have orders
   const specifies = useMemo(() => {
     return allSpecifies.filter(specify => !usedSpecifyIds.has(specify.specifyVoteID));
   }, [allSpecifies, usedSpecifyIds]);
@@ -142,12 +147,14 @@ export default function QuickOrderScreen() {
       if (doctor.hospitalId && !hospitalMap.has(doctor.hospitalId)) {
         hospitalMap.set(doctor.hospitalId, {
           hospitalId: doctor.hospitalId,
-          hospitalName: doctor.hospitalName || doctor.hospitalId,
+          hospitalName: doctor.hospitalName || doctor.hospitalId, // Sử dụng hospitalName từ doctor response
         });
       }
     });
     return Array.from(hospitalMap.values());
   }, [doctors]);
+
+  // Ref to store pending payment info for redirect after mutation
   const pendingPaymentRef = useRef<{
     paymentType: string;
     orderName: string;
@@ -172,7 +179,10 @@ export default function QuickOrderScreen() {
 
       const createdOrder = response.data;
       const pendingPayment = pendingPaymentRef.current;
+
+      // Check if payment type is ONLINE_PAYMENT
       if (pendingPayment?.paymentType === 'ONLINE_PAYMENT' && createdOrder?.orderId) {
+        // Navigate to payment screen
         router.push({
           pathname: '/payment',
           params: {
@@ -184,6 +194,7 @@ export default function QuickOrderScreen() {
         });
         pendingPaymentRef.current = null;
       } else {
+        // Show success alert for CASH payment
         Alert.alert(
           'Thành công',
           'Đơn hàng đã được tạo thành công.\nBạn có thể xem trong danh sách đơn hàng.',
@@ -412,6 +423,8 @@ export default function QuickOrderScreen() {
       const cleanPayload = Object.fromEntries(
         Object.entries(payload).filter(([_, v]) => v !== null && v !== undefined && v !== '')
       ) as Record<string, unknown>;
+
+      // Store payment info for potential redirect after order creation
       const paymentAmount = formData.paymentAmount?.trim()
         ? parseFloat(formData.paymentAmount)
         : 0;

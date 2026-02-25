@@ -1,4 +1,5 @@
 import { Stack, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import {
   ChevronDown,
   ChevronUp,
@@ -11,7 +12,6 @@ import {
   Building2,
   Calendar,
   BadgeCheck,
-  Edit,
   Save,
   X,
 } from "lucide-react-native";
@@ -24,37 +24,25 @@ import {
   Platform,
   UIManager,
   LayoutAnimation,
-  StatusBar,
+  TextInput,
   Alert,
-  ActivityIndicator,
+  Image,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useForm, FormProvider } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { FormInput } from "@/components/form/FormInput";
-import { FormSelect } from "@/components/form/FormSelect";
-import { profileSchema, ProfileFormData, GENDER_OPTIONS } from "@/lib/schemas/profile-schema";
-import { userService } from "@/services/userService";
+import { uploadImageToCloudinary } from "@/utils/cloudinary";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUserProfile } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const form = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      displayName: "",
-      phone: "",
-      address: "",
-      dob: "",
-      gender: undefined,
-    },
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -64,25 +52,12 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user) {
-      // Map gender from Vietnamese to backend enum
-      let genderValue: "male" | "female" | undefined = undefined;
-      if (user.gender && user.gender !== "Trống") {
-        if (user.gender === "Nam" || user.gender.toLowerCase() === "male") {
-          genderValue = "male";
-        } else if (user.gender === "Nữ" || user.gender.toLowerCase() === "female") {
-          genderValue = "female";
-        }
-      }
-
-      form.reset({
-        displayName: user.name || "",
-        phone: user.phone || "",
-        address: "",
-        dob: user.dateOfBirth && user.dateOfBirth !== "Trống" ? user.dateOfBirth : "",
-        gender: genderValue,
-      });
+      setName(user.name ?? "");
+      setPhone(user.phone ?? "");
+      setDateOfBirth(user.dateOfBirth ?? "");
+      setGender(user.gender ?? "");
     }
-  }, [user, form]);
+  }, [user]);
 
   if (!user) return null;
 
@@ -102,59 +77,167 @@ export default function ProfileScreen() {
     setIsExpanded((v) => !v);
   };
 
-  const onSubmit = async (data: ProfileFormData) => {
-    if (!user?.id) {
-      Alert.alert("Lỗi", "Không tìm thấy thông tin người dùng");
+  const handleStartEdit = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    if (user) {
+      setName(user.name ?? "");
+      setPhone(user.phone ?? "");
+      setDateOfBirth(user.dateOfBirth ?? "");
+      setGender(user.gender ?? "");
+    }
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!user || isSaving) return;
+
+    if (!name.trim()) {
+      Alert.alert("Thiếu thông tin", "Vui lòng nhập họ tên.");
       return;
     }
 
-    setIsLoading(true);
     try {
-      const response = await userService.updateProfile({
-        userId: user.id,
-        displayName: data.displayName,
-        phone: data.phone || undefined,
-        address: data.address || undefined,
-        dob: data.dob || undefined,
-        gender: data.gender as "male" | "female" | undefined,
-      });
+      setIsSaving(true);
+      const payload: any = {
+        displayName: name.trim(),
+      };
 
-      if (response.success && response.data) {
-        const updatedUser = response.data;
-        // Update auth context
-        // Map gender from backend enum (male/female) to Vietnamese display
-        let genderDisplay = user.gender;
-        if (updatedUser.gender === "male") {
-          genderDisplay = "Nam";
-        } else if (updatedUser.gender === "female") {
-          genderDisplay = "Nữ";
+      const phoneVal = phone.trim();
+      if (phoneVal) {
+        payload.phone = phoneVal;
+      }
+
+      const dobVal = dateOfBirth.trim();
+      if (dobVal && dobVal !== "Trống") {
+        let formattedDob = dobVal;
+        const isoMatch = dobVal.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+          const [, year, month, day] = isoMatch;
+          formattedDob = `${day}/${month}/${year}`;
+        }
+        payload.dob = formattedDob;
+      }
+
+      const genderVal = gender.trim();
+      if (genderVal && genderVal !== "Trống") {
+        const normalized = genderVal.toLowerCase();
+        let backendGender: string | undefined;
+
+        // Backend enum: gender { male, female }
+        if (normalized === "nam" || normalized === "male") {
+          backendGender = "male";
+        } else if (
+          normalized === "nữ" ||
+          normalized === "nu" ||
+          normalized === "female"
+        ) {
+          backendGender = "female";
         }
 
-        updateUser({
-          name: updatedUser.displayName || user.name,
-          phone: updatedUser.phone || user.phone,
-          dateOfBirth: updatedUser.dob || user.dateOfBirth,
-          gender: genderDisplay,
-        });
-        Alert.alert("Thành công", "Cập nhật thông tin thành công!");
-        setIsEditing(false);
-      } else {
-        Alert.alert("Lỗi", response.error || response.message || "Không thể cập nhật thông tin");
+        if (backendGender) {
+          payload.gender = backendGender;
+        }
       }
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Lỗi", error?.message || "Có lỗi xảy ra khi cập nhật thông tin");
+
+      const success = await updateUserProfile(payload);
+
+      if (success) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setIsEditing(false);
+        Alert.alert("Thành công", "Cập nhật hồ sơ thành công.");
+      } else {
+        Alert.alert(
+          "Thất bại",
+          "Không thể cập nhật hồ sơ. Vui lòng thử lại sau.",
+        );
+      }
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handleChangeAvatar = async () => {
+    if (!user || isUploadingAvatar) return;
+
+    // Hiện tại upload Cloudinary chỉ hỗ trợ tốt trên mobile (iOS/Android)
+    // Web preview với expo có thể bị lỗi file [object Object]
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "Thông báo",
+        "Đổi ảnh đại diện hiện chỉ hỗ trợ trên mobile (iOS/Android). Vui lòng chạy trên thiết bị hoặc emulator.",
+      );
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Quyền truy cập",
+          "Ứng dụng cần quyền truy cập thư viện ảnh để chọn avatar.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]?.uri) {
+        return;
+      }
+
+      const uri = result.assets[0].uri;
+
+      // Upload lên Cloudinary
+      const uploaded = await uploadImageToCloudinary(uri, {
+        folder: "avatars",
+      });
+
+      if (!uploaded.secureUrl) {
+        Alert.alert("Lỗi", "Không thể tải ảnh lên. Vui lòng thử lại.");
+        return;
+      }
+
+      const success = await updateUserProfile({
+        avatarUrl: uploaded.secureUrl,
+      });
+
+      if (success) {
+        Alert.alert("Thành công", "Cập nhật ảnh đại diện thành công.");
+      } else {
+        Alert.alert(
+          "Thất bại",
+          "Không thể cập nhật ảnh đại diện. Vui lòng thử lại sau.",
+        );
+      }
+    } catch (error) {
+      console.error("Error changing avatar:", error);
+      Alert.alert(
+        "Lỗi",
+        "Có lỗi xảy ra khi cập nhật ảnh đại diện. Vui lòng thử lại.",
+      );
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-sky-50" edges={['top', 'left', 'right']}>
+    <View className="flex-1 bg-sky-50">
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="dark-content" />
 
-      <View className="pb-3 px-4 bg-white border-b border-sky-100">
+      <View className="pt-14 pb-3 px-4 bg-white border-b border-sky-100">
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -190,9 +273,74 @@ export default function ProfileScreen() {
           <View className="px-4 pb-4 -mt-10">
             <View className="flex-row items-end justify-between">
               <View className="w-20 h-20 rounded-[40px] bg-white border border-sky-100 items-center justify-center">
-                <View className="w-16 h-16 rounded-[32px] bg-sky-50 border border-sky-200 items-center justify-center">
-                  <UserIcon size={34} color="#0284C7" />
+                <View className="w-16 h-16 rounded-[32px] bg-sky-50 border border-sky-200 items-center justify-center overflow-hidden">
+                  {user.avatarUrl ? (
+                    <Image
+                      source={{ uri: user.avatarUrl }}
+                      className="w-16 h-16"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <UserIcon size={34} color="#0284C7" />
+                  )}
                 </View>
+                <TouchableOpacity
+                  onPress={handleChangeAvatar}
+                  activeOpacity={0.85}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-sky-600 border border-white items-center justify-center"
+                >
+                  {isUploadingAvatar ? (
+                    <Text className="text-[9px] font-extrabold text-white">
+                      ...
+                    </Text>
+                  ) : (
+                    <Text className="text-[9px] font-extrabold text-white">
+                      Sửa
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View className="flex-row space-x-2">
+                {isEditing ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={handleCancelEdit}
+                      className="px-3 py-1.5 rounded-2xl bg-slate-100 border border-slate-200 flex-row items-center"
+                      activeOpacity={0.85}
+                    >
+                      <X size={14} color="#0F172A" />
+                      <Text className="ml-1 text-xs font-extrabold text-slate-800">
+                        Hủy
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSave}
+                      disabled={isSaving}
+                      className={`px-3 py-1.5 rounded-2xl flex-row items-center border ${
+                        isSaving
+                          ? "bg-sky-200 border-sky-200"
+                          : "bg-sky-600 border-sky-600"
+                      }`}
+                      activeOpacity={0.85}
+                    >
+                      <Save size={14} color="#FFFFFF" />
+                      <Text className="ml-1 text-xs font-extrabold text-white">
+                        {isSaving ? "Đang lưu..." : "Lưu"}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleStartEdit}
+                    className="px-3 py-1.5 rounded-2xl bg-sky-50 border border-sky-200 flex-row items-center"
+                    activeOpacity={0.85}
+                  >
+                    <Text className="text-xs font-extrabold text-sky-700">
+                      Chỉnh sửa
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -236,127 +384,91 @@ export default function ProfileScreen() {
         </View>
 
         <View className="mt-4 bg-white rounded-2xl border border-sky-100 overflow-hidden">
-          <View className="flex-row justify-between items-center p-4 border-b border-sky-100">
-            <TouchableOpacity
-              className="flex-1 flex-row justify-between items-center"
-              onPress={onToggle}
-              activeOpacity={0.85}
+          <TouchableOpacity
+            className="flex-row justify-between items-center p-4 border-b border-sky-100"
+            onPress={onToggle}
+            activeOpacity={0.85}
+          >
+            <View>
+              <Text className="text-[15px] font-extrabold text-slate-900">
+                Thông tin cơ bản
+              </Text>
+              <Text className="mt-0.5 text-xs font-bold text-slate-500">
+                Chi tiết tài khoản của bạn
+              </Text>
+            </View>
+
+            <View
+              className={`w-9 h-9 rounded-xl items-center justify-center border ${
+                isExpanded
+                  ? "bg-sky-600 border-sky-600"
+                  : "bg-sky-50 border-sky-200"
+              }`}
             >
-              <View>
-                <Text className="text-[15px] font-extrabold text-slate-900">
-                  {isEditing ? "Chỉnh sửa thông tin" : "Thông tin cơ bản"}
-                </Text>
-                <Text className="mt-0.5 text-xs font-bold text-slate-500">
-                  {isEditing ? "Cập nhật thông tin của bạn" : "Chi tiết tài khoản của bạn"}
-                </Text>
-              </View>
-
-              <View
-                className={`w-9 h-9 rounded-xl items-center justify-center border ${
-                  isExpanded
-                    ? "bg-sky-600 border-sky-600"
-                    : "bg-sky-50 border-sky-200"
-                }`}
-              >
-                {isExpanded ? (
-                  <ChevronUp
-                    size={18}
-                    color={isExpanded ? "#FFFFFF" : "#0284C7"}
-                  />
-                ) : (
-                  <ChevronDown
-                    size={18}
-                    color={isExpanded ? "#FFFFFF" : "#0284C7"}
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-
-            {!isEditing && (
-              <TouchableOpacity
-                onPress={() => setIsEditing(true)}
-                className="ml-3 px-3 py-2 rounded-xl bg-sky-600 flex-row items-center"
-                activeOpacity={0.8}
-              >
-                <Edit size={16} color="#fff" />
-                <Text className="ml-1 text-white text-xs font-extrabold">Sửa</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+              {isExpanded ? (
+                <ChevronUp
+                  size={18}
+                  color={isExpanded ? "#FFFFFF" : "#0284C7"}
+                />
+              ) : (
+                <ChevronDown
+                  size={18}
+                  color={isExpanded ? "#FFFFFF" : "#0284C7"}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
 
           {isExpanded && (
             <View className="p-4">
               {isEditing ? (
-                <FormProvider {...form}>
-                  <ScrollView showsVerticalScrollIndicator={false}>
-                    <FormInput
-                      name="displayName"
-                      label="Tên hiển thị"
-                      placeholder="Nhập tên hiển thị"
-                      required
+                <>
+                  <View className="mb-3">
+                    <Text className="text-[11px] font-extrabold text-slate-500 mb-1.5">
+                      Họ tên người dùng
+                    </Text>
+                    <TextInput
+                      value={name}
+                      onChangeText={setName}
+                      placeholder="Nhập họ tên"
+                      className="rounded-2xl border border-sky-200 px-3 py-2.5 text-[13px] text-slate-900 bg-white"
                     />
-
-                    <FormInput
-                      name="phone"
-                      label="Số điện thoại"
+                  </View>
+                  <View className="mb-3">
+                    <Text className="text-[11px] font-extrabold text-slate-500 mb-1.5">
+                      Số điện thoại
+                    </Text>
+                    <TextInput
+                      value={phone}
+                      onChangeText={setPhone}
                       placeholder="Nhập số điện thoại"
                       keyboardType="phone-pad"
+                      className="rounded-2xl border border-sky-200 px-3 py-2.5 text-[13px] text-slate-900 bg-white"
                     />
-
-                    <FormInput
-                      name="dob"
-                      label="Ngày sinh (dd/MM/yyyy)"
-                      placeholder="VD: 01/01/1990"
+                  </View>
+                  <View className="mb-3">
+                    <Text className="text-[11px] font-extrabold text-slate-500 mb-1.5">
+                      Ngày sinh
+                    </Text>
+                    <TextInput
+                      value={dateOfBirth}
+                      onChangeText={setDateOfBirth}
+                      placeholder="dd/MM/yyyy"
+                      className="rounded-2xl border border-sky-200 px-3 py-2.5 text-[13px] text-slate-900 bg-white"
                     />
-
-                    <FormSelect
-                      name="gender"
-                      label="Giới tính"
-                      options={GENDER_OPTIONS}
-                      getLabel={(opt) => opt.label}
-                      getValue={(opt) => opt.value}
-                      placeholder="Chọn giới tính"
+                  </View>
+                  <View className="mb-1">
+                    <Text className="text-[11px] font-extrabold text-slate-500 mb-1.5">
+                      Giới tính
+                    </Text>
+                    <TextInput
+                      value={gender}
+                      onChangeText={setGender}
+                      placeholder="Nam / Nữ / Khác"
+                      className="rounded-2xl border border-sky-200 px-3 py-2.5 text-[13px] text-slate-900 bg-white"
                     />
-
-                    <FormInput
-                      name="address"
-                      label="Địa chỉ"
-                      placeholder="Nhập địa chỉ"
-                      multiline
-                      numberOfLines={3}
-                    />
-
-                    <View className="flex-row gap-3 mt-4">
-                      <TouchableOpacity
-                        onPress={() => {
-                          setIsEditing(false);
-                          form.reset();
-                        }}
-                        className="flex-1 px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 flex-row items-center justify-center"
-                        activeOpacity={0.8}
-                      >
-                        <X size={18} color="#64748B" />
-                        <Text className="ml-2 text-slate-700 font-extrabold">Hủy</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={form.handleSubmit(onSubmit)}
-                        disabled={isLoading}
-                        className="flex-1 px-4 py-3 rounded-xl bg-sky-600 flex-row items-center justify-center"
-                        activeOpacity={0.8}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <>
-                            <Save size={18} color="#fff" />
-                            <Text className="ml-2 text-white font-extrabold">Lưu</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </ScrollView>
-                </FormProvider>
+                  </View>
+                </>
               ) : (
                 infoItems.map((item, index) => {
                   const Icon = item.icon;
@@ -390,6 +502,6 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

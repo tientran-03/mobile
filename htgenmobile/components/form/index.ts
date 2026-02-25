@@ -10,5 +10,8 @@ export { FormReadOnly } from './FormReadOnly';
 export { FormSelect } from './FormSelect';
 export { FormTextarea } from './FormTextarea';
 export { SimpleFormSelect } from './SimpleFormSelect';
+// eslint-disable-next-line import/export
 export type { SelectOption } from './SimpleFormSelect';
+
+// eslint-disable-next-line import/export
 export * from './types';

@@ -25,12 +25,10 @@ export default function LoginScreen() {
 
   const [focusField, setFocusField] = useState<"email" | "password" | null>(null);
 
-  const { login, user, isLoading: authLoading } = useAuth();
+  const { login, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (user && !authLoading) router.replace("/home");
-  }, [user, authLoading, router]);
+  // Không cần useEffect redirect ở đây vì navigation đã được xử lý trong login() function
 
   const emailTrim = useMemo(() => email.trim(), [email]);
 
@@ -47,7 +45,7 @@ export default function LoginScreen() {
     if (!success) {
       Alert.alert(
         "Lỗi đăng nhập",
-        "Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có nhân viên staff của HTGen (hospitalId = 1) mới có thể đăng nhập mobile."
+        "Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có tài khoản STAFF và ADMIN mới có thể đăng nhập ứng dụng mobile."
       );
     }
   };

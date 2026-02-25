@@ -1,700 +1,1144 @@
-import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Edit,
+  Trash2,
+} from "lucide-react-native";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  RefreshControl,
+  Modal,
   ScrollView,
-  StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Calendar,
-  CreditCard,
-  FileText,
-  FlaskConical,
-  Hospital,
-  MapPin,
-  Package,
-  Phone,
-  Stethoscope,
-  User,
-  Trash2,
-  Edit,
-  Wallet,
-  Building2,
-  TestTube,
-  ClipboardList,
-  Hash,
-  Mail,
-  Briefcase,
-  Users,
-  Heart,
-  Activity,
-  AlertTriangle,
-  Pill,
-  BadgeCheck,
-  ListChecks,
-} from 'lucide-react-native';
+} from "react-native";
 
-import { ConfirmModal, SuccessModal } from '@/components/modals';
-import { COLORS } from '@/constants/colors';
-import { OrderResponse, orderService } from '@/services/orderService';
+import { COLORS } from "@/constants/colors";
+import { getOrderStatusLabel } from "@/lib/constants/order-status";
+import { OrderResponse, orderService } from "@/services/orderService";
+import { patientService, PatientResponse } from "@/services/patientService";
+import { patientClinicalService, PatientClinicalResponse } from "@/services/patientClinicalService";
+import { doctorService, DoctorResponse } from "@/services/doctorService";
+import { genomeTestService, GenomeTestResponse } from "@/services/genomeTestService";
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
+const isPendingUpdateStatus = (status?: string): boolean => {
+  const s = (status || "").toLowerCase();
+  return (
+    s === "initiation" ||
+    s === "accepted" ||
+    s === "in_progress" ||
+    s === "forward_analysis"
+  );
+};
+
+const formatCurrency = (amount?: number): string => {
+  if (!amount) return "0";
+  return new Intl.NumberFormat("vi-VN").format(amount);
+};
+
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return "";
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return dateString;
   }
 };
 
-const formatDateTime = (dateString?: string) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return dateString;
-  }
+const getPaymentStatusLabel = (status?: string): string => {
+  if (!status) return "Chưa xác định";
+  const s = status.toUpperCase();
+  const statusMap: Record<string, string> = {
+    PENDING: "Chờ thanh toán",
+    COMPLETED: "Đã thanh toán",
+    FAILED: "Thanh toán thất bại",
+    UNPAID: "Chưa thanh toán",
+  };
+  return statusMap[s] || status;
 };
 
-const formatCurrency = (amount?: number) => {
-  if (amount === undefined || amount === null) return '-';
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(amount);
-};
-
-const getPaymentTypeLabel = (type?: string) => {
-  if (!type) return '-';
-  switch (type.toUpperCase()) {
-    case 'CASH':
-      return 'Tiền mặt';
-    case 'ONLINE_PAYMENT':
-      return 'Chuyển khoản';
-    default:
-      return type;
-  }
-};
-
-const Card = ({ children }: { children: React.ReactNode }) => (
-  <View className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-    {children}
-  </View>
-);
-
-const Section = ({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) => (
-  <Card>
-    <View className="flex-row items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
-      {icon}
-      <Text className="text-[15px] font-bold text-slate-900">{title}</Text>
-    </View>
-    <View className="px-4 py-3">{children}</View>
-  </Card>
-);
-
-const InfoRow = ({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value?: string | number | null;
-  icon?: React.ReactNode;
-}) => {
-  if (!value && value !== 0) return null;
-
-  return (
-    <View className="flex-row items-start py-2">
-      {icon ? (
-        <View className="w-9 h-9 rounded-xl bg-slate-100 items-center justify-center mr-3">
-          {icon}
-        </View>
-      ) : (
-        <View className="w-9 mr-3" />
-      )}
-
-      <View className="flex-1">
-        <Text className="text-[12px] text-slate-500">{label}</Text>
-        <Text className="text-[14px] font-semibold text-slate-900 mt-0.5">{String(value)}</Text>
-      </View>
-    </View>
-  );
-};
-
-const StatusBadge = ({
-  status,
-  type = 'order',
-}: {
-  status?: string;
-  type?: 'order' | 'payment';
-}) => {
-  const cfg = useMemo(() => {
-    if (!status) return { label: '-', bg: 'bg-slate-200', text: 'text-slate-700' };
-    const s = status.toUpperCase();
-
-    if (type === 'payment') {
-      switch (s) {
-        case 'COMPLETED':
-          return { label: 'Đã thanh toán', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-        case 'PENDING':
-          return { label: 'Chờ thanh toán', bg: 'bg-amber-100', text: 'text-amber-800' };
-        case 'FAILED':
-          return { label: 'Thất bại', bg: 'bg-rose-100', text: 'text-rose-700' };
-        case 'UNPAID':
-          return { label: 'Chưa thanh toán', bg: 'bg-slate-200', text: 'text-slate-700' };
-        default:
-          return { label: status, bg: 'bg-slate-200', text: 'text-slate-700' };
-      }
-    }
-
-    switch (s) {
-      case 'INITIATION':
-        return { label: 'Khởi tạo', bg: 'bg-sky-100', text: 'text-sky-700' };
-      case 'FORWARD_ANALYSIS':
-        return { label: 'Chuyển tiếp phân tích', bg: 'bg-indigo-100', text: 'text-indigo-700' };
-      case 'ACCEPTED':
-        return { label: 'Chấp nhận', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-      case 'REJECTED':
-        return { label: 'Từ chối', bg: 'bg-rose-100', text: 'text-rose-700' };
-      case 'IN_PROGRESS':
-        return { label: 'Đang xử lý', bg: 'bg-amber-100', text: 'text-amber-800' };
-      case 'SAMPLE_ERROR':
-        return { label: 'Mẫu lỗi', bg: 'bg-rose-100', text: 'text-rose-700' };
-      case 'COMPLETED':
-        return { label: 'Hoàn thành', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-      default:
-        return { label: status, bg: 'bg-slate-200', text: 'text-slate-700' };
-    }
-  }, [status, type]);
-
-  return (
-    <View className={`px-3 py-1 rounded-full ${cfg.bg} self-start`}>
-      <Text className={`text-[12px] font-bold ${cfg.text}`}>{cfg.label}</Text>
-    </View>
-  );
+const getPaymentTypeLabel = (type?: string): string => {
+  if (!type) return "Chưa xác định";
+  const t = type.toUpperCase();
+  const typeMap: Record<string, string> = {
+    CASH: "Tiền mặt",
+    ONLINE_PAYMENT: "Thanh toán online",
+  };
+  return typeMap[t] || type;
 };
 
 export default function OrderDetailScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
-
+  const queryClient = useQueryClient();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const {
     data: orderResponse,
     isLoading,
-    isError,
-    refetch,
-    isRefetching,
+    error,
   } = useQuery({
-    queryKey: ['order', orderId],
+    queryKey: ["order", orderId],
     queryFn: () => orderService.getById(orderId!),
     enabled: !!orderId,
-    retry: false,
   });
 
-  const order = orderResponse?.success ? (orderResponse.data as OrderResponse) : null;
+  const patientId = orderResponse?.success ? orderResponse.data?.specifyId?.patientId : undefined;
+  const doctorId = orderResponse?.success ? orderResponse.data?.specifyId?.doctorId : undefined;
+  const genomeTestId = orderResponse?.success ? orderResponse.data?.specifyId?.genomeTestId : undefined;
+
+  const { data: patientResponse } = useQuery({
+    queryKey: ["patient", patientId],
+    queryFn: () => patientService.getById(patientId!),
+    enabled: !!patientId,
+  });
+
+  const { data: patientClinicalResponse } = useQuery({
+    queryKey: ["patient-clinical", patientId],
+    queryFn: () => patientClinicalService.getByPatientId(patientId!),
+    enabled: !!patientId,
+  });
+
+  const { data: doctorResponse } = useQuery({
+    queryKey: ["doctor", doctorId],
+    queryFn: () => doctorService.getById(doctorId!),
+    enabled: !!doctorId,
+  });
+
+  const { data: genomeTestResponse } = useQuery({
+    queryKey: ["genome-test", genomeTestId],
+    queryFn: () => genomeTestService.getById(genomeTestId!),
+    enabled: !!genomeTestId,
+  });
+
+  const patient: PatientResponse | undefined = patientResponse?.success ? patientResponse.data : undefined;
+  const patientClinical: PatientClinicalResponse | undefined = patientClinicalResponse?.success ? patientClinicalResponse.data : undefined;
+  const doctor: DoctorResponse | undefined = doctorResponse?.success ? doctorResponse.data : undefined;
+  const genomeTest: GenomeTestResponse | undefined = genomeTestResponse?.success ? genomeTestResponse.data : undefined;
 
   const deleteMutation = useMutation({
-    mutationFn: () => orderService.delete(orderId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      setSuccessMessage('Xóa đơn hàng thành công!');
-      setShowSuccessModal(true);
+    mutationFn: async () => {
+      const response = await orderService.delete(orderId!);
+      if (!response.success) {
+        throw new Error(response.error || "Không thể xóa đơn hàng");
+      }
+      return response;
     },
-    onError: (error: any) => Alert.alert('Lỗi', error?.message || 'Không thể xóa đơn hàng'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      Alert.alert("✅ Thành công", "Đơn hàng đã được xóa thành công!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    },
+    onError: (error: any) => {
+      console.error("[OrderDetail] Delete error:", error);
+      let errorMessage =
+        error?.message ||
+        error?.error ||
+        "Không thể xóa đơn hàng. Vui lòng thử lại.";
+
+      if (errorMessage.includes("not found")) {
+        errorMessage = "Đơn hàng không tồn tại hoặc đã bị xóa.";
+      } else if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("Unauthorized")
+      ) {
+        errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+      } else if (
+        errorMessage.includes("403") ||
+        errorMessage.includes("Forbidden")
+      ) {
+        errorMessage = "Bạn không có quyền xóa đơn hàng này.";
+      } else if (
+        errorMessage.includes("500") ||
+        errorMessage.includes("Internal Server Error")
+      ) {
+        errorMessage =
+          "Lỗi máy chủ. Vui lòng thử lại sau hoặc liên hệ quản trị viên.";
+      }
+
+      Alert.alert("Lỗi xóa đơn hàng", errorMessage);
+    },
   });
 
   const handleDelete = () => {
-    setShowDeleteModal(false);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
     deleteMutation.mutate();
   };
 
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    router.replace('/orders');
-  };
-
-  const handlePayment = () => {
-    if (order && order.paymentAmount) {
-      router.push({
-        pathname: '/payment',
-        params: {
-          orderId: order.orderId,
-          amount: order.paymentAmount.toString(),
-          orderName: order.orderName,
-        },
-      });
-    }
-  };
-
-  const specify = order?.specifyId;
-  const patient = (specify as any)?.patient;
-  const doctor = (specify as any)?.doctor;
-  const hospital = (specify as any)?.hospital;
-  const genomeTest = (specify as any)?.genomeTest;
-  const clinical = (specify as any)?.patientClinical;
-  const patientMetadata = order?.patientMetadata;
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-        <StatusBar barStyle="dark-content" />
-        <View className="flex-1 items-center justify-center gap-3">
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text className="text-slate-500">Đang tải thông tin đơn hàng...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Đang tải...</Text>
+      </View>
     );
   }
 
-  if (isError || !order) {
+  if (error || !orderResponse?.success || !orderResponse.data) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-        <StatusBar barStyle="dark-content" />
-        <View className="flex-1 items-center justify-center px-8 gap-4">
-          <View className="w-16 h-16 rounded-2xl bg-rose-50 items-center justify-center">
-            <FileText size={36} color={COLORS.danger} />
-          </View>
-          <Text className="text-slate-900 font-bold text-base">Không tìm thấy đơn hàng</Text>
-
-          <TouchableOpacity
-            className="flex-row items-center gap-2 px-4 py-3 rounded-xl bg-white border border-slate-200"
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={18} color={COLORS.primary} />
-            <Text className="font-bold text-slate-900">Quay lại danh sách</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Không thể tải thông tin đơn hàng</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Quay lại</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  const showPayButton =
-    order.paymentType?.toUpperCase() === 'ONLINE_PAYMENT' &&
-    order.paymentStatus?.toUpperCase() !== 'COMPLETED' &&
-    !!order.paymentAmount;
+  const order: OrderResponse = orderResponse.data;
+
+  const formatDateOnly = (dateString?: string | number): string => {
+    if (!dateString) return "";
+    try {
+      const date = typeof dateString === 'number' ? new Date(dateString) : new Date(dateString);
+      return date.toLocaleDateString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch {
+      return String(dateString);
+    }
+  };
+
+  const getGenderLabel = (gender?: string): string => {
+    if (!gender) return "Chưa xác định";
+    const g = gender.toLowerCase();
+    if (g === "male" || g === "nam") return "Nam";
+    if (g === "female" || g === "nữ") return "Nữ";
+    if (g === "other" || g === "khác") return "Khác";
+    return gender;
+  };
+
+  const getServiceTypeLabel = (serviceType?: string): string => {
+    if (!serviceType) return "Chưa xác định";
+    const st = serviceType.toLowerCase();
+    if (st === "embryo") return "Phôi";
+    if (st === "disease") return "Bệnh";
+    if (st === "reproduction") return "Sinh sản";
+    return serviceType;
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
       <ScrollView
-        className="flex-1"
-        contentContainerClassName="p-4 gap-4"
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[COLORS.primary]} />
-        }
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
       >
-        <Card>
-          <View className="p-4 flex-row items-center">
-            <View className="flex-1">
-              <Text className="text-[12px] text-slate-500 mb-2">Trạng thái đơn hàng</Text>
-              <StatusBadge status={order.orderStatus} type="order" />
-            </View>
-            <View className="w-px h-12 bg-slate-100 mx-4" />
-            <View className="flex-1">
-              <Text className="text-[12px] text-slate-500 mb-2">Thanh toán</Text>
-              <StatusBadge status={order.paymentStatus} type="payment" />
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backBtn}
+            >
+              <ArrowLeft size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={[
+                  styles.actionBtn,
+                  deleteMutation.isPending && styles.actionBtnDisabled,
+                ]}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator size="small" color={COLORS.danger} />
+                ) : (
+                  <Trash2 size={20} color={COLORS.danger} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </Card>
-        <Section title="Thông tin đơn hàng" icon={<Package size={18} color={COLORS.primary} />}>
-          <InfoRow
-            label="Mã đơn hàng"
-            value={order.orderId}
-            icon={<Hash size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Tên đơn hàng"
-            value={order.orderName}
-            icon={<FileText size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Ngày tạo"
-            value={formatDateTime(order.createdAt)}
-            icon={<Calendar size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Mã vạch"
-            value={order.barcodeId}
-            icon={<Hash size={16} color={COLORS.muted} />}
-          />
-          {order.orderNote ? (
-            <InfoRow
-              label="Ghi chú"
-              value={order.orderNote}
-              icon={<ClipboardList size={16} color={COLORS.muted} />}
-            />
-          ) : null}
-        </Section>
-
-        <Section
-          title="Thông tin thanh toán"
-          icon={<CreditCard size={18} color={COLORS.primary} />}
-        >
-          <InfoRow
-            label="Phương thức"
-            value={getPaymentTypeLabel(order.paymentType)}
-            icon={<Wallet size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Số tiền"
-            value={formatCurrency(order.paymentAmount)}
-            icon={<CreditCard size={16} color={COLORS.muted} />}
-          />
-          {showPayButton && (
-            <TouchableOpacity
-              onPress={handlePayment}
-              className="mt-3 rounded-xl px-4 py-3 bg-slate-900 flex-row items-center justify-center gap-2"
-            >
-              <CreditCard size={18} color="#fff" />
-              <Text className="text-white font-extrabold">Thanh toán ngay</Text>
-            </TouchableOpacity>
-          )}
-        </Section>
-
-        <Section title="Nhân viên phụ trách" icon={<Users size={18} color={COLORS.primary} />}>
-          <InfoRow
-            label="Khách hàng"
-            value={order.customerName || order.customerId}
-            icon={<User size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Người thu mẫu"
-            value={order.sampleCollectorName || order.sampleCollectorId}
-            icon={<TestTube size={16} color={COLORS.muted} />}
-          />
-          <InfoRow
-            label="Nhân viên phân tích"
-            value={order.staffAnalystName || order.staffAnalystId}
-            icon={<FlaskConical size={16} color={COLORS.muted} />}
-          />
-        </Section>
-
-        {patient && (
-          <Section title="Thông tin bệnh nhân" icon={<User size={18} color={COLORS.primary} />}>
-            <InfoRow
-              label="Mã bệnh nhân"
-              value={patient.patientId}
-              icon={<Hash size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Họ tên"
-              value={patient.patientName}
-              icon={<User size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Ngày sinh"
-              value={formatDate(patient.patientDob)}
-              icon={<Calendar size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Giới tính"
-              value={
-                patient.gender === 'MALE'
-                  ? 'Nam'
-                  : patient.gender === 'FEMALE'
-                    ? 'Nữ'
-                    : patient.gender
-              }
-              icon={<User size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Số điện thoại"
-              value={patient.patientPhone}
-              icon={<Phone size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Email"
-              value={patient.patientEmail}
-              icon={<Mail size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Địa chỉ"
-              value={patient.patientAddress}
-              icon={<MapPin size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Nghề nghiệp"
-              value={patient.patientJob}
-              icon={<Briefcase size={16} color={COLORS.muted} />}
-            />
-          </Section>
-        )}
-        {doctor && (
-          <Section title="Thông tin bác sĩ" icon={<Stethoscope size={18} color={COLORS.primary} />}>
-            <InfoRow
-              label="Họ tên"
-              value={doctor.doctorName}
-              icon={<User size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Số điện thoại"
-              value={doctor.doctorPhone}
-              icon={<Phone size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Email"
-              value={doctor.doctorEmail}
-              icon={<Mail size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Chuyên khoa"
-              value={doctor.doctorSpecialized}
-              icon={<Stethoscope size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Học vị"
-              value={doctor.doctorDegree}
-              icon={<BadgeCheck size={16} color={COLORS.muted} />}
-            />
-          </Section>
-        )}
-
-        {hospital && (
-          <Section title="Thông tin bệnh viện" icon={<Hospital size={18} color={COLORS.primary} />}>
-            <InfoRow
-              label="Tên bệnh viện"
-              value={hospital.hospitalName}
-              icon={<Building2 size={16} color={COLORS.muted} />}
-            />
-          </Section>
-        )}
-
-        {genomeTest && (
-          <Section
-            title="Thông tin xét nghiệm"
-            icon={<FlaskConical size={18} color={COLORS.primary} />}
-          >
-            <InfoRow
-              label="Mã xét nghiệm"
-              value={genomeTest.testId}
-              icon={<Hash size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Tên xét nghiệm"
-              value={genomeTest.testName}
-              icon={<FlaskConical size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Mô tả"
-              value={genomeTest.testDescription}
-              icon={<FileText size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Loại mẫu"
-              value={genomeTest.testSample}
-              icon={<TestTube size={16} color={COLORS.muted} />}
-            />
-          </Section>
-        )}
-
-        {specify && (
-          <Section
-            title="Thông tin phiếu chỉ định"
-            icon={<ClipboardList size={18} color={COLORS.primary} />}
-          >
-            <InfoRow
-              label="Mã phiếu"
-              value={specify.specifyVoteID}
-              icon={<Hash size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Loại dịch vụ"
-              value={specify.serviceType}
-              icon={<Package size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Vị trí lấy mẫu"
-              value={specify.samplingSite}
-              icon={<MapPin size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Ngày lấy mẫu"
-              value={formatDate(specify.sampleCollectDate)}
-              icon={<Calendar size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Số phôi"
-              value={specify.embryoNumber}
-              icon={<Heart size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Trạng thái"
-              value={specify.specifyStatus}
-              icon={<Activity size={16} color={COLORS.muted} />}
-            />
-            {specify.specifyNote ? (
-              <InfoRow
-                label="Ghi chú"
-                value={specify.specifyNote}
-                icon={<ClipboardList size={16} color={COLORS.muted} />}
-              />
-            ) : null}
-          </Section>
-        )}
-
-        {clinical && (
-          <Section title="Thông tin lâm sàng" icon={<Activity size={18} color={COLORS.primary} />}>
-            <InfoRow
-              label="Chiều cao"
-              value={clinical.patientHeight ? `${clinical.patientHeight} cm` : null}
-              icon={<Activity size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Cân nặng"
-              value={clinical.patientWeight ? `${clinical.patientWeight} kg` : null}
-              icon={<Activity size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Tiền sử bệnh"
-              value={clinical.patientHistory}
-              icon={<FileText size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Tiền sử gia đình"
-              value={clinical.familyHistory}
-              icon={<Users size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Bệnh mãn tính"
-              value={clinical.chronicDisease}
-              icon={<AlertTriangle size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Bệnh cấp tính"
-              value={clinical.acuteDisease}
-              icon={<AlertTriangle size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Thuốc đang dùng"
-              value={clinical.medicalUsing}
-              icon={<Pill size={16} color={COLORS.muted} />}
-            />
-            <InfoRow
-              label="Tiếp xúc độc hại"
-              value={clinical.toxicExposure}
-              icon={<AlertTriangle size={16} color={COLORS.muted} />}
-            />
-          </Section>
-        )}
-
-        {patientMetadata && patientMetadata.length > 0 && (
-          <Section
-            title={`Thông tin mẫu (${patientMetadata.length})`}
-            icon={<TestTube size={18} color={COLORS.primary} />}
-          >
-            <View className="gap-3">
-              {patientMetadata.map((meta: any, index: number) => (
-                <View key={index} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                  <Text className="text-slate-900 font-extrabold mb-2">Mẫu #{index + 1}</Text>
-                  <InfoRow
-                    label="Labcode"
-                    value={meta.labcode}
-                    icon={<Hash size={16} color={COLORS.muted} />}
-                  />
-                  {meta.sampleName ? (
-                    <InfoRow
-                      label="Tên mẫu"
-                      value={meta.sampleName}
-                      icon={<TestTube size={16} color={COLORS.muted} />}
-                    />
-                  ) : null}
-                  {meta.status ? (
-                    <InfoRow
-                      label="Trạng thái"
-                      value={meta.status}
-                      icon={<Activity size={16} color={COLORS.muted} />}
-                    />
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          </Section>
-        )}
-
-        <View className="gap-3">
-          <TouchableOpacity
-            className="rounded-xl py-4 bg-white border border-slate-200 flex-row items-center justify-center gap-2"
-            activeOpacity={0.85}
-            onPress={() =>
-              router.push({
-                pathname: '/update-order',
-                params: { orderId: order.orderId, mode: 'status' },
-              })
-            }
-          >
-            <ListChecks size={18} color="#0F172A" />
-            <Text className="font-extrabold text-slate-900">Chỉnh sửa trạng thái đơn hàng</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="rounded-xl py-4 bg-rose-50 border border-rose-200 flex-row items-center justify-center gap-2"
-            onPress={() => setShowDeleteModal(true)}
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? (
-              <ActivityIndicator size="small" color={COLORS.danger} />
-            ) : (
-              <>
-                <Trash2 size={18} color={COLORS.danger} />
-                <Text className="font-extrabold text-rose-700">Xoá đơn hàng</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <Text style={styles.orderId}>Mã đơn: {order.orderId}</Text>
+          <Text style={styles.orderName}>{order.orderName}</Text>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>
+              {getOrderStatusLabel(order.orderStatus)}
+            </Text>
+          </View>
         </View>
 
-        <View className="h-10" />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin đơn hàng</Text>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mã đơn hàng:</Text>
+            <Text style={styles.infoValue}>{order.orderId}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Tên đơn hàng:</Text>
+            <Text style={styles.infoValue}>{order.orderName}</Text>
+          </View>
+
+          {order.customerName && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Khách hàng:</Text>
+              <Text style={styles.infoValue}>{order.customerName}</Text>
+            </View>
+          )}
+
+          {order.sampleCollectorName && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nhân viên thu mẫu:</Text>
+              <Text style={styles.infoValue}>{order.sampleCollectorName}</Text>
+            </View>
+          )}
+
+          {order.staffAnalystName && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nhân viên phân tích:</Text>
+              <Text style={styles.infoValue}>{order.staffAnalystName}</Text>
+            </View>
+          )}
+
+          {order.barcodeId && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Mã Barcode:</Text>
+              <Text style={styles.infoValue}>{order.barcodeId}</Text>
+            </View>
+          )}
+
+          {order.orderNote && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Ghi chú:</Text>
+              <Text style={styles.infoValue}>{order.orderNote}</Text>
+            </View>
+          )}
+
+          {order.createdAt && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Ngày tạo:</Text>
+              <Text style={styles.infoValue}>
+                {formatDate(order.createdAt)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {(order.paymentStatus || order.paymentType || order.paymentAmount) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
+
+            {order.paymentStatus && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Trạng thái thanh toán:</Text>
+                <Text style={styles.infoValue}>
+                  {getPaymentStatusLabel(order.paymentStatus)}
+                </Text>
+              </View>
+            )}
+
+            {order.paymentType && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Hình thức thanh toán:</Text>
+                <Text style={styles.infoValue}>
+                  {getPaymentTypeLabel(order.paymentType)}
+                </Text>
+              </View>
+            )}
+
+            {order.paymentAmount !== undefined && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Số tiền:</Text>
+                <Text style={[styles.infoValue, styles.amountText]}>
+                  {formatCurrency(order.paymentAmount)} VNĐ
+                </Text>
+              </View>
+            )}
+
+            {order.invoiceLink && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Link hóa đơn:</Text>
+                <Text style={[styles.infoValue, styles.linkText]}>
+                  {order.invoiceLink}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Thông tin người làm xét nghiệm */}
+        {patient && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin người làm xét nghiệm</Text>
+            
+            {patient.patientName && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tên:</Text>
+                <Text style={styles.infoValue}>{patient.patientName}</Text>
+              </View>
+            )}
+
+            {patient.patientPhone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Số điện thoại:</Text>
+                <Text style={styles.infoValue}>{patient.patientPhone}</Text>
+              </View>
+            )}
+
+            {patient.gender && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Giới tính:</Text>
+                <Text style={styles.infoValue}>{getGenderLabel(patient.gender)}</Text>
+              </View>
+            )}
+
+            {patient.patientDob && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Ngày sinh:</Text>
+                <Text style={styles.infoValue}>
+                  {formatDateOnly(patient.patientDob)}
+                </Text>
+              </View>
+            )}
+
+            {patient.patientEmail && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{patient.patientEmail}</Text>
+              </View>
+            )}
+
+            {patient.patientAddress && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Địa chỉ:</Text>
+                <Text style={styles.infoValue}>{patient.patientAddress}</Text>
+              </View>
+            )}
+
+            {patient.patientJob && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Nghề nghiệp:</Text>
+                <Text style={styles.infoValue}>{patient.patientJob}</Text>
+              </View>
+            )}
+
+            {patient.patientContactName && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Người liên hệ:</Text>
+                <Text style={styles.infoValue}>{patient.patientContactName}</Text>
+              </View>
+            )}
+
+            {patient.patientContactPhone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>SĐT người liên hệ:</Text>
+                <Text style={styles.infoValue}>{patient.patientContactPhone}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Thông tin xét nghiệm */}
+        {genomeTest && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin xét nghiệm</Text>
+            
+            {genomeTest.testId && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mã xét nghiệm:</Text>
+                <Text style={styles.infoValue}>{genomeTest.testId}</Text>
+              </View>
+            )}
+
+            {genomeTest.testName && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tên xét nghiệm:</Text>
+                <Text style={styles.infoValue}>{genomeTest.testName}</Text>
+              </View>
+            )}
+
+            {genomeTest.testDescription && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mô tả:</Text>
+                <Text style={styles.infoValue}>{genomeTest.testDescription}</Text>
+              </View>
+            )}
+
+            {genomeTest.testSample && Array.isArray(genomeTest.testSample) && genomeTest.testSample.length > 0 && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mẫu xét nghiệm:</Text>
+                <Text style={styles.infoValue}>{genomeTest.testSample.join(", ")}</Text>
+              </View>
+            )}
+
+            {genomeTest.price && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Giá:</Text>
+                <Text style={[styles.infoValue, styles.amountText]}>
+                  {formatCurrency(genomeTest.price)} VNĐ
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Thông tin lâm sàng */}
+        {patientClinical && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin lâm sàng</Text>
+            
+            {patientClinical.patientHeight && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Chiều cao (cm):</Text>
+                <Text style={styles.infoValue}>{patientClinical.patientHeight}</Text>
+              </View>
+            )}
+
+            {patientClinical.patientWeight && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Cân nặng (kg):</Text>
+                <Text style={styles.infoValue}>{patientClinical.patientWeight}</Text>
+              </View>
+            )}
+
+            {patientClinical.patientHistory && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tiền sử bệnh nhân:</Text>
+                <Text style={styles.infoValue}>{patientClinical.patientHistory}</Text>
+              </View>
+            )}
+
+            {patientClinical.familyHistory && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tiền sử gia đình:</Text>
+                <Text style={styles.infoValue}>{patientClinical.familyHistory}</Text>
+              </View>
+            )}
+
+            {patientClinical.toxicExposure && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tiếp xúc độc tố:</Text>
+                <Text style={styles.infoValue}>{patientClinical.toxicExposure}</Text>
+              </View>
+            )}
+
+            {patientClinical.medicalHistory && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tiền sử y tế:</Text>
+                <Text style={styles.infoValue}>{patientClinical.medicalHistory}</Text>
+              </View>
+            )}
+
+            {patientClinical.chronicDisease && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Bệnh mãn tính:</Text>
+                <Text style={styles.infoValue}>{patientClinical.chronicDisease}</Text>
+              </View>
+            )}
+
+            {patientClinical.acuteDisease && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Bệnh cấp tính:</Text>
+                <Text style={styles.infoValue}>{patientClinical.acuteDisease}</Text>
+              </View>
+            )}
+
+            {patientClinical.medicalUsing && Array.isArray(patientClinical.medicalUsing) && patientClinical.medicalUsing.length > 0 && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Thuốc đang sử dụng:</Text>
+                <Text style={styles.infoValue}>{patientClinical.medicalUsing.join(", ")}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Nhóm xét nghiệm */}
+        {order.specifyId?.serviceType && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Nhóm xét nghiệm</Text>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nhóm xét nghiệm:</Text>
+              <Text style={styles.infoValue}>
+                {getServiceTypeLabel(order.specifyId.serviceType)}
+              </Text>
+            </View>
+
+            {order.specifyId.serviceID && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mã dịch vụ:</Text>
+                <Text style={styles.infoValue}>{order.specifyId.serviceID}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Thanh toán & mẫu xét nghiệm - bổ sung thêm thông tin */}
+        {(order.specifyId?.samplingSite || order.specifyId?.sampleCollectDate || order.specifyId?.embryoNumber || order.specifyVoteImagePath) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mẫu xét nghiệm</Text>
+
+            {order.specifyId?.samplingSite && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Địa điểm lấy mẫu:</Text>
+                <Text style={styles.infoValue}>{order.specifyId.samplingSite}</Text>
+              </View>
+            )}
+
+            {order.specifyId?.sampleCollectDate && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Ngày lấy mẫu:</Text>
+                <Text style={styles.infoValue}>
+                  {formatDateOnly(order.specifyId.sampleCollectDate)}
+                </Text>
+              </View>
+            )}
+
+            {order.specifyId?.embryoNumber && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Số phôi:</Text>
+                <Text style={styles.infoValue}>{order.specifyId.embryoNumber}</Text>
+              </View>
+            )}
+
+            {order.specifyVoteImagePath && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Đường dẫn ảnh phiếu chỉ định:</Text>
+                <Text style={[styles.infoValue, styles.linkText]}>
+                  {order.specifyVoteImagePath}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Kết quả xét nghiệm di truyền */}
+        {(order.specifyId?.geneticTestResults || order.specifyId?.geneticTestResultsRelationship) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Kết quả xét nghiệm di truyền</Text>
+            
+            {order.specifyId.geneticTestResults && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Kết quả xét nghiệm di truyền:</Text>
+                <Text style={styles.infoValue}>{order.specifyId.geneticTestResults}</Text>
+              </View>
+            )}
+
+            {order.specifyId.geneticTestResultsRelationship && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mối quan hệ:</Text>
+                <Text style={styles.infoValue}>
+                  {order.specifyId.geneticTestResultsRelationship}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Bổ sung thông tin bác sĩ vào phần thông tin đơn hàng */}
+        {doctor && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin bác sĩ</Text>
+            
+            {doctor.doctorName && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Tên bác sĩ:</Text>
+                <Text style={styles.infoValue}>{doctor.doctorName}</Text>
+              </View>
+            )}
+
+            {doctor.doctorPhone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Số điện thoại:</Text>
+                <Text style={styles.infoValue}>{doctor.doctorPhone}</Text>
+              </View>
+            )}
+
+            {doctor.doctorEmail && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{doctor.doctorEmail}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {order.patientMetadata && order.patientMetadata.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Thông tin mẫu (
+              {order.patientMetadataCount || order.patientMetadata.length})
+            </Text>
+            {order.patientMetadata.map((pm, index) => (
+              <View key={pm.labcode || index} style={styles.metadataCard}>
+                <Text style={styles.metadataLabel}>Mã Lab: {pm.labcode}</Text>
+                {pm.sampleName && (
+                  <Text style={styles.metadataText}>
+                    Tên mẫu: {pm.sampleName}
+                  </Text>
+                )}
+                {pm.patientId && (
+                  <Text style={styles.metadataText}>
+                    Mã bệnh nhân: {pm.patientId}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+        {order.jobCount !== undefined && order.jobCount > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Công việc ({order.jobCount})
+            </Text>
+            {order.jobIds && order.jobIds.length > 0 && (
+              <View style={styles.jobList}>
+                {order.jobIds.map((jobId) => (
+                  <Text key={jobId} style={styles.jobId}>
+                    {jobId}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {order.specifyId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Phiếu chỉ định</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Mã phiếu:</Text>
+              <Text style={styles.infoValue}>
+                {order.specifyId.specifyVoteID}
+              </Text>
+            </View>
+            {order.specifyId.patientId && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mã bệnh nhân:</Text>
+                <Text style={styles.infoValue}>
+                  {order.specifyId.patientId}
+                </Text>
+              </View>
+            )}
+            {order.specifyId.genomeTestId && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mã xét nghiệm:</Text>
+                <Text style={styles.infoValue}>
+                  {order.specifyId.genomeTestId}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
-
-      <ConfirmModal
+      <Modal
         visible={showDeleteModal}
-        title="Xác nhận xóa"
-        message={`Bạn có chắc muốn xóa đơn hàng #${order.orderId} không? Hành động này không thể hoàn tác.`}
-        confirmText="Xóa"
-        cancelText="Hủy"
-        onConfirm={handleDelete}
-        onCancel={() => setShowDeleteModal(false)}
-        destructive
-      />
-
-      <SuccessModal
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <AlertTriangle size={32} color={COLORS.danger} />
+              </View>
+              <Text style={styles.modalTitle}>Xác nhận xóa</Text>
+              <Text style={styles.modalMessage}>
+                Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể
+                hoàn tác.
+              </Text>
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deleteMutation.isPending}
+              >
+                <Text style={styles.modalButtonCancelText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonDelete]}
+                onPress={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonDeleteText}>Xóa</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
         visible={showSuccessModal}
-        message={successMessage}
-        onClose={handleSuccessClose}
-      />
-    </SafeAreaView>
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          router.back();
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View
+                style={[styles.modalIconContainer, styles.modalIconSuccess]}
+              >
+                <Text style={styles.modalSuccessIcon}>✓</Text>
+              </View>
+              <Text style={styles.modalTitle}>Thành công</Text>
+              <Text style={styles.modalMessage}>
+                Đơn hàng đã được xóa thành công!
+              </Text>
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  router.back();
+                }}
+              >
+                <Text style={styles.modalButtonPrimaryText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconContainer, styles.modalIconError]}>
+                <AlertTriangle size={32} color={COLORS.danger} />
+              </View>
+              <Text style={styles.modalTitle}>Lỗi xóa đơn hàng</Text>
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={() => setShowErrorModal(false)}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.bg,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.sub,
+    fontSize: 14,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.bg,
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: COLORS.danger,
+    marginBottom: 16,
+  },
+  backButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  header: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  updateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+  },
+  updateBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionBtnDisabled: {
+    opacity: 0.5,
+  },
+  orderId: {
+    fontSize: 13,
+    color: COLORS.sub,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  orderName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  statusBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  section: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: COLORS.sub,
+    fontWeight: "600",
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: "700",
+    flex: 1,
+    textAlign: "right",
+  },
+  amountText: {
+    color: COLORS.primary,
+    fontSize: 16,
+  },
+  linkText: {
+    color: COLORS.primary,
+    textDecorationLine: "underline",
+  },
+  metadataCard: {
+    backgroundColor: COLORS.bg,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  metadataLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  metadataText: {
+    fontSize: 13,
+    color: COLORS.sub,
+    marginTop: 4,
+  },
+  jobList: {
+    gap: 8,
+  },
+  jobId: {
+    fontSize: 13,
+    color: COLORS.sub,
+    padding: 8,
+    backgroundColor: COLORS.bg,
+    borderRadius: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    width: "100%",
+    maxWidth: 400,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    padding: 24,
+    alignItems: "center",
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalIconSuccess: {
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+  },
+  modalIconError: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  modalSuccessIcon: {
+    fontSize: 40,
+    color: COLORS.success,
+    fontWeight: "bold",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: COLORS.sub,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    padding: 16,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonCancel: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.sub,
+  },
+  modalButtonDelete: {
+    backgroundColor: COLORS.danger,
+  },
+  modalButtonDeleteText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  modalButtonPrimary: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+  },
+});

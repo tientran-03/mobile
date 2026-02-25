@@ -420,8 +420,8 @@ export default function PaymentScreen() {
           <Text className="text-slate-600 text-center mb-8">
             {error || 'Đã xảy ra lỗi trong quá trình thanh toán'}
           </Text>
-          <TouchableOpacity onPress={handleDone} className="bg-slate-600 rounded-xl py-3 px-8">
-            <Text className="text-white font-semibold text-lg">Về danh sách đơn hàng</Text>
+          <TouchableOpacity onPress={handleGoBack} className="bg-slate-600 rounded-xl py-3 px-8">
+            <Text className="text-white font-semibold text-lg">Quay lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -441,8 +441,8 @@ export default function PaymentScreen() {
           <Text className="text-slate-600 text-center mb-8">
             Thanh toán đã bị hủy bởi người dùng
           </Text>
-          <TouchableOpacity onPress={handleDone} className="bg-slate-600 rounded-xl py-3 px-8">
-            <Text className="text-white font-semibold text-lg">Về danh sách đơn hàng</Text>
+          <TouchableOpacity onPress={handleGoBack} className="bg-slate-600 rounded-xl py-3 px-8">
+            <Text className="text-white font-semibold text-lg">Quay lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -462,8 +462,8 @@ export default function PaymentScreen() {
           <Text className="text-slate-600 text-center mb-8">
             Phiên thanh toán đã hết hạn.{'\n'}Vui lòng thử lại.
           </Text>
-          <TouchableOpacity onPress={handleDone} className="bg-slate-600 rounded-xl py-3 px-8">
-            <Text className="text-white font-semibold text-lg">Về danh sách đơn hàng</Text>
+          <TouchableOpacity onPress={handleGoBack} className="bg-slate-600 rounded-xl py-3 px-8">
+            <Text className="text-white font-semibold text-lg">Quay lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
