@@ -15,24 +15,14 @@ export const serviceEntityService = {
   /**
    * Get all services
    */
-  getAll: async (): Promise<ServiceEntityResponse[]> => {
-    const response = await apiClient.get<ServiceEntityResponse[]>(
-      API_ENDPOINTS.SERVICES
-    );
-    if (response.success) {
-      // Ensure we always return an array
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          return response.data;
-        }
-        // If data is not an array, log warning
-        console.warn("⚠️ Services API returned non-array data:", response.data);
-        return [];
-      }
-      // If no data but success, return empty array
-      return [];
-    }
-    throw new Error(response.error || "Failed to fetch services");
+  getAll: async (params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: ServiceEntityResponse[]; error?: string }> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SERVICES}?${queryParams.toString()}`
+      : API_ENDPOINTS.SERVICES;
+    return apiClient.get<ServiceEntityResponse[]>(url);
   },
 
   /**

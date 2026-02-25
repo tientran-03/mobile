@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Image, ImageBackground, ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { OrderResponse, orderService } from "@/services/orderService";
 
 interface MenuItem {
   id: string;
@@ -15,31 +13,9 @@ interface MenuItem {
   badge?: number;
 }
 
-const isPendingStatus = (status: string): boolean => {
-  const s = status.toLowerCase();
-  return (
-    s === "initiation" ||
-    s === "accepted" ||
-    s === "in_progress" ||
-    s === "forward_analysis"
-  );
-};
-
 export default function AdminHomeScreen() {
   const router = useRouter();
   const { logout, user, isLoading } = useAuth();
-
-  const { data: ordersResponse } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => orderService.getAll(),
-    retry: false,
-  });
-
-  const pendingOrdersCount = useMemo(() => {
-    if (!ordersResponse?.success || !ordersResponse.data) return 0;
-    const orders = ordersResponse.data as OrderResponse[];
-    return orders.filter((o) => isPendingStatus(o.orderStatus)).length;
-  }, [ordersResponse]);
 
   // Guard: Chỉ ADMIN mới được vào màn hình này
   useEffect(() => {
@@ -96,7 +72,7 @@ export default function AdminHomeScreen() {
     },
     {
       id: "2",
-      title: "Quản lý\nnội dung",
+      title: "Quản lý\ndịch vụ",
       icon: <Image
             source={require("@/assets/images/4.png")}
             className="w-16 h-16"
@@ -185,17 +161,6 @@ export default function AdminHomeScreen() {
       route: "/admin/test-results",
     },
     {
-      id: "7",
-      title: "Thông báo\n& phê duyệt",
-      icon: <Image
-            source={require("@/assets/images/6.png")}
-            className="w-16 h-16"
-            resizeMode="contain"
-          />,
-      route: "/admin/approvals",
-      badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined,
-    },
-    {
       id: "8",
       title: "Giám sát\nhệ thống",
       icon: <Image
@@ -217,7 +182,7 @@ export default function AdminHomeScreen() {
     },
     {
       id: "9",
-      title: "Quản lý\nbệnh viện",
+      title: "Quản lý\n tổ chức",
       icon: <Image
             source={require("@/assets/images/3.png")}
             className="w-16 h-16"

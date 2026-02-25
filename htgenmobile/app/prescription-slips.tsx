@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -26,8 +25,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { COLORS } from "@/constants/colors";
-import { getApiResponseData } from "@/lib/types/api-types";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   SpecifyVoteTestResponse,
   specifyVoteTestService,
@@ -137,19 +137,27 @@ export default function PrescriptionSlipsScreen() {
   const [statusFilter, setStatusFilter] = useState<string | "all">("all");
   const [showStatusDropdown, setShowStatusDropdown] = useState<boolean>(false);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: slips,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<SpecifyVoteTestResponse>({
     queryKey: ["specify-vote-tests", statusFilter],
-    queryFn: async () => {
+    queryFn: async (params) => {
       if (statusFilter !== "all") {
-        return await specifyVoteTestService.getByStatus(statusFilter);
+        return await specifyVoteTestService.getByStatus(statusFilter, params);
       }
-      return await specifyVoteTestService.getAll();
+      return await specifyVoteTestService.getAll(params);
     },
+    defaultPageSize: 20,
   });
-
-  const slips: SpecifyVoteTestResponse[] = useMemo(() => {
-    return getApiResponseData<SpecifyVoteTestResponse>(data) || [];
-  }, [data]);
 
   const timeFilters: { key: TimeFilter; label: string }[] = [
     { key: "today", label: "Hôm nay" },
@@ -483,6 +491,17 @@ export default function PrescriptionSlipsScreen() {
           ))
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

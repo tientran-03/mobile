@@ -81,6 +81,22 @@ class ApiClient {
       });
 
       // Handle specific error codes
+      if (response.status === 502 || response.status === 503 || response.status === 504) {
+        console.error(`❌ Error ${response.status}: Bad Gateway / Service Unavailable`);
+        console.error("  - Backend server may be down or unreachable");
+        console.error("  - Cloudflare cannot connect to origin server");
+        console.error("  - Server may be overloaded or under maintenance");
+        const statusText = response.status === 502 
+          ? "Bad Gateway - Server không phản hồi"
+          : response.status === 503
+          ? "Service Unavailable - Dịch vụ tạm thời không khả dụng"
+          : "Gateway Timeout - Server phản hồi quá chậm";
+        return {
+          success: false,
+          error: `${statusText}. Vui lòng thử lại sau hoặc liên hệ quản trị viên.`,
+        };
+      }
+
       if (response.status === 530) {
         console.error("❌ Error 530: Origin is unreachable. Possible issues:");
         console.error("  - Domain may not be configured correctly");

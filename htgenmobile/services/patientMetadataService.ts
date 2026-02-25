@@ -22,12 +22,35 @@ export interface PatientMetadataRequest {
 }
 
 export const patientMetadataService = {
-  getByPatientId: async (patientId: string): Promise<ApiResponse<PatientMetadataResponse[]>> => {
+  getAll: async (params?: { page?: number; size?: number }): Promise<ApiResponse<PatientMetadataResponse[]>> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+      if (params?.size) queryParams.append("size", params.size.toString());
+      const url = queryParams.toString()
+        ? `${API_ENDPOINTS.PATIENT_METADATA}?${queryParams.toString()}`
+        : API_ENDPOINTS.PATIENT_METADATA;
+      const response = await apiClient.get<PatientMetadataResponse[]>(url);
+      return response;
+    } catch (error: any) {
+      console.error("[PatientMetadataService] Error fetching patient metadata:", error);
+      return {
+        success: false,
+        error: error?.message || "Không thể lấy thông tin patient metadata",
+      };
+    }
+  },
+
+  getByPatientId: async (patientId: string, params?: { page?: number; size?: number }): Promise<ApiResponse<PatientMetadataResponse[]>> => {
     try {
       console.log("[PatientMetadataService] Fetching metadata for patientId:", patientId);
-      const response = await apiClient.get<PatientMetadataResponse[]>(
-        `/api/v1/patient-metadata/patient/${patientId}`
-      );
+      const queryParams = new URLSearchParams();
+      if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+      if (params?.size) queryParams.append("size", params.size.toString());
+      const url = queryParams.toString()
+        ? `/api/v1/patient-metadata/patient/${patientId}?${queryParams.toString()}`
+        : `/api/v1/patient-metadata/patient/${patientId}`;
+      const response = await apiClient.get<PatientMetadataResponse[]>(url);
       console.log("[PatientMetadataService] Response:", response);
       return response;
     } catch (error: any) {

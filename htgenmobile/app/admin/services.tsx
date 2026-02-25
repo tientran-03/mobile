@@ -11,7 +11,9 @@ import {
   Check,
   X as XIcon,
   ChevronDown,
+  ChevronUp,
   ArrowLeft,
+  FlaskConical,
 } from "lucide-react-native";
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -28,13 +30,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   serviceEntityService,
   ServiceEntityResponse,
   ServiceEntityRequest,
 } from "@/services/serviceEntityService";
 import { SelectionModal } from "@/components/modals";
+import { genomeTestService, GenomeTestResponse } from "@/services/genomeTestService";
 
 // Valid service type enum values
 const SERVICE_TYPES = [
@@ -48,6 +53,169 @@ const getServiceTypeLabel = (value: string): string => {
   return type?.label || value;
 };
 
+// Component để hiển thị service item với genomeTests
+function ServiceItem({
+  service,
+  isExpanded,
+  onToggleExpand,
+  onEdit,
+  onDelete,
+  isPending,
+}: {
+  service: ServiceEntityResponse;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isPending: boolean;
+}) {
+  const { data: genomeTestsResponse, isLoading: loadingTests } = useQuery({
+    queryKey: ["genome-tests-by-service", service.serviceId],
+    queryFn: async () => {
+      const response = await genomeTestService.getByServiceId(service.serviceId);
+      return response;
+    },
+    enabled: isExpanded && !!service.serviceId,
+  });
+
+  const genomeTests = useMemo(() => {
+    if (!genomeTestsResponse?.success || !genomeTestsResponse.data) return [];
+    return Array.isArray(genomeTestsResponse.data) ? genomeTestsResponse.data : [];
+  }, [genomeTestsResponse]);
+
+  return (
+    <View className="bg-white rounded-2xl p-4 mb-3 border border-sky-100">
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1">
+          <View className="flex-row items-center mb-1">
+            <Package size={18} color="#0284C7" />
+            <Text className="ml-2 text-xs font-bold text-sky-600">
+              Mã: {service.serviceId}
+            </Text>
+          </View>
+          <Text className="mt-1 text-base font-extrabold text-slate-900">
+            {getServiceTypeLabel(service.name) || "Chưa có tên"}
+          </Text>
+        </View>
+        
+        <TouchableOpacity
+          onPress={onToggleExpand}
+          className="ml-2 p-2 rounded-xl bg-sky-50 border border-sky-200"
+          activeOpacity={0.7}
+        >
+          {isExpanded ? (
+            <ChevronUp size={18} color="#0284C7" />
+          ) : (
+            <ChevronDown size={18} color="#0284C7" />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Genome Tests List */}
+      {isExpanded && (
+        <View className="mt-3 pt-3 border-t border-sky-100">
+          {loadingTests ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator size="small" color="#0284C7" />
+              <Text className="mt-2 text-xs text-slate-500">Đang tải...</Text>
+            </View>
+          ) : genomeTests.length === 0 ? (
+            <View className="py-4 items-center">
+              <FlaskConical size={24} color="#94A3B8" />
+              <Text className="mt-2 text-xs text-slate-500 text-center">
+                Chưa có xét nghiệm nào
+              </Text>
+            </View>
+          ) : (
+            <View className="gap-2">
+              <Text className="text-xs font-bold text-slate-600 mb-2">
+                Xét nghiệm ({genomeTests.length})
+              </Text>
+              {genomeTests.map((test: GenomeTestResponse) => (
+                <TouchableOpacity
+                  key={test.testId}
+                  className="bg-sky-50 rounded-xl p-3 border border-sky-100"
+                  activeOpacity={0.7}
+                >
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1">
+                      <Text className="text-xs font-bold text-sky-700 mb-1">
+                        {test.testId}
+                      </Text>
+                      <Text className="text-sm font-extrabold text-slate-900" numberOfLines={2}>
+                        {test.testName}
+                      </Text>
+                      {test.testDescription && (
+                        <Text className="mt-1 text-xs text-slate-600" numberOfLines={2}>
+                          {test.testDescription}
+                        </Text>
+                      )}
+                      {test.price && (
+                        <Text className="mt-1 text-xs font-bold text-emerald-700">
+                          {new Intl.NumberFormat("vi-VN").format(test.price)} VNĐ
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Actions */}
+      <View className="flex-row gap-2 mt-3 pt-3 border-t border-sky-100">
+        <TouchableOpacity
+          className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
+            isPending
+              ? "bg-slate-100 border-slate-200 opacity-50"
+              : "bg-blue-50 border-blue-200"
+          }`}
+          onPress={onEdit}
+          activeOpacity={0.7}
+          disabled={isPending}
+        >
+          <Edit
+            size={16}
+            color={isPending ? "#94A3B8" : "#2563EB"}
+          />
+          <Text
+            className={`mt-1 text-xs font-bold ${
+              isPending ? "text-slate-500" : "text-blue-700"
+            }`}
+          >
+            Sửa
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
+            isPending
+              ? "bg-slate-100 border-slate-200 opacity-50"
+              : "bg-red-50 border-red-200"
+          }`}
+          onPress={onDelete}
+          activeOpacity={0.7}
+          disabled={isPending}
+        >
+          <Trash2
+            size={16}
+            color={isPending ? "#94A3B8" : "#DC2626"}
+          />
+          <Text
+            className={`mt-1 text-xs font-bold ${
+              isPending ? "text-slate-500" : "text-red-700"
+            }`}
+          >
+            Xóa
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function AdminServicesScreen() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
@@ -60,6 +228,7 @@ export default function AdminServicesScreen() {
   const [showServiceTypePicker, setShowServiceTypePicker] = useState(false);
   const [pickerFor, setPickerFor] = useState<"create" | "edit">("create");
   const [editingService, setEditingService] = useState<ServiceEntityResponse | null>(null);
+  const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
   
   // Form states
   const [formServiceId, setFormServiceId] = useState("");
@@ -76,17 +245,28 @@ export default function AdminServicesScreen() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch services
+  // Fetch services with pagination
   const {
-    data: services = [],
+    data: servicesData,
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: ["services"],
-    queryFn: () => serviceEntityService.getAll(),
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<ServiceEntityResponse>({
+    queryKey: ["admin-services", searchQuery],
+    queryFn: async (params) => await serviceEntityService.getAll(params),
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN",
   });
+
+  // Extract services array from response
+  const services = useMemo(() => {
+    return servicesData || [];
+  }, [servicesData]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -370,7 +550,7 @@ export default function AdminServicesScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F0F9FF" />
       <Stack.Screen
         options={{
-          title: "Quản lý nội dung",
+          title: "Quản lý dịch vụ",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
           headerLeft: () => (
@@ -390,7 +570,7 @@ export default function AdminServicesScreen() {
         <View className="flex-row items-center mb-3">
           <View className="flex-1">
             <Text className="text-slate-900 text-lg font-extrabold">
-              Quản lý nội dung
+              Quản lý dịch vụ
             </Text>
             <Text className="mt-0.5 text-xs text-slate-500">
               {filteredServices.length} dịch vụ
@@ -507,118 +687,41 @@ export default function AdminServicesScreen() {
           </View>
         ) : (
           <View className="p-4">
-            {filteredServices.map((service, index) => (
-              <View
-                key={service.serviceId}
-                className={`bg-white rounded-2xl p-4 mb-3 border border-sky-100 ${
-                  index === 0 ? "" : ""
-                }`}
-              >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1">
-                    <View className="flex-row items-center mb-1">
-                      <Package size={18} color="#0284C7" />
-                      <Text className="ml-2 text-xs font-bold text-sky-600">
-                        Mã: {service.serviceId}
-                      </Text>
-                    </View>
-                    <Text className="mt-1 text-base font-extrabold text-slate-900">
-                      {getServiceTypeLabel(service.name) || "Chưa có tên"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Actions */}
-                <View className="flex-row gap-2 mt-3 pt-3 border-t border-sky-100">
-                  <TouchableOpacity
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                        ? "bg-slate-100 border-slate-200 opacity-50"
-                        : "bg-blue-50 border-blue-200"
-                    }`}
-                    onPress={() => {
-                      console.log("Edit button pressed for:", service);
-                      handleEdit(service);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                    }
-                  >
-                    <Edit
-                      size={16}
-                      color={
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "#94A3B8"
-                          : "#2563EB"
-                      }
-                    />
-                    <Text
-                      className={`mt-1 text-xs font-bold ${
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "text-slate-500"
-                          : "text-blue-700"
-                      }`}
-                    >
-                      Sửa
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                        ? "bg-slate-100 border-slate-200 opacity-50"
-                        : "bg-red-50 border-red-200"
-                    }`}
-                    onPress={() => {
-                      console.log("Delete button pressed for:", service);
-                      handleDelete(service);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                    }
-                  >
-                    <Trash2
-                      size={16}
-                      color={
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "#94A3B8"
-                          : "#DC2626"
-                      }
-                    />
-                    <Text
-                      className={`mt-1 text-xs font-bold ${
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "text-slate-500"
-                          : "text-red-700"
-                      }`}
-                    >
-                      Xóa
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            {filteredServices.map((service, index) => {
+              const isExpanded = expandedServiceId === service.serviceId;
+              
+              return (
+                <ServiceItem
+                  key={service.serviceId}
+                  service={service}
+                  isExpanded={isExpanded}
+                  onToggleExpand={() => {
+                    setExpandedServiceId(isExpanded ? null : service.serviceId);
+                  }}
+                  onEdit={() => handleEdit(service)}
+                  onDelete={() => handleDelete(service)}
+                  isPending={
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    deleteMutation.isPending
+                  }
+                />
+              );
+            })}
           </View>
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Create Modal */}
       <Modal

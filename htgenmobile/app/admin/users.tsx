@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -32,7 +32,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   userService,
   UserResponse,
@@ -133,15 +135,29 @@ export default function AdminUsersScreen() {
 
   // Fetch users
   const {
-    data: users = [],
+    data: usersData,
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => userService.getAll(),
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<UserResponse>({
+    queryKey: ["users", filterRole, filterStatus],
+    queryFn: async (params) => {
+      const response = await userService.getAll(params);
+      return response;
+    },
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN",
   });
+
+  // Extract users array from response
+  const users = useMemo(() => {
+    return usersData || [];
+  }, [usersData]);
 
   // Block user mutation
   const blockMutation = useMutation({
@@ -611,6 +627,17 @@ export default function AdminUsersScreen() {
           </View>
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* User detail modal */}
       <Modal

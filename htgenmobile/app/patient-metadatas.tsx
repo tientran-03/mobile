@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Search, X, FileText } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
@@ -14,6 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { patientMetadataService, PatientMetadataResponse } from "@/services/patientMetadataService";
 
 const formatDate = (dateString?: string): string => {
@@ -53,16 +54,22 @@ export default function PatientMetadatasScreen() {
   const [focusSearch, setFocusSearch] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: metadataResponse, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["patient-metadatas"],
-    queryFn: () => patientMetadataService.getAll(),
-    retry: false,
+  const {
+    data: metadataList,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<PatientMetadataResponse>({
+    queryKey: ["patient-metadatas", statusFilter],
+    queryFn: async (params) => await patientMetadataService.getAll(params),
+    defaultPageSize: 20,
   });
-
-  const metadataList = useMemo(() => {
-    if (!metadataResponse?.success || !metadataResponse.data) return [];
-    return metadataResponse.data as PatientMetadataResponse[];
-  }, [metadataResponse]);
 
   const filtered = useMemo(() => {
     let data = [...metadataList];
@@ -252,6 +259,17 @@ export default function PatientMetadatasScreen() {
           })
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -28,7 +28,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import {
   hospitalService,
   HospitalResponse,
@@ -88,17 +90,33 @@ export default function AdminHospitalsScreen() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch hospitals
+  // Fetch hospitals with pagination
   const {
-    data: hospitals = [],
+    data: hospitalsData,
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: ["hospitals"],
-    queryFn: () => hospitalService.getAll(),
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<HospitalResponse>({
+    queryKey: ["hospitals", searchQuery],
+    queryFn: async (params) => {
+      if (searchQuery.trim()) {
+        return await hospitalService.search(searchQuery.trim(), params);
+      }
+      return await hospitalService.getAll(params);
+    },
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN",
   });
+
+  // Extract hospitals array from response
+  const hospitals = useMemo(() => {
+    return hospitalsData || [];
+  }, [hospitalsData]);
 
   // Filter hospitals
   const filteredHospitals = useMemo(() => {
@@ -143,10 +161,10 @@ export default function AdminHospitalsScreen() {
       queryClient.invalidateQueries({ queryKey: ["hospitals"] });
       setShowCreateModal(false);
       resetForm();
-      Alert.alert("Thành công", "Đã tạo bệnh viện mới");
+      Alert.alert("Thành công", "Đã tạo tổ chức mới");
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error.message || "Không thể tạo bệnh viện");
+      Alert.alert("Lỗi", error.message || "Không thể tạo tổ chức");
     },
   });
 
@@ -159,10 +177,10 @@ export default function AdminHospitalsScreen() {
       setShowEditModal(false);
       setEditingHospital(null);
       resetForm();
-      Alert.alert("Thành công", "Đã cập nhật bệnh viện");
+      Alert.alert("Thành công", "Đã cập nhật tổ chức");
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error.message || "Không thể cập nhật bệnh viện");
+      Alert.alert("Lỗi", error.message || "Không thể cập nhật tổ chức");
     },
   });
 
@@ -171,10 +189,10 @@ export default function AdminHospitalsScreen() {
     mutationFn: (id: number) => hospitalService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hospitals"] });
-      Alert.alert("Thành công", "Đã xóa bệnh viện");
+      Alert.alert("Thành công", "Đã xóa tổ chức");
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error.message || "Không thể xóa bệnh viện");
+      Alert.alert("Lỗi", error.message || "Không thể xóa tổ chức");
     },
   });
 
@@ -184,7 +202,7 @@ export default function AdminHospitalsScreen() {
 
   const handleCreate = () => {
     if (!formHospitalName.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên bệnh viện");
+      Alert.alert("Lỗi", "Vui lòng nhập tên tổ chức");
       return;
     }
     createMutation.mutate({
@@ -200,7 +218,7 @@ export default function AdminHospitalsScreen() {
 
   const handleUpdate = () => {
     if (!editingHospital || !formHospitalName.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên bệnh viện");
+      Alert.alert("Lỗi", "Vui lòng nhập tên tổ chức");
       return;
     }
     updateMutation.mutate({
@@ -214,7 +232,7 @@ export default function AdminHospitalsScreen() {
   const handleDelete = (hospital: HospitalResponse) => {
     Alert.alert(
       "Xác nhận xóa",
-      `Bạn có chắc chắn muốn xóa bệnh viện "${hospital.hospitalName}"?`,
+      `Bạn có chắc chắn muốn xóa tổ chức "${hospital.hospitalName}"?`,
       [
         { text: "Hủy", style: "cancel" },
         {
@@ -273,7 +291,7 @@ export default function AdminHospitalsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F0F9FF" />
       <Stack.Screen
         options={{
-          title: "Quản lý bệnh viện",
+          title: "Quản lý tổ chức",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
           headerLeft: () => (
@@ -293,10 +311,10 @@ export default function AdminHospitalsScreen() {
         <View className="flex-row items-center mb-3">
           <View className="flex-1">
             <Text className="text-slate-900 text-lg font-extrabold">
-              Quản lý bệnh viện
+              Quản lý tổ chức
             </Text>
             <Text className="mt-0.5 text-xs text-slate-500">
-              {filteredHospitals.length} bệnh viện
+              {filteredHospitals.length} tổ chức
             </Text>
           </View>
 
@@ -339,7 +357,7 @@ export default function AdminHospitalsScreen() {
           <Search size={18} color="#64748B" />
           <TextInput
             className="flex-1 h-11 ml-2 text-[14px] text-slate-900 font-semibold"
-            placeholder="Tìm theo mã hoặc tên bệnh viện..."
+            placeholder="Tìm theo mã hoặc tên tổ chức..."
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -360,11 +378,11 @@ export default function AdminHospitalsScreen() {
         {showFilters && (
           <View className="mt-3 pt-3 border-t border-sky-100">
             <Text className="text-xs font-bold text-slate-600 mb-2">
-              Mã bệnh viện
+              Mã tổ chức
             </Text>
             <TextInput
               className="h-10 rounded-xl px-3 bg-white border border-sky-200 text-sm text-slate-900 font-semibold"
-              placeholder="Nhập mã bệnh viện"
+              placeholder="Nhập mã tổ chức"
               placeholderTextColor="#94A3B8"
               value={filterHospitalId}
               onChangeText={setFilterHospitalId}
@@ -402,13 +420,13 @@ export default function AdminHospitalsScreen() {
             <Building2 size={48} color="#94A3B8" />
             <Text className="mt-4 text-base font-bold text-slate-700 text-center">
               {searchQuery.trim() || filterHospitalId.trim()
-                ? "Không tìm thấy bệnh viện phù hợp"
-                : "Chưa có bệnh viện nào"}
+                ? "Không tìm thấy tổ chức phù hợp"
+                : "Chưa có tổ chức nào"}
             </Text>
             <Text className="mt-2 text-xs text-slate-500 text-center">
               {searchQuery.trim() || filterHospitalId.trim()
                 ? "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"
-                : "Danh sách bệnh viện sẽ hiển thị tại đây"}
+                : "Danh sách tổ chức sẽ hiển thị tại đây"}
             </Text>
           </View>
         ) : (
@@ -520,6 +538,17 @@ export default function AdminHospitalsScreen() {
         )}
       </ScrollView>
 
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
+
       {/* Create Modal */}
       <Modal
         visible={showCreateModal}
@@ -533,16 +562,16 @@ export default function AdminHospitalsScreen() {
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
           <View className="bg-white rounded-3xl p-6 w-full max-w-[400px]">
             <Text className="text-lg font-extrabold text-slate-900 mb-2">
-              Thêm bệnh viện mới
+              Thêm tổ chức mới
             </Text>
 
             <View className="mb-4">
               <Text className="text-xs font-bold text-slate-700 mb-2">
-                Tên bệnh viện *
+                Tên tổ chức *
               </Text>
               <TextInput
                 className="h-11 rounded-xl px-3 bg-slate-50 border border-slate-200 text-sm text-slate-900 font-semibold"
-                placeholder="Nhập tên bệnh viện"
+                placeholder="Nhập tên tổ chức"
                 placeholderTextColor="#94A3B8"
                 value={formHospitalName}
                 onChangeText={setFormHospitalName}
@@ -596,7 +625,7 @@ export default function AdminHospitalsScreen() {
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
           <View className="bg-white rounded-3xl p-6 w-full max-w-[400px]">
             <Text className="text-lg font-extrabold text-slate-900 mb-2">
-              Chỉnh sửa bệnh viện
+              Chỉnh sửa tổ chức
             </Text>
             <Text className="text-sm text-slate-600 mb-4">
               Mã: {editingHospital?.hospitalId}
@@ -604,11 +633,11 @@ export default function AdminHospitalsScreen() {
 
             <View className="mb-4">
               <Text className="text-xs font-bold text-slate-700 mb-2">
-                Tên bệnh viện *
+                Tên tổ chức *
               </Text>
               <TextInput
                 className="h-11 rounded-xl px-3 bg-slate-50 border border-slate-200 text-sm text-slate-900 font-semibold"
-                placeholder="Nhập tên bệnh viện"
+                placeholder="Nhập tên tổ chức"
                 placeholderTextColor="#94A3B8"
                 value={formHospitalName}
                 onChangeText={setFormHospitalName}

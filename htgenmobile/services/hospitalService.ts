@@ -14,12 +14,14 @@ export const hospitalService = {
   /**
    * Get all hospitals
    */
-  getAll: async (): Promise<HospitalResponse[]> => {
-    const response = await apiClient.get<HospitalResponse[]>(API_ENDPOINTS.HOSPITALS);
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [];
-    }
-    throw new Error(response.error || "Failed to fetch hospitals");
+  getAll: async (params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.HOSPITALS}?${queryParams.toString()}`
+      : API_ENDPOINTS.HOSPITALS;
+    return apiClient.get<HospitalResponse[]>(url);
   },
 
   /**
@@ -36,14 +38,14 @@ export const hospitalService = {
   /**
    * Search hospitals by name
    */
-  search: async (name: string): Promise<HospitalResponse[]> => {
-    const response = await apiClient.get<HospitalResponse[]>(
-      `${API_ENDPOINTS.HOSPITALS_SEARCH}?name=${encodeURIComponent(name)}`
+  search: async (name: string, params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("name", name);
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    return apiClient.get<HospitalResponse[]>(
+      `${API_ENDPOINTS.HOSPITALS_SEARCH}?${queryParams.toString()}`
     );
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [];
-    }
-    throw new Error(response.error || "Failed to search hospitals");
   },
 
   /**

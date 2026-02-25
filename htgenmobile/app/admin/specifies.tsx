@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -27,7 +27,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { specifyVoteTestService, SpecifyVoteTestResponse } from "@/services/specifyVoteTestService";
 
 const formatDate = (dateString?: string): string => {
@@ -78,9 +80,20 @@ export default function AdminSpecifiesScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const { data: specifiesResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ["admin-specifies"],
-    queryFn: () => specifyVoteTestService.getAll(),
+  const {
+    data: specifiesData,
+    isLoading,
+    error,
+    refetch,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<SpecifyVoteTestResponse>({
+    queryKey: ["admin-specifies", statusFilter, hospitalFilter],
+    queryFn: async (params) => await specifyVoteTestService.getAll(params),
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN",
   });
 
@@ -114,9 +127,8 @@ export default function AdminSpecifiesScreen() {
   }
 
   const specifies = useMemo(() => {
-    if (!specifiesResponse?.success || !specifiesResponse.data) return [];
-    return Array.isArray(specifiesResponse.data) ? specifiesResponse.data : [];
-  }, [specifiesResponse]);
+    return specifiesData || [];
+  }, [specifiesData]);
 
   const hospitals = useMemo(() => {
     const hospitalSet = new Set<string>();
@@ -435,6 +447,17 @@ export default function AdminSpecifiesScreen() {
           )}
         </View>
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Detail Modal */}
       <Modal

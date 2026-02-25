@@ -14,7 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { getApiResponseData } from "@/lib/types/api-types";
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { GenomeTestResponse, genomeTestService } from "@/services/genomeTestService";
 import { SERVICE_TYPE_MAPPER } from "@/lib/schemas/order-schemas";
 import { ServiceResponse, serviceService } from "@/services/serviceService";
@@ -54,17 +55,25 @@ export default function ServicesScreen() {
     };
   }, [services]);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: tests,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<GenomeTestResponse>({
     queryKey: ["genome-tests", selectedServiceId ?? "all"],
-    queryFn: () =>
+    queryFn: async (params) =>
       selectedServiceId
-        ? genomeTestService.getByServiceId(selectedServiceId)
-        : genomeTestService.getAll(),
+        ? await genomeTestService.getByServiceId(selectedServiceId, params)
+        : await genomeTestService.getAll(params),
+    defaultPageSize: 20,
   });
-
-  const tests: GenomeTestResponse[] = useMemo(() => {
-    return getApiResponseData<GenomeTestResponse>(data) || [];
-  }, [data]);
 
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase();
@@ -254,7 +263,7 @@ export default function ServicesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.testId}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: totalPages > 1 ? 80 : 20 }}
         ItemSeparatorComponent={() => <View className="h-2.5" />}
         refreshControl={
           <RefreshControl
@@ -348,6 +357,17 @@ export default function ServicesScreen() {
           );
         }}
       />
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }
