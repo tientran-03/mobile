@@ -23,8 +23,14 @@ export interface PatientResponse {
 }
 
 export const patientService = {
-  getAll: async () => {
-    return apiClient.get<PatientResponse[]>(API_ENDPOINTS.PATIENTS);
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.PATIENTS}?${queryParams.toString()}`
+      : API_ENDPOINTS.PATIENTS;
+    return apiClient.get<PatientResponse[]>(url);
   },
 
   getById: async (id: string) => {
@@ -35,9 +41,13 @@ export const patientService = {
     return apiClient.get<PatientResponse>(API_ENDPOINTS.PATIENT_BY_PHONE(encodeURIComponent(phone)));
   },
 
-  search: async (name: string) => {
+  search: async (name: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("name", name);
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
     return apiClient.get<PatientResponse[]>(
-      `${API_ENDPOINTS.PATIENT_SEARCH}?name=${encodeURIComponent(name)}`
+      `${API_ENDPOINTS.PATIENT_SEARCH}?${queryParams.toString()}`
     );
   },
 

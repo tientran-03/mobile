@@ -40,7 +40,7 @@ import {
 
 export default function AdminConfigScreen() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -78,6 +78,15 @@ export default function AdminConfigScreen() {
     queryKey: ["system-configs"],
     queryFn: () => systemConfigService.getAll(),
     enabled: user?.role === "ROLE_ADMIN",
+    retry: false,
+    onError: (error: any) => {
+      // Handle 401 - logout and redirect to login
+      const errorMessage = error?.message || error?.error || String(error || "");
+      if (errorMessage.includes("hết hạn") || errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+        console.warn("401 detected in config screen, logging out...");
+        logout();
+      }
+    },
   });
 
   // Filtered configs
@@ -387,80 +396,114 @@ function ConfigDetailModal({
   config: SystemConfigResponse | null;
   onClose: () => void;
 }) {
-  if (!config) return null;
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal 
+      visible={visible} 
+      transparent 
+      animationType="slide" 
+      onRequestClose={onClose}
+    >
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-white rounded-t-3xl max-h-[90%]">
+        <TouchableOpacity
+          className="absolute inset-0"
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View className="bg-white rounded-t-3xl" style={{ maxHeight: "85%" }}>
           <View className="px-6 py-4 border-b border-sky-100">
             <View className="flex-row items-center justify-between">
-              <Text className="text-slate-900 text-lg font-extrabold">Chi tiết cấu hình</Text>
+              <View className="flex-row items-center flex-1">
+                <TouchableOpacity 
+                  onPress={onClose}
+                  className="mr-3 p-1"
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeft size={24} color="#64748B" />
+                </TouchableOpacity>
+                <Text className="text-slate-900 text-lg font-extrabold flex-1">Chi tiết cấu hình</Text>
+              </View>
               <TouchableOpacity onPress={onClose}>
                 <XCircle size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
           </View>
 
-          <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-1">Tên cấu hình</Text>
-              <Text className="text-slate-900 text-base font-extrabold">
-                {getConfigLabel(config.name)}
-              </Text>
-            </View>
+          <ScrollView 
+            contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+            showsVerticalScrollIndicator={true}
+          >
+            {config ? (
+              <>
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-1">Tên cấu hình</Text>
+                  <Text className="text-slate-900 text-base font-extrabold">
+                    {getConfigLabel(config.name)}
+                  </Text>
+                </View>
 
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-1">Mã cấu hình</Text>
-              <Text className="text-slate-700 text-sm font-bold">{config.name}</Text>
-            </View>
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-1">Mã cấu hình</Text>
+                  <Text className="text-slate-700 text-sm font-bold">{config.name}</Text>
+                </View>
 
-            {config.description && (
-              <View className="mb-4">
-                <Text className="text-slate-500 text-xs font-bold mb-1">Mô tả</Text>
-                <Text className="text-slate-700 text-sm">{config.description}</Text>
-              </View>
-            )}
-
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-1">Trạng thái</Text>
-              <View className="mt-1">
-                {config.isActive ? (
-                  <View className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 self-start">
-                    <Text className="text-emerald-700 text-xs font-bold">Hoạt động</Text>
-                  </View>
-                ) : (
-                  <View className="px-3 py-1.5 rounded-full bg-red-50 border border-red-200 self-start">
-                    <Text className="text-red-700 text-xs font-bold">Vô hiệu</Text>
+                {config.description && (
+                  <View className="mb-4">
+                    <Text className="text-slate-500 text-xs font-bold mb-1">Mô tả</Text>
+                    <Text className="text-slate-700 text-sm">{config.description}</Text>
                   </View>
                 )}
-              </View>
-            </View>
 
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-2">Metadata (JSON)</Text>
-              <View className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                <Text className="text-slate-700 text-xs font-mono">
-                  {JSON.stringify(config.metadata, null, 2)}
-                </Text>
-              </View>
-            </View>
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-1">Trạng thái</Text>
+                  <View className="mt-1">
+                    {config.isActive ? (
+                      <View className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 self-start">
+                        <Text className="text-emerald-700 text-xs font-bold">Hoạt động</Text>
+                      </View>
+                    ) : (
+                      <View className="px-3 py-1.5 rounded-full bg-red-50 border border-red-200 self-start">
+                        <Text className="text-red-700 text-xs font-bold">Vô hiệu</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
 
-            {config.createdAt && (
-              <View className="mb-4">
-                <Text className="text-slate-500 text-xs font-bold mb-1">Ngày tạo</Text>
-                <Text className="text-slate-700 text-sm">
-                  {new Date(config.createdAt).toLocaleString("vi-VN")}
-                </Text>
-              </View>
-            )}
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-2">Metadata (JSON)</Text>
+                  <ScrollView 
+                    horizontal
+                    className="bg-slate-50 rounded-xl p-3 border border-slate-200"
+                    showsHorizontalScrollIndicator={true}
+                  >
+                    <Text className="text-slate-700 text-xs font-mono" style={{ minWidth: 300 }}>
+                      {JSON.stringify(config.metadata, null, 2)}
+                    </Text>
+                  </ScrollView>
+                </View>
 
-            {config.updatedAt && (
-              <View>
-                <Text className="text-slate-500 text-xs font-bold mb-1">Ngày cập nhật</Text>
-                <Text className="text-slate-700 text-sm">
-                  {new Date(config.updatedAt).toLocaleString("vi-VN")}
-                </Text>
+                {config.createdAt && (
+                  <View className="mb-4">
+                    <Text className="text-slate-500 text-xs font-bold mb-1">Ngày tạo</Text>
+                    <Text className="text-slate-700 text-sm">
+                      {new Date(config.createdAt).toLocaleString("vi-VN")}
+                    </Text>
+                  </View>
+                )}
+
+                {config.updatedAt && (
+                  <View className="mb-4">
+                    <Text className="text-slate-500 text-xs font-bold mb-1">Ngày cập nhật</Text>
+                    <Text className="text-slate-700 text-sm">
+                      {new Date(config.updatedAt).toLocaleString("vi-VN")}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View className="py-8 items-center">
+                <Text className="text-slate-500 text-sm">Không có dữ liệu</Text>
               </View>
             )}
           </ScrollView>
@@ -509,13 +552,18 @@ function ConfigEditModal({
   };
 
   const handleSave = async () => {
-    if (!config || !validateJson(metadataJson)) return;
+    if (!config || !validateJson(metadataJson)) {
+      if (!config) {
+        Alert.alert("Lỗi", "Không tìm thấy cấu hình");
+      }
+      return;
+    }
 
     setSaving(true);
     try {
       const metadata = JSON.parse(metadataJson);
       const request: UpdateSystemConfigRequest = {
-        description,
+        description: description.trim() || undefined,
         metadata,
         isActive,
       };
@@ -523,92 +571,122 @@ function ConfigEditModal({
       Alert.alert("Thành công", "Đã cập nhật cấu hình");
       onSuccess();
     } catch (error: any) {
-      Alert.alert("Lỗi", error.message || "Không thể cập nhật cấu hình");
+      console.error("Error updating config:", error);
+      Alert.alert("Lỗi", error.message || error.error || "Không thể cập nhật cấu hình");
     } finally {
       setSaving(false);
     }
   };
 
-  if (!config) return null;
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-white rounded-t-3xl max-h-[90%]">
+        <TouchableOpacity
+          className="absolute inset-0"
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View className="bg-white rounded-t-3xl" style={{ maxHeight: "85%" }}>
           <View className="px-6 py-4 border-b border-sky-100">
             <View className="flex-row items-center justify-between">
-              <Text className="text-slate-900 text-lg font-extrabold">Chỉnh sửa cấu hình</Text>
+              <View className="flex-row items-center flex-1">
+                <TouchableOpacity 
+                  onPress={onClose}
+                  className="mr-3 p-1"
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeft size={24} color="#64748B" />
+                </TouchableOpacity>
+                <View className="flex-1">
+                  <Text className="text-slate-900 text-lg font-extrabold">Chỉnh sửa cấu hình</Text>
+                  {config && (
+                    <Text className="text-slate-500 text-xs mt-1">
+                      {getConfigLabel(config.name)}
+                    </Text>
+                  )}
+                </View>
+              </View>
               <TouchableOpacity onPress={onClose}>
                 <XCircle size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
-            <Text className="text-slate-500 text-xs mt-1">
-              {getConfigLabel(config.name)}
-            </Text>
           </View>
 
-          <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-1">Mô tả</Text>
-              <TextInput
-                className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-900 text-sm"
-                placeholder="Mô tả cấu hình..."
-                value={description}
-                onChangeText={setDescription}
-                multiline
-              />
-            </View>
-
-            <View className="mb-4">
-              <Text className="text-slate-500 text-xs font-bold mb-1">
-                Metadata (JSON) <Text className="text-red-500">*</Text>
-              </Text>
-              <TextInput
-                className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-900 text-xs font-mono"
-                placeholder="{}"
-                value={metadataJson}
-                onChangeText={(text) => {
-                  setMetadataJson(text);
-                  validateJson(text);
-                }}
-                multiline
-                style={{ minHeight: 200 }}
-              />
-              {jsonError && (
-                <Text className="text-red-600 text-xs mt-1">{jsonError}</Text>
-              )}
-            </View>
-
-            <View className="mb-6">
-              <TouchableOpacity
-                onPress={() => setIsActive(!isActive)}
-                className="flex-row items-center"
-              >
-                <View
-                  className={`w-5 h-5 rounded border-2 items-center justify-center mr-2 ${
-                    isActive
-                      ? "bg-sky-600 border-sky-600"
-                      : "bg-white border-slate-300"
-                  }`}
-                >
-                  {isActive && <CheckCircle size={14} color="#FFFFFF" />}
+          <ScrollView 
+            contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+            showsVerticalScrollIndicator={true}
+          >
+            {config ? (
+              <>
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-1">Mô tả</Text>
+                  <TextInput
+                    className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-900 text-sm"
+                    placeholder="Mô tả cấu hình..."
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                  />
                 </View>
-                <Text className="text-slate-700 text-sm font-bold">Kích hoạt</Text>
-              </TouchableOpacity>
-            </View>
 
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={saving || !!jsonError}
-              className="bg-sky-600 rounded-xl py-3 items-center"
-              style={{ opacity: saving || jsonError ? 0.5 : 1 }}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-white text-sm font-extrabold">Lưu thay đổi</Text>
-              )}
-            </TouchableOpacity>
+                <View className="mb-4">
+                  <Text className="text-slate-500 text-xs font-bold mb-1">
+                    Metadata (JSON) <Text className="text-red-500">*</Text>
+                  </Text>
+                  <TextInput
+                    className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-900 text-xs font-mono"
+                    placeholder="{}"
+                    value={metadataJson}
+                    onChangeText={(text) => {
+                      setMetadataJson(text);
+                      validateJson(text);
+                    }}
+                    multiline
+                    style={{ minHeight: 200 }}
+                  />
+                  {jsonError && (
+                    <Text className="text-red-600 text-xs mt-1">{jsonError}</Text>
+                  )}
+                </View>
+
+                <View className="mb-6">
+                  <TouchableOpacity
+                    onPress={() => setIsActive(!isActive)}
+                    className="flex-row items-center"
+                  >
+                    <View
+                      className={`w-5 h-5 rounded border-2 items-center justify-center mr-2 ${
+                        isActive
+                          ? "bg-sky-600 border-sky-600"
+                          : "bg-white border-slate-300"
+                      }`}
+                    >
+                      {isActive && <CheckCircle size={14} color="#FFFFFF" />}
+                    </View>
+                    <Text className="text-slate-700 text-sm font-bold">Kích hoạt</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleSave}
+                  disabled={saving || !!jsonError || !config}
+                  className="bg-sky-600 rounded-xl py-3 items-center"
+                  style={{ opacity: saving || jsonError || !config ? 0.5 : 1 }}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-white text-sm font-extrabold">Lưu thay đổi</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View className="py-8 items-center">
+                <Text className="text-slate-500 text-sm">Không có dữ liệu</Text>
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -631,7 +709,7 @@ function TestResultModal({
   } | null;
   onClose: () => void;
 }) {
-  if (!result) return null;
+  if (!visible || !result) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -765,7 +843,14 @@ function ConfigCreateModal({
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !validateJson(metadataJson)) return;
+    if (!name.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập tên cấu hình");
+      return;
+    }
+    if (!validateJson(metadataJson)) {
+      Alert.alert("Lỗi", "Metadata JSON không hợp lệ");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -780,26 +865,46 @@ function ConfigCreateModal({
       Alert.alert("Thành công", "Đã tạo cấu hình mới");
       onSuccess();
     } catch (error: any) {
-      Alert.alert("Lỗi", error.message || "Không thể tạo cấu hình");
+      console.error("Error creating config:", error);
+      Alert.alert("Lỗi", error.message || error.error || "Không thể tạo cấu hình");
     } finally {
       setSaving(false);
     }
   };
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-white rounded-t-3xl max-h-[90%]">
+        <TouchableOpacity
+          className="absolute inset-0"
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View className="bg-white rounded-t-3xl" style={{ maxHeight: "85%" }}>
           <View className="px-6 py-4 border-b border-sky-100">
             <View className="flex-row items-center justify-between">
-              <Text className="text-slate-900 text-lg font-extrabold">Thêm cấu hình mới</Text>
+              <View className="flex-row items-center flex-1">
+                <TouchableOpacity 
+                  onPress={onClose}
+                  className="mr-3 p-1"
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeft size={24} color="#64748B" />
+                </TouchableOpacity>
+                <Text className="text-slate-900 text-lg font-extrabold flex-1">Thêm cấu hình mới</Text>
+              </View>
               <TouchableOpacity onPress={onClose}>
                 <XCircle size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
           </View>
 
-          <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+          <ScrollView 
+            contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+            showsVerticalScrollIndicator={true}
+          >
             <View className="mb-4">
               <Text className="text-slate-500 text-xs font-bold mb-1">
                 Tên cấu hình <Text className="text-red-500">*</Text>

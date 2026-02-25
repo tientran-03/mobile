@@ -21,6 +21,8 @@ import {
   Alert,
   Modal,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -444,76 +446,113 @@ export default function AdminPermissionsListScreen() {
         transparent
         onRequestClose={() => setShowFormModal(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl p-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-extrabold text-slate-900">
-                {isEdit ? "Sửa quyền hạn" : "Thêm quyền hạn"}
-              </Text>
-              <TouchableOpacity onPress={() => setShowFormModal(false)}>
-                <Text className="text-sky-600 text-sm font-bold">Đóng</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView>
-              <View className="gap-4">
-                <View>
-                  <Text className="text-xs font-bold text-slate-700 mb-2">Tên quyền hạn *</Text>
-                  <TextInput
-                    className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm"
-                    placeholder="Nhập tên quyền hạn"
-                    value={formData.permissionName}
-                    onChangeText={(text) => setFormData({ ...formData, permissionName: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-xs font-bold text-slate-700 mb-2">Nhóm quyền *</Text>
-                  <TextInput
-                    className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm"
-                    placeholder="Nhập nhóm quyền"
-                    value={formData.groupName}
-                    onChangeText={(text) => setFormData({ ...formData, groupName: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-xs font-bold text-slate-700 mb-2">Cấp độ *</Text>
-                  <TextInput
-                    className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm"
-                    placeholder="Nhập cấp độ"
-                    value={formData.levelName}
-                    onChangeText={(text) => setFormData({ ...formData, levelName: text })}
-                  />
-                </View>
-
-                <View className="flex-row gap-3 mt-2">
-                  <TouchableOpacity
-                    onPress={() => setShowFormModal(false)}
-                    className="flex-1 py-3 rounded-xl border border-slate-200 items-center"
-                    activeOpacity={0.85}
-                  >
-                    <Text className="text-sm font-bold text-slate-700">Hủy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleSubmit}
-                    className="flex-1 py-3 rounded-xl bg-sky-600 items-center"
-                    activeOpacity={0.85}
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {createMutation.isPending || updateMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text className="text-sm font-bold text-white">
-                        {isEdit ? "Cập nhật" : "Tạo"}
-                      </Text>
-                    )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
+          <TouchableOpacity
+            className="flex-1 bg-black/50 justify-end"
+            activeOpacity={1}
+            onPress={() => setShowFormModal(false)}
+          >
+            <TouchableOpacity
+              className="bg-white rounded-t-3xl"
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{ maxHeight: "90%" }}
+            >
+              <View className="px-6 pt-4 pb-2 border-b border-sky-100">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center flex-1">
+                    <TouchableOpacity 
+                      onPress={() => setShowFormModal(false)}
+                      className="mr-3 p-1"
+                      activeOpacity={0.7}
+                    >
+                      <ArrowLeft size={24} color="#64748B" />
+                    </TouchableOpacity>
+                    <Text className="text-lg font-extrabold text-slate-900 flex-1">
+                      {isEdit ? "Sửa quyền hạn" : "Thêm quyền hạn"}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowFormModal(false)}>
+                    <Text className="text-sky-600 text-sm font-bold">Đóng</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            </ScrollView>
-          </View>
-        </View>
+
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+              >
+                <View className="gap-4">
+                  <View>
+                    <Text className="text-xs font-bold text-slate-700 mb-2">Tên quyền hạn *</Text>
+                    <TextInput
+                      className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm text-slate-900"
+                      placeholder="Nhập tên quyền hạn"
+                      placeholderTextColor="#94A3B8"
+                      value={formData.permissionName}
+                      onChangeText={(text) => setFormData({ ...formData, permissionName: text })}
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  <View>
+                    <Text className="text-xs font-bold text-slate-700 mb-2">Nhóm quyền *</Text>
+                    <TextInput
+                      className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm text-slate-900"
+                      placeholder="Nhập nhóm quyền"
+                      placeholderTextColor="#94A3B8"
+                      value={formData.groupName}
+                      onChangeText={(text) => setFormData({ ...formData, groupName: text })}
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  <View>
+                    <Text className="text-xs font-bold text-slate-700 mb-2">Cấp độ *</Text>
+                    <TextInput
+                      className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-200 text-sm text-slate-900"
+                      placeholder="Nhập cấp độ"
+                      placeholderTextColor="#94A3B8"
+                      value={formData.levelName}
+                      onChangeText={(text) => setFormData({ ...formData, levelName: text })}
+                      returnKeyType="done"
+                    />
+                  </View>
+
+                  <View className="flex-row gap-3 mt-4">
+                    <TouchableOpacity
+                      onPress={() => setShowFormModal(false)}
+                      className="flex-1 py-3 rounded-xl border border-slate-200 items-center"
+                      activeOpacity={0.85}
+                    >
+                      <Text className="text-sm font-bold text-slate-700">Hủy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSubmit}
+                      className="flex-1 py-3 rounded-xl bg-sky-600 items-center"
+                      activeOpacity={0.85}
+                      disabled={createMutation.isPending || updateMutation.isPending}
+                      style={{ opacity: createMutation.isPending || updateMutation.isPending ? 0.5 : 1 }}
+                    >
+                      {createMutation.isPending || updateMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="text-sm font-bold text-white">
+                          {isEdit ? "Cập nhật" : "Tạo"}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Delete Confirmation Modal */}

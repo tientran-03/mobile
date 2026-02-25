@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Search, X, Eye, ChevronDown } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
@@ -16,7 +16,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { getOrderStatusLabel } from "@/lib/constants/order-status";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { orderService, OrderResponse } from "@/services/orderService";
 import { OrderStatus as OrderStatusEnum, SpecifyStatus } from "@/lib/schemas/order-form-schema";
 import { specifyVoteTestService } from "@/services/specifyVoteTestService";
@@ -63,10 +65,21 @@ export default function OrdersInProgressScreen() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
 
-  const { data: ordersResponse, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<OrderResponse>({
     queryKey: ["orders", "in_progress"],
-    queryFn: () => orderService.getByStatus(OrderStatusEnum.IN_PROGRESS),
-    retry: false,
+    queryFn: async (params) => await orderService.getByStatus(OrderStatusEnum.IN_PROGRESS, params),
+    defaultPageSize: 20,
   });
 
   const updateStatusMutation = useMutation({
@@ -111,10 +124,7 @@ export default function OrdersInProgressScreen() {
   });
 
   const orders = useMemo(() => {
-    if (!ordersResponse?.success || !ordersResponse.data) return [];
-    const list = ordersResponse.data as OrderResponse[];
-
-    return list
+    return ordersData
       .map((order) => {
         // patientName: cố lấy patientName trước, fallback mới lấy id
         const patientName =
@@ -137,7 +147,7 @@ export default function OrdersInProgressScreen() {
         };
       })
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }, [ordersResponse]);
+  }, [ordersData]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -164,10 +174,7 @@ export default function OrdersInProgressScreen() {
   };
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-    const orderData =
-      ordersResponse?.success && ordersResponse.data
-        ? (ordersResponse.data as OrderResponse[]).find((o) => o.orderId === orderId)
-        : null;
+    const orderData = ordersData.find((o) => o.orderId === orderId) || null;
 
     const specifyId = (orderData as any)?.specifyId?.specifyVoteID;
 
@@ -250,7 +257,7 @@ export default function OrdersInProgressScreen() {
       {/* Orders List */}
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor="#0284C7" />}
       >
@@ -340,6 +347,17 @@ export default function OrdersInProgressScreen() {
           })
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Status Change Modal */}
       <Modal

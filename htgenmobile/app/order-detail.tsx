@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   Edit,
   Trash2,
+  Download,
+  FileText,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -16,6 +18,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Share,
+  Linking,
 } from "react-native";
 
 import { COLORS } from "@/constants/colors";
@@ -85,6 +89,45 @@ export default function OrderDetailScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+
+  const handleDownloadOrder = async (order: OrderResponse) => {
+    try {
+      const summaryLines = [
+        `Đơn hàng #${order.orderId}`,
+        order.orderName ? `Tên đơn: ${order.orderName}` : "",
+        order.customerName ? `Khách hàng: ${order.customerName}` : "",
+        order.paymentAmount !== undefined
+          ? `Số tiền: ${formatCurrency(order.paymentAmount)} VNĐ`
+          : "",
+        order.orderStatus ? `Trạng thái: ${getOrderStatusLabel(order.orderStatus)}` : "",
+      ].filter(Boolean);
+
+      const message = summaryLines.join("\n");
+      await Share.share({ message });
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể tải / chia sẻ đơn hàng. Vui lòng thử lại.");
+    }
+  };
+
+  const handleViewInvoice = async (order: OrderResponse) => {
+    if (!order.invoiceLink) {
+      Alert.alert("Thông báo", "Đơn hàng này chưa có hóa đơn.");
+      return;
+    }
+    try {
+      const supported = await Linking.canOpenURL(order.invoiceLink);
+      if (!supported) {
+        Alert.alert(
+          "Lỗi",
+          "Không thể mở hóa đơn trên thiết bị này. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
+        );
+        return;
+      }
+      await Linking.openURL(order.invoiceLink);
+    } catch (error) {
+      Alert.alert("Lỗi", "Có lỗi xảy ra khi mở hóa đơn. Vui lòng thử lại sau.");
+    }
+  };
 
   const {
     data: orderResponse,
@@ -256,6 +299,27 @@ export default function OrderDetailScreen() {
               <ArrowLeft size={24} color={COLORS.text} />
             </TouchableOpacity>
             <View style={styles.headerActions}>
+              {/* Download / share order summary */}
+              <TouchableOpacity
+                onPress={() => handleDownloadOrder(order)}
+                style={styles.actionBtn}
+              >
+                <Download size={20} color={COLORS.primary} />
+              </TouchableOpacity>
+
+              {/* View invoice only when paid and invoice link exists */}
+              {order.paymentStatus &&
+                order.paymentStatus.toUpperCase() === "COMPLETED" &&
+                !!order.invoiceLink && (
+                  <TouchableOpacity
+                    onPress={() => handleViewInvoice(order)}
+                    style={styles.actionBtn}
+                  >
+                    <FileText size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                )}
+
+              {/* Delete order */}
               <TouchableOpacity
                 onPress={handleDelete}
                 style={[
@@ -339,7 +403,7 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {(order.paymentStatus || order.paymentType || order.paymentAmount) && (
+        {(order.paymentStatus || order.paymentType || order.paymentAmount || order.invoiceLink) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
 
@@ -369,13 +433,11 @@ export default function OrderDetailScreen() {
                 </Text>
               </View>
             )}
-
+            
             {order.invoiceLink && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Link hóa đơn:</Text>
-                <Text style={[styles.infoValue, styles.linkText]}>
-                  {order.invoiceLink}
-                </Text>
+                <Text style={styles.infoLabel}>Hóa đơn:</Text>
+                <Text style={styles.infoValue}>Đã phát hành</Text>
               </View>
             )}
           </View>

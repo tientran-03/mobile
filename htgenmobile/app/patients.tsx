@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { Search, X, User, Phone, Mail, MapPin, ArrowLeft } from "lucide-react-native";
 import React, { useMemo, useState, useEffect } from "react";
@@ -15,6 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { patientService, PatientResponse } from "@/services/patientService";
 
 const genderLabel = (g?: string) => {
@@ -40,25 +41,33 @@ export default function PatientsScreen() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: patients,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<PatientResponse>({
     queryKey: ["patients", debouncedQuery.trim()],
-    queryFn: async () => {
+    queryFn: async (params) => {
       const q = debouncedQuery.trim();
       console.log("[Patients] Searching with query:", q);
       if (q) {
-        const result = await patientService.search(q);
+        const result = await patientService.search(q, params);
         console.log("[Patients] Search result:", result);
         return result;
       }
-      const result = await patientService.getAll();
+      const result = await patientService.getAll(params);
       console.log("[Patients] GetAll result:", result);
       return result;
     },
+    defaultPageSize: 20,
   });
-
-  const patients: PatientResponse[] = useMemo(() => {
-    return data?.success ? ((data.data as PatientResponse[]) || []) : [];
-  }, [data]);
 
   if (isLoading) {
     return (
@@ -152,7 +161,7 @@ export default function PatientsScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
         refreshControl={
           <RefreshControl
             refreshing={isFetching}
@@ -241,6 +250,17 @@ export default function PatientsScreen() {
           })
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

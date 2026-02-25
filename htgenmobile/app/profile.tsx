@@ -217,9 +217,10 @@ export default function ProfileScreen() {
       if (success) {
         Alert.alert("Thành công", "Cập nhật ảnh đại diện thành công.");
       } else {
+        // Trường hợp backend chặn quyền (permission denied) hoặc lỗi nghiệp vụ
         Alert.alert(
-          "Thất bại",
-          "Không thể cập nhật ảnh đại diện. Vui lòng thử lại sau.",
+          "Không có quyền",
+          "Tài khoản của bạn hiện chưa được phép cập nhật ảnh đại diện. Vui lòng liên hệ quản trị hệ thống nếu cần hỗ trợ.",
         );
       }
     } catch (error) {

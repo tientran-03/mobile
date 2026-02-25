@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -21,6 +20,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { orderService, OrderResponse } from "@/services/orderService";
 import { OrderStatus } from "@/types";
 
@@ -137,9 +138,23 @@ export default function OrdersScreen() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    hasNextPage,
+    hasPreviousPage,
+    nextPage,
+    previousPage,
+    goToPage,
+  } = usePaginatedQuery<OrderResponse>({
     queryKey: ["orders", statusFilter],
-    queryFn: async () => {
+    queryFn: async (params) => {
       if (statusFilter !== "all") {
         const statusMap: Record<string, string> = {
           completed: "completed",
@@ -148,16 +163,16 @@ export default function OrdersScreen() {
           processing: "in_progress",
         };
         const backendStatus = statusMap[statusFilter] || statusFilter;
-        return await orderService.getByStatus(backendStatus);
+        return await orderService.getByStatus(backendStatus, params);
       }
-      return await orderService.getAll();
+      return await orderService.getAll(params);
     },
+    defaultPageSize: 20,
   });
 
   const orders = useMemo(() => {
-    if (!ordersResponse?.success || !ordersResponse.data) return [];
-    return (ordersResponse.data as OrderResponse[]).map(mapOrderResponseToOrder);
-  }, [ordersResponse]);
+    return ordersData.map(mapOrderResponseToOrder);
+  }, [ordersData]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order: any) => {
@@ -332,7 +347,7 @@ export default function OrdersScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
       >
         {dayKeys.length === 0 ? (
           <View className="pt-12 items-center px-6">
@@ -445,6 +460,17 @@ export default function OrdersScreen() {
           ))
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

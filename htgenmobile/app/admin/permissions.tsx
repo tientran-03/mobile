@@ -7,6 +7,7 @@ import {
   Users,
   Eye,
   Edit,
+  Trash2,
   CheckCircle,
   XCircle,
   Lock,
@@ -23,6 +24,7 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -51,6 +53,8 @@ export default function AdminPermissionsScreen() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [modalMode, setModalMode] = useState<"view" | "edit">("view");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<RoleResponse | null>(null);
   const [userCounts, setUserCounts] = useState<Record<string, number>>({});
 
@@ -113,7 +117,40 @@ export default function AdminPermissionsScreen() {
 
   const handleViewPermissions = (role: RoleResponse) => {
     setSelectedRole(role);
+    setModalMode("view");
     setShowPermissionModal(true);
+  };
+
+  const handleEditPermissions = (role: RoleResponse) => {
+    setSelectedRole(role);
+    setModalMode("edit");
+    setShowPermissionModal(true);
+  };
+
+  const handleDeletePermissions = (role: RoleResponse) => {
+    setSelectedRole(role);
+    setShowDeleteModal(true);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (roleId: string) => {
+      await rolePermissionService.deleteAllForRole(roleId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setShowDeleteModal(false);
+      setSelectedRole(null);
+      Alert.alert("Thành công", "Đã xóa tất cả quyền của vai trò này");
+    },
+    onError: (error: any) => {
+      Alert.alert("Lỗi", error?.message || "Không thể xóa quyền");
+    },
+  });
+
+  const handleConfirmDelete = () => {
+    if (selectedRole) {
+      deleteMutation.mutate(selectedRole.id);
+    }
   };
 
   if (authLoading || isLoading) {
@@ -241,18 +278,47 @@ export default function AdminPermissionsScreen() {
                     </View>
                   </View>
 
-                  <TouchableOpacity
-                    onPress={() => handleViewPermissions(role)}
-                    className="bg-sky-600 rounded-xl py-3 items-center"
-                    activeOpacity={0.7}
-                  >
-                    <View className="flex-row items-center">
-                      <Eye size={16} color="#FFFFFF" />
-                      <Text className="text-white text-sm font-extrabold ml-2">
-                        Xem & Chỉnh sửa quyền
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                  {/* Action Buttons - Tách riêng */}
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => handleViewPermissions(role)}
+                      className="flex-1 bg-blue-50 border border-blue-200 rounded-xl py-2.5 items-center"
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center">
+                        <Eye size={14} color="#2563EB" />
+                        <Text className="text-blue-700 text-xs font-extrabold ml-1.5">
+                          Xem
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleEditPermissions(role)}
+                      className="flex-1 bg-sky-50 border border-sky-200 rounded-xl py-2.5 items-center"
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center">
+                        <Edit size={14} color="#0284C7" />
+                        <Text className="text-sky-700 text-xs font-extrabold ml-1.5">
+                          Sửa
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleDeletePermissions(role)}
+                      className="flex-1 bg-red-50 border border-red-200 rounded-xl py-2.5 items-center"
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center">
+                        <Trash2 size={14} color="#DC2626" />
+                        <Text className="text-red-700 text-xs font-extrabold ml-1.5">
+                          Xóa
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -264,16 +330,64 @@ export default function AdminPermissionsScreen() {
       {selectedRole && (
         <PermissionModal
           visible={showPermissionModal}
+          mode={modalMode}
           role={selectedRole}
           onClose={() => {
             setShowPermissionModal(false);
             setSelectedRole(null);
+            setModalMode("view");
           }}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["roles"] });
           }}
         />
       )}
+
+      {/* Delete Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center px-4">
+          <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <Text className="text-slate-900 text-lg font-extrabold mb-2">
+              Xóa phân quyền
+            </Text>
+            <Text className="text-slate-600 text-sm mb-6">
+              Bạn có chắc chắn muốn xóa tất cả quyền của vai trò{" "}
+              <Text className="font-bold">{selectedRole ? getRoleLabel(selectedRole.name) : ""}</Text>?
+              Hành động này không thể hoàn tác.
+            </Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setSelectedRole(null);
+                }}
+                className="flex-1 bg-slate-100 rounded-xl py-3 items-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-slate-700 text-sm font-extrabold">Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-red-600 rounded-xl py-3 items-center"
+                style={{ opacity: deleteMutation.isPending ? 0.5 : 1 }}
+                activeOpacity={0.7}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-white text-sm font-extrabold">Xóa</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -281,11 +395,13 @@ export default function AdminPermissionsScreen() {
 // Permission Modal Component
 function PermissionModal({
   visible,
+  mode,
   role,
   onClose,
   onSuccess,
 }: {
   visible: boolean;
+  mode: "view" | "edit";
   role: RoleResponse;
   onClose: () => void;
   onSuccess: () => void;
@@ -295,6 +411,8 @@ function PermissionModal({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isReadOnly = mode === "view";
 
   // Fetch all permissions and current role permissions
   useEffect(() => {
@@ -361,13 +479,15 @@ function PermissionModal({
       permissionId: string,
       field: "createAllowed" | "readAllowed" | "updateAllowed" | "deleteAllowed"
     ) => {
+      if (isReadOnly) return;
+
       setPermissionAccess((prev) =>
         prev.map((p) =>
           p.permissionId === permissionId ? { ...p, [field]: !p[field] } : p
         )
       );
     },
-    []
+    [isReadOnly]
   );
 
   // Save permissions
@@ -408,12 +528,15 @@ function PermissionModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-white rounded-t-3xl max-h-[90%]">
+      <View className="flex-1 bg-black/50">
+        <View className="flex-1 bg-white mt-20 rounded-t-3xl">
+          {/* Header */}
           <View className="px-6 py-4 border-b border-sky-100">
-            <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center justify-between mb-2">
               <View className="flex-1">
-                <Text className="text-slate-900 text-lg font-extrabold">Phân quyền</Text>
+                <Text className="text-slate-900 text-lg font-extrabold">
+                  {isReadOnly ? "Chi tiết phân quyền" : "Cập nhật phân quyền"}
+                </Text>
                 <Text className="text-slate-500 text-xs mt-1">
                   {getRoleLabel(role.name)}
                 </Text>
@@ -434,104 +557,114 @@ function PermissionModal({
               <View className="bg-red-50 border border-red-200 rounded-xl p-4">
                 <Text className="text-red-700 text-sm font-bold">{error}</Text>
               </View>
+            ) : permissionGroups.length === 0 ? (
+              <View className="py-8 items-center">
+                <Shield size={48} color="#94A3B8" />
+                <Text className="mt-4 text-slate-500 text-sm font-bold text-center">
+                  Chưa có quyền hạn nào
+                </Text>
+              </View>
             ) : (
               <>
-                {permissionGroups.map((group) => (
-                  <View key={group.groupName} className="mb-6">
-                    <Text className="text-slate-900 text-sm font-extrabold mb-3">
-                      {group.groupName}
-                    </Text>
-                    {group.permissions.map((perm) => (
+                <Text className="text-slate-700 text-sm font-bold mb-4">
+                  Thiết lập phân quyền (Vui lòng bật chức năng cho phép)
+                </Text>
+
+                {/* Table Header */}
+                <View className="flex-row bg-slate-50 rounded-t-xl border-b border-slate-200 px-3 py-2 mb-1">
+                  <View className="flex-1">
+                    <Text className="text-slate-600 text-xs font-extrabold">Chức năng quản lý</Text>
+                  </View>
+                  <View className="w-16 items-center">
+                    <Text className="text-slate-600 text-xs font-extrabold">Tạo</Text>
+                  </View>
+                  <View className="w-16 items-center">
+                    <Text className="text-slate-600 text-xs font-extrabold">Xem</Text>
+                  </View>
+                  <View className="w-16 items-center">
+                    <Text className="text-slate-600 text-xs font-extrabold">Sửa</Text>
+                  </View>
+                  <View className="w-16 items-center">
+                    <Text className="text-slate-600 text-xs font-extrabold">Xóa</Text>
+                  </View>
+                </View>
+
+                {/* Permissions by Group */}
+                {permissionGroups.map((group, gIdx) => (
+                  <View key={group.groupName} className="mb-4">
+                    {/* Group Header */}
+                    <View className="bg-slate-100 px-3 py-2 border-b border-slate-200">
+                      <Text className="text-slate-900 text-sm font-extrabold">
+                        {gIdx + 1}. {group.groupName}
+                      </Text>
+                    </View>
+
+                    {/* Permissions in Group */}
+                    {group.permissions.map((perm, pIdx) => (
                       <View
                         key={perm.permissionId}
-                        className="bg-slate-50 rounded-xl p-3 mb-2 border border-slate-200"
+                        className="flex-row items-center bg-white border-b border-slate-100 px-3 py-3"
                       >
-                        <Text className="text-slate-900 text-xs font-bold mb-2">
-                          {perm.permissionName}
-                        </Text>
-                        <View className="flex-row flex-wrap gap-2">
-                          <TouchableOpacity
-                            onPress={() => toggleAccess(perm.permissionId, "createAllowed")}
-                            className={`px-3 py-1.5 rounded-lg border ${
-                              perm.createAllowed
-                                ? "bg-green-50 border-green-300"
-                                : "bg-white border-slate-300"
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                perm.createAllowed ? "text-green-700" : "text-slate-500"
-                              }`}
-                            >
-                              Tạo
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => toggleAccess(perm.permissionId, "readAllowed")}
-                            className={`px-3 py-1.5 rounded-lg border ${
-                              perm.readAllowed
-                                ? "bg-blue-50 border-blue-300"
-                                : "bg-white border-slate-300"
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                perm.readAllowed ? "text-blue-700" : "text-slate-500"
-                              }`}
-                            >
-                              Đọc
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => toggleAccess(perm.permissionId, "updateAllowed")}
-                            className={`px-3 py-1.5 rounded-lg border ${
-                              perm.updateAllowed
-                                ? "bg-orange-50 border-orange-300"
-                                : "bg-white border-slate-300"
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                perm.updateAllowed ? "text-orange-700" : "text-slate-500"
-                              }`}
-                            >
-                              Sửa
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => toggleAccess(perm.permissionId, "deleteAllowed")}
-                            className={`px-3 py-1.5 rounded-lg border ${
-                              perm.deleteAllowed
-                                ? "bg-red-50 border-red-300"
-                                : "bg-white border-slate-300"
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                perm.deleteAllowed ? "text-red-700" : "text-slate-500"
-                              }`}
-                            >
-                              Xóa
-                            </Text>
-                          </TouchableOpacity>
+                        <View className="flex-1">
+                          <Text className="text-slate-700 text-xs font-bold">
+                            {gIdx + 1}.{pIdx + 1} {perm.permissionName}
+                          </Text>
+                        </View>
+                        <View className="w-16 items-center">
+                          <Switch
+                            value={perm.createAllowed}
+                            onValueChange={() => toggleAccess(perm.permissionId, "createAllowed")}
+                            disabled={isReadOnly}
+                            trackColor={{ false: "#E2E8F0", true: "#10B981" }}
+                            thumbColor={perm.createAllowed ? "#FFFFFF" : "#94A3B8"}
+                          />
+                        </View>
+                        <View className="w-16 items-center">
+                          <Switch
+                            value={perm.readAllowed}
+                            onValueChange={() => toggleAccess(perm.permissionId, "readAllowed")}
+                            disabled={isReadOnly}
+                            trackColor={{ false: "#E2E8F0", true: "#3B82F6" }}
+                            thumbColor={perm.readAllowed ? "#FFFFFF" : "#94A3B8"}
+                          />
+                        </View>
+                        <View className="w-16 items-center">
+                          <Switch
+                            value={perm.updateAllowed}
+                            onValueChange={() => toggleAccess(perm.permissionId, "updateAllowed")}
+                            disabled={isReadOnly}
+                            trackColor={{ false: "#E2E8F0", true: "#F59E0B" }}
+                            thumbColor={perm.updateAllowed ? "#FFFFFF" : "#94A3B8"}
+                          />
+                        </View>
+                        <View className="w-16 items-center">
+                          <Switch
+                            value={perm.deleteAllowed}
+                            onValueChange={() => toggleAccess(perm.permissionId, "deleteAllowed")}
+                            disabled={isReadOnly}
+                            trackColor={{ false: "#E2E8F0", true: "#EF4444" }}
+                            thumbColor={perm.deleteAllowed ? "#FFFFFF" : "#94A3B8"}
+                          />
                         </View>
                       </View>
                     ))}
                   </View>
                 ))}
 
-                <TouchableOpacity
-                  onPress={handleSave}
-                  disabled={saving}
-                  className="bg-sky-600 rounded-xl py-3 items-center mt-4"
-                  style={{ opacity: saving ? 0.5 : 1 }}
-                >
-                  {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-white text-sm font-extrabold">Lưu thay đổi</Text>
-                  )}
-                </TouchableOpacity>
+                {!isReadOnly && (
+                  <TouchableOpacity
+                    onPress={handleSave}
+                    disabled={saving}
+                    className="bg-sky-600 rounded-xl py-3 items-center mt-4"
+                    style={{ opacity: saving ? 0.5 : 1 }}
+                  >
+                    {saving ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text className="text-white text-sm font-extrabold">Cập nhật</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </ScrollView>

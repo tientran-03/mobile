@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Mail, MapPin, Phone, Plus, Search, User, X } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
@@ -14,7 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { getApiResponseData } from "@/lib/types/api-types";
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { CustomerResponse, customerService } from "@/services/customerService";
 
 export default function CustomersScreen() {
@@ -22,18 +22,26 @@ export default function CustomersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [focusSearch, setFocusSearch] = useState(false);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
+  const {
+    data: customers,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<CustomerResponse>({
     queryKey: ["customers", searchQuery.trim()],
-    queryFn: async () => {
+    queryFn: async (params) => {
       const q = searchQuery.trim();
-      if (q) return await customerService.search(q);
-      return await customerService.getAll();
+      if (q) return await customerService.search(q, params);
+      return await customerService.getAll(params);
     },
+    defaultPageSize: 20,
   });
-
-  const customers: CustomerResponse[] = useMemo(() => {
-    return getApiResponseData<CustomerResponse>(data) || [];
-  }, [data]);
 
   if (isLoading) {
     return (
@@ -134,7 +142,7 @@ export default function CustomersScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
         refreshControl={
           <RefreshControl refreshing={isFetching} onRefresh={() => refetch()} tintColor="#0284C7" />
         }
@@ -221,6 +229,17 @@ export default function CustomersScreen() {
           ))
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

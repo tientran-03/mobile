@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -27,7 +26,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { specifyVoteTestService, SpecifyVoteTestResponse } from "@/services/specifyVoteTestService";
 
 const formatDate = (dateString?: string): string => {
@@ -89,9 +90,23 @@ export default function AdminTestResultsScreen() {
   const [selectedResult, setSelectedResult] = useState<SpecifyVoteTestResponse | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const { data: specifiesResponse, isLoading, error, refetch } = useQuery({
+  const {
+    data: specifiesData,
+    isLoading,
+    error,
+    refetch,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<SpecifyVoteTestResponse>({
     queryKey: ["admin-test-results"],
-    queryFn: () => specifyVoteTestService.getAll(),
+    queryFn: async (params) => {
+      const response = await specifyVoteTestService.getAll(params);
+      return response;
+    },
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN",
   });
 
@@ -100,16 +115,12 @@ export default function AdminTestResultsScreen() {
   }
 
   const specifies = useMemo(() => {
-    if (!specifiesResponse?.success || !specifiesResponse.data) return [];
-    return Array.isArray(specifiesResponse.data) ? specifiesResponse.data : [];
-  }, [specifiesResponse]);
+    return specifiesData || [];
+  }, [specifiesData]);
 
-  // Filter to show only completed or processing specifies (results)
+  // Danh sách kết quả (hiện tất cả trạng thái để đảm bảo không bị lọc mất dữ liệu)
   const results = useMemo(() => {
-    return specifies.filter((specify) => {
-      const status = (specify.specifyStatus || "").toLowerCase();
-      return status === "completed" || status === "processing";
-    });
+    return specifies;
   }, [specifies]);
 
   const hospitals = useMemo(() => {
@@ -437,6 +448,17 @@ export default function AdminTestResultsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Detail Modal */}
       <Modal

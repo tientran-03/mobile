@@ -64,12 +64,20 @@ export default function AdminLogsScreen() {
   // Audit Logs
   const { data: auditLogsResponse, isLoading: auditLoading, refetch: refetchAudit } = useQuery({
     queryKey: ["admin-logs-audit", searchQuery],
-    queryFn: () =>
-      logService.queryAuditLogs({
+    queryFn: () => {
+      // Use Unix milliseconds timestamp (same format as web frontend uses for Loki)
+      // Query last 7 days like web frontend
+      const endTime = Date.now(); // Unix milliseconds
+      const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+      
+      return logService.queryAuditLogs({
         keyword: searchQuery || undefined,
+        startTime: startTime.toString(), // Unix milliseconds as string
+        endTime: endTime.toString(), // Unix milliseconds as string
         page: 0,
         size: 50,
-      }),
+      });
+    },
     enabled: user?.role === "ROLE_ADMIN" && activeTab === "audit",
   });
 
@@ -77,12 +85,20 @@ export default function AdminLogsScreen() {
   const { data: securityLogsResponse, isLoading: securityLoading, refetch: refetchSecurity } =
     useQuery({
       queryKey: ["admin-logs-security", searchQuery],
-      queryFn: () =>
-        logService.querySecurityLogs({
+      queryFn: () => {
+        // Use Unix milliseconds timestamp (same format as web frontend uses for Loki)
+        // Query last 7 days like web frontend
+        const endTime = Date.now(); // Unix milliseconds
+        const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+        
+        return logService.querySecurityLogs({
           keyword: searchQuery || undefined,
+          startTime: startTime.toString(), // Unix milliseconds as string
+          endTime: endTime.toString(), // Unix milliseconds as string
           page: 0,
           size: 50,
-        }),
+        });
+      },
       enabled: user?.role === "ROLE_ADMIN" && activeTab === "security",
     });
 
@@ -111,19 +127,30 @@ export default function AdminLogsScreen() {
       });
       return allEntries.slice(0, 100); // Limit to 100 entries
     } else if (activeTab === "audit") {
-      // Handle different response formats
+      // Handle different response formats for audit logs
       if (!auditLogsResponse) return [];
-      
-      // Check if response has success field
-      if (auditLogsResponse.success === false) return [];
-      
-      // Get data from response
-      const responseData = auditLogsResponse.data;
+
+      // Support both ApiResponse<AuditLogResponse> and direct AuditLogResponse
+      let responseData: any = null;
+      const raw = auditLogsResponse as any;
+
+      if (raw.logs && Array.isArray(raw.logs)) {
+        // Backend returned logs object directly
+        responseData = raw;
+      } else if (raw.data) {
+        // ApiResponse wrapper
+        if (raw.success === false) return [];
+        responseData = raw.data;
+      } else {
+        console.warn("⚠️ Audit logs: No data field in response", raw);
+        return [];
+      }
+
       if (!responseData) {
         console.warn("⚠️ Audit logs: No data in response");
         return [];
       }
-      
+
       // Log data structure for debugging
       if (__DEV__) {
         console.log("📋 Audit logs data structure:", {
@@ -131,35 +158,82 @@ export default function AdminLogsScreen() {
           isArray: Array.isArray(responseData),
           hasContent: responseData.content !== undefined,
           keys: Object.keys(responseData),
+          logsType: typeof responseData.logs,
+          logsIsArray: Array.isArray(responseData.logs),
+          logsLength: responseData.logs?.length,
+          logsValue: responseData.logs ? (Array.isArray(responseData.logs) ? `Array(${responseData.logs.length})` : typeof responseData.logs) : 'undefined',
         });
       }
-      
+
       // Handle different data formats
-      if (responseData.logs && Array.isArray(responseData.logs)) {
-        return responseData.logs;
-      } else if (Array.isArray(responseData)) {
-        return responseData;
-      } else if (responseData.content && Array.isArray(responseData.content)) {
-        // Paginated response
-        return responseData.content;
+      if (responseData.logs !== undefined) {
+        if (Array.isArray(responseData.logs)) {
+          const logs = responseData.logs;
+          if (__DEV__) {
+            console.log("✅ Audit logs: Returning logs array, length:", logs.length);
+            if (logs.length > 0) {
+              console.log("📝 First log sample:", {
+                action: logs[0].action,
+                resource: logs[0].resource,
+                timestamp: logs[0].timestamp,
+              });
+            }
+          }
+          return logs;
+        } else {
+          console.warn("⚠️ Audit logs: logs is not an array", {
+            type: typeof responseData.logs,
+            value: responseData.logs,
+          });
+        }
       }
       
-      console.warn("⚠️ Audit logs: Unknown data format", responseData);
+      if (Array.isArray(responseData)) {
+        if (__DEV__) {
+          console.log("✅ Audit logs: Returning direct array, length:", responseData.length);
+        }
+        return responseData;
+      }
+      
+      if (responseData.content && Array.isArray(responseData.content)) {
+        // Paginated response
+        if (__DEV__) {
+          console.log("✅ Audit logs: Returning content array, length:", responseData.content.length);
+        }
+        return responseData.content;
+      }
+
+      console.warn("⚠️ Audit logs: Unknown data format", {
+        responseData,
+        hasLogs: responseData.logs !== undefined,
+        logsType: typeof responseData.logs,
+        logsIsArray: Array.isArray(responseData.logs),
+        allKeys: Object.keys(responseData),
+      });
       return [];
     } else if (activeTab === "security") {
-      // Handle different response formats
+      // Handle different response formats for security logs
       if (!securityLogsResponse) return [];
-      
-      // Check if response has success field
-      if (securityLogsResponse.success === false) return [];
-      
-      // Get data from response
-      const responseData = securityLogsResponse.data;
+
+      // Support both ApiResponse<SecurityLogResponse> and direct SecurityLogResponse
+      let responseData: any = null;
+      const raw = securityLogsResponse as any;
+
+      if (raw.logs && Array.isArray(raw.logs)) {
+        responseData = raw;
+      } else if (raw.data) {
+        if (raw.success === false) return [];
+        responseData = raw.data;
+      } else {
+        console.warn("⚠️ Security logs: No data field in response", raw);
+        return [];
+      }
+
       if (!responseData) {
         console.warn("⚠️ Security logs: No data in response");
         return [];
       }
-      
+
       // Log data structure for debugging
       if (__DEV__) {
         console.log("📋 Security logs data structure:", {
@@ -169,7 +243,7 @@ export default function AdminLogsScreen() {
           keys: Object.keys(responseData),
         });
       }
-      
+
       // Handle different data formats
       if (responseData.logs && Array.isArray(responseData.logs)) {
         return responseData.logs;
@@ -179,7 +253,7 @@ export default function AdminLogsScreen() {
         // Paginated response
         return responseData.content;
       }
-      
+
       console.warn("⚠️ Security logs: Unknown data format", responseData);
       return [];
     }
@@ -187,9 +261,23 @@ export default function AdminLogsScreen() {
   }, [activeTab, systemLogsResponse, auditLogsResponse, securityLogsResponse]);
 
   const filteredLogs = useMemo(() => {
-    if (!searchQuery.trim()) return logs;
+    if (__DEV__) {
+      console.log("🔍 Filtering logs:", {
+        activeTab,
+        logsLength: logs.length,
+        searchQuery: searchQuery.trim(),
+      });
+    }
+    
+    if (!searchQuery.trim()) {
+      if (__DEV__) {
+        console.log("✅ Returning all logs, count:", logs.length);
+      }
+      return logs;
+    }
+    
     const q = searchQuery.toLowerCase();
-    return logs.filter((log: any) => {
+    const filtered = logs.filter((log: any) => {
       if (activeTab === "system") {
         return (
           log.message?.toLowerCase().includes(q) ||
@@ -214,6 +302,12 @@ export default function AdminLogsScreen() {
       }
       return true;
     });
+    
+    if (__DEV__) {
+      console.log("✅ Filtered logs count:", filtered.length);
+    }
+    
+    return filtered;
   }, [logs, searchQuery, activeTab]);
 
   return (

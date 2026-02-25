@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, Search, X, Clock3, FileText, User } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
@@ -14,7 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { getOrderStatusLabel } from "@/lib/constants/order-status";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { orderService, OrderResponse } from "@/services/orderService";
 
 const formatDate = (dateString?: string): string => {
@@ -44,17 +45,25 @@ export default function PendingOrdersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [focusSearch, setFocusSearch] = useState(false);
 
-  const { data: ordersResponse, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => orderService.getAll(),
-    retry: false,
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<OrderResponse>({
+    queryKey: ["orders", "pending"],
+    queryFn: async (params) => await orderService.getAll(params),
+    defaultPageSize: 20,
   });
 
   const pendingOrders = useMemo(() => {
-    if (!ordersResponse?.success || !ordersResponse.data) return [];
-    const orders = ordersResponse.data as OrderResponse[];
-
-    return orders
+    return ordersData
       .filter((order) => isPendingStatus(order.orderStatus))
       .map((order) => {
         const patientName =
@@ -179,7 +188,7 @@ export default function PendingOrdersScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
         refreshControl={
           <RefreshControl refreshing={isFetching} onRefresh={() => refetch()} tintColor="#0284C7" />
         }
@@ -278,6 +287,17 @@ export default function PendingOrdersScreen() {
           })
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
     </SafeAreaView>
   );
 }

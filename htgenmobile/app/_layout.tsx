@@ -8,12 +8,44 @@ import { TouchableOpacity } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+// Create QueryClient with global error handler for 401
+const createQueryClient = () => {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: (failureCount, error: any) => {
+          // Don't retry on 401 errors
+          if (error?.response?.status === 401 || error?.error?.includes("401") || error?.error?.includes("hết hạn")) {
+            return false;
+          }
+          return failureCount < 3;
+        },
+        onError: (error: any) => {
+          // Handle 401 globally
+          if (error?.response?.status === 401 || error?.error?.includes("401") || error?.error?.includes("hết hạn")) {
+            console.warn("Global 401 handler: Session expired");
+            // The logout will be handled by the component that uses useAuth
+          }
+        },
+      },
+      mutations: {
+        onError: (error: any) => {
+          // Handle 401 globally
+          if (error?.response?.status === 401 || error?.error?.includes("401") || error?.error?.includes("hết hạn")) {
+            console.warn("Global 401 handler: Session expired");
+          }
+        },
+      },
+    },
+  });
+};
+
+const queryClient = createQueryClient();
 
 // Helper component for back button
 const BackButton = ({ toHome = false }: { toHome?: boolean }) => {
@@ -62,7 +94,7 @@ function RootLayoutNav() {
       <Stack.Screen
         name="admin/services"
         options={{
-          title: "Quản lý nội dung",
+          title: "Quản lý dịch vụ",
           headerStyle: { backgroundColor: "#0891b2" },
           headerTintColor: "#fff",
         }}

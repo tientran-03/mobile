@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import {
   Search,
@@ -27,7 +27,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PaginationControls } from "@/components/PaginationControls";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { orderService, OrderResponse } from "@/services/orderService";
 import { OrderStatus } from "@/types";
 
@@ -58,6 +60,10 @@ const getStatusLabel = (status: string): string => {
     rerun_testing: "Chạy lại",
     completed: "Hoàn thành",
     sample_addition: "Mẫu bổ sung",
+    awaiting_results_approval: "Chờ duyệt kết quả",
+    results_approved: "Đã duyệt kết quả",
+    result_approved: "Đã duyệt kết quả",
+    canceled: "Đã hủy",
   };
   return statusMap[s] || status;
 };
@@ -65,22 +71,22 @@ const getStatusLabel = (status: string): string => {
 // Get status badge colors
 const getStatusBadge = (status: string) => {
   const s = (status || "").toLowerCase();
-  if (s === "completed") {
-    return { label: "Hoàn thành", bg: "bg-emerald-50", fg: "text-emerald-700", bd: "border-emerald-200" };
+  if (s === "completed" || s === "results_approved" || s === "result_approved") {
+    return { label: getStatusLabel(status), bg: "bg-emerald-50", fg: "text-emerald-700", bd: "border-emerald-200" };
   }
-  if (s === "rejected") {
-    return { label: "Từ chối", bg: "bg-red-50", fg: "text-red-700", bd: "border-red-200" };
+  if (s === "rejected" || s === "canceled") {
+    return { label: getStatusLabel(status), bg: "bg-red-50", fg: "text-red-700", bd: "border-red-200" };
   }
   if (s === "in_progress" || s === "accepted") {
-    return { label: "Đang xử lý", bg: "bg-blue-50", fg: "text-blue-700", bd: "border-blue-200" };
+    return { label: getStatusLabel(status), bg: "bg-blue-50", fg: "text-blue-700", bd: "border-blue-200" };
   }
-  if (s === "forward_analysis" || s === "sample_addition") {
-    return { label: "Chờ duyệt", bg: "bg-orange-50", fg: "text-orange-700", bd: "border-orange-200" };
+  if (s === "forward_analysis" || s === "sample_addition" || s === "awaiting_results_approval") {
+    return { label: getStatusLabel(status), bg: "bg-orange-50", fg: "text-orange-700", bd: "border-orange-200" };
   }
   if (s === "sample_error" || s === "rerun_testing") {
-    return { label: "Lỗi/Chạy lại", bg: "bg-yellow-50", fg: "text-yellow-700", bd: "border-yellow-200" };
+    return { label: getStatusLabel(status), bg: "bg-yellow-50", fg: "text-yellow-700", bd: "border-yellow-200" };
   }
-  return { label: "Khởi tạo", bg: "bg-slate-50", fg: "text-slate-700", bd: "border-slate-200" };
+  return { label: getStatusLabel(status), bg: "bg-slate-50", fg: "text-slate-700", bd: "border-slate-200" };
 };
 
 const getPaymentStatusMeta = (paymentStatus?: string) => {
@@ -129,10 +135,21 @@ export default function AdminOrdersScreen() {
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
 
-  // Fetch all orders
-  const { data: ordersResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ["admin-orders"],
-    queryFn: () => orderService.getAll(),
+  // Fetch all orders with pagination
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+    goToPage,
+  } = usePaginatedQuery<OrderResponse>({
+    queryKey: ["admin-orders", statusFilter, timeFilter],
+    queryFn: async (params) => await orderService.getAll(params),
+    defaultPageSize: 20,
     enabled: user?.role === "ROLE_ADMIN", // Chỉ fetch khi là admin
   });
 
@@ -158,9 +175,8 @@ export default function AdminOrdersScreen() {
   }
 
   const orders = useMemo(() => {
-    if (!ordersResponse?.success || !ordersResponse.data) return [];
-    return ordersResponse.data as OrderResponse[];
-  }, [ordersResponse]);
+    return ordersData;
+  }, [ordersData]);
 
   // Get unique hospitals for filter
   const hospitals = useMemo(() => {
@@ -442,7 +458,7 @@ export default function AdminOrdersScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
       >
         {dayKeys.length === 0 ? (
           <View className="pt-12 items-center px-6">
@@ -553,6 +569,17 @@ export default function AdminOrdersScreen() {
           ))
         )}
       </ScrollView>
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Status update modal */}
       <Modal

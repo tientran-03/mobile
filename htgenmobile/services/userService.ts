@@ -30,12 +30,14 @@ export const userService = {
   /**
    * Get all users
    */
-  getAll: async (): Promise<UserResponse[]> => {
-    const response = await apiClient.get<UserResponse[]>(API_ENDPOINTS.USERS);
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [];
-    }
-    throw new Error(response.error || "Failed to fetch users");
+  getAll: async (params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: UserResponse[]; error?: string }> => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.USERS}?${queryParams.toString()}`
+      : API_ENDPOINTS.USERS;
+    return apiClient.get<UserResponse[]>(url);
   },
 
   /**
