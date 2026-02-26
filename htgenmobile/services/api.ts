@@ -43,7 +43,11 @@ class ApiClient {
     }
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeoutMs: number = 15000
+  ): Promise<ApiResponse<T>> {
     const token = await this.getToken();
 
     const headers: HeadersInit & { Authorization?: string } = {
@@ -65,10 +69,20 @@ class ApiClient {
         headers: Object.keys(headers),
       });
 
-      const response = await fetch(fullUrl, {
-        ...options,
-        headers,
-      });
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      let response: Response;
+      try {
+        response = await fetch(fullUrl, {
+          ...options,
+          headers,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       console.log('📡 API Response:', {
         status: response.status,
@@ -261,6 +275,9 @@ class ApiClient {
 
       // Provide more helpful error messages
       let errorMessage = error.message || 'Network error occurred';
+      if (error.name === 'AbortError') {
+        errorMessage = `Request timeout sau ${timeoutMs / 1000}s khi kết nối đến ${this.baseURL}${endpoint}.\nServer có thể đang quá tải hoặc không phản hồi.`;
+      }
       if (error.message?.includes('Network request failed')) {
         errorMessage = `Không thể kết nối đến server. Kiểm tra:\n- Backend có đang chạy không?\n- Domain/IP đúng chưa? (${this.baseURL})\n- Máy tính và điện thoại cùng WiFi?\n- Firewall có chặn không?\n- SSL certificate có hợp lệ không?`;
       } else if (error.message?.includes('Failed to fetch')) {
