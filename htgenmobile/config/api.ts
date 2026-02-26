@@ -15,8 +15,6 @@ const getApiBaseUrl = () => {
 };
 
 export const API_BASE_URL = getApiBaseUrl();
-
-// Log API URL for debugging (only in dev)
 if (__DEV__) {
   console.log('🔗 API Base URL:', API_BASE_URL);
   console.log('📱 Platform:', Platform.OS);
@@ -30,9 +28,10 @@ export const API_ENDPOINTS = {
   ORDER_BY_ID: (id: string) => `/api/v1/orders/${id}`,
   ORDER_BY_STATUS: (status: string) => `/api/v1/orders/status/${status}`,
   ORDER_BY_PATIENT_ID: (patientId: string) => `/api/v1/orders/patient/${patientId}`,
-  ORDER_SEARCH: '/api/v1/orders/search',
-
-  PATIENTS: '/api/v1/patients',
+  ORDER_BY_CUSTOMER_ID: (customerId: string) => `/api/v1/orders/customer/${customerId}`,
+  ORDER_SEARCH: "/api/v1/orders/search",
+  
+  PATIENTS: "/api/v1/patients",
   PATIENT_BY_ID: (id: string) => `/api/v1/patients/${id}`,
   PATIENT_BY_PHONE: (phone: string) => `/api/v1/patients/phone/${phone}`,
   PATIENT_SEARCH: '/api/v1/patients/search/name',
@@ -91,13 +90,17 @@ export const API_ENDPOINTS = {
   PATIENT_METADATA_BY_SPECIFY_ID: (specifyId: string) =>
     `/api/v1/patient-metadata/specify/${specifyId}`,
 
-  PATIENT_APPENDICES: '/api/v1/patient-appendices',
-  PATIENT_TEST_RESULTS: '/api/v1/patient-test-results',
-
-  NOTIFICATIONS: '/api/v1/notifications',
-  NOTIFICATION_REGISTER_TOKEN: '/api/v1/notifications/register-token',
-
-  HOSPITALS: '/api/v1/hospitals',
+  PATIENT_APPENDICES: "/api/v1/patient-appendices",
+  PATIENT_TEST_RESULTS: "/api/v1/patient-test-results",
+  
+  NOTIFICATIONS: "/api/v1/notifications",
+  NOTIFICATION_REGISTER_TOKEN: "/api/v1/notifications/register-token",
+  NOTIFICATIONS_RECEIVED: (userId: string) => `/api/v1/notifications/received/${userId}`,
+  NOTIFICATIONS_UNREAD_COUNT: (userId: string) => `/api/v1/notifications/unread-count/${userId}`,
+  NOTIFICATIONS_MARK_READ: "/api/v1/notifications/mark-read",
+  NOTIFICATIONS_MARK_ALL_READ: "/api/v1/notifications/mark-all-read",
+  
+  HOSPITALS: "/api/v1/hospitals",
   HOSPITAL_BY_ID: (id: string | number) => `/api/v1/hospitals/${id}`,
   HOSPITALS_SEARCH: '/api/v1/hospitals/search',
 
@@ -154,7 +157,6 @@ export const API_ENDPOINTS = {
     `/api/v1/admin/system-configs/metadata/${configName}`,
   SYSTEM_CONFIG_NAMES: '/api/v1/admin/system-configs/names',
   SYSTEM_CONFIG_TEST: (configName: string) => `/api/v1/admin/system-configs/test/${configName}`,
-  SYSTEM_CONFIG_CACHE_CLEAR: '/api/v1/admin/system-configs/cache/clear-all',
-  SYSTEM_CONFIG_CACHE_INVALIDATE: (configName: string) =>
-    `/api/v1/admin/system-configs/cache/${configName}`,
+  SYSTEM_CONFIG_CACHE_CLEAR: "/api/v1/admin/system-configs/cache/clear-all",
+  SYSTEM_CONFIG_CACHE_INVALIDATE: (configName: string) => `/api/v1/admin/system-configs/cache/${configName}`,
 };

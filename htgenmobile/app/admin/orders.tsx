@@ -1,47 +1,45 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
 import {
-  Search,
-  ChevronRight,
-  ArrowLeft,
-  X,
-  SlidersHorizontal,
-  Calendar,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  Clock,
   AlertCircle,
-} from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Filter,
+  Search,
+  SlidersHorizontal,
+  X,
+  XCircle,
+} from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
   ActivityIndicator,
-  StatusBar,
   Alert,
   Modal,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PaginationControls } from "@/components/PaginationControls";
-import { useAuth } from "@/contexts/AuthContext";
-import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
-import { orderService, OrderResponse } from "@/services/orderService";
-import { OrderStatus } from "@/types";
+import { PaginationControls } from '@/components/PaginationControls';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
+import { OrderResponse, orderService } from '@/services/orderService';
 
-type TimeFilter = "today" | "week" | "month" | "all";
+type TimeFilter = 'today' | 'week' | 'month' | 'all';
 
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("vi-VN").format(amount);
+const formatCurrency = (amount: number): string => new Intl.NumberFormat('vi-VN').format(amount);
 
 const formatDate = (dateString?: string): string => {
-  if (!dateString) return "";
+  if (!dateString) return '';
   try {
-    return new Date(dateString).toLocaleDateString("vi-VN");
+    return new Date(dateString).toLocaleDateString('vi-VN');
   } catch {
     return dateString;
   }
@@ -49,52 +47,92 @@ const formatDate = (dateString?: string): string => {
 
 // Map backend status to display label
 const getStatusLabel = (status: string): string => {
-  const s = (status || "").toLowerCase();
+  const s = (status || '').toLowerCase();
   const statusMap: Record<string, string> = {
-    initiation: "Khởi tạo",
-    forward_analysis: "Chờ duyệt",
-    accepted: "Đã chấp nhận",
-    rejected: "Từ chối",
-    in_progress: "Đang phân tích",
-    sample_error: "Lỗi mẫu",
-    rerun_testing: "Chạy lại",
-    completed: "Hoàn thành",
-    sample_addition: "Mẫu bổ sung",
-    awaiting_results_approval: "Chờ duyệt kết quả",
-    results_approved: "Đã duyệt kết quả",
-    result_approved: "Đã duyệt kết quả",
-    canceled: "Đã hủy",
+    initiation: 'Khởi tạo',
+    forward_analysis: 'Chờ duyệt',
+    accepted: 'Đã chấp nhận',
+    rejected: 'Từ chối',
+    in_progress: 'Đang phân tích',
+    sample_error: 'Lỗi mẫu',
+    rerun_testing: 'Chạy lại',
+    completed: 'Hoàn thành',
+    sample_addition: 'Mẫu bổ sung',
+    awaiting_results_approval: 'Chờ duyệt kết quả',
+    results_approved: 'Đã duyệt kết quả',
+    result_approved: 'Đã duyệt kết quả',
+    canceled: 'Đã hủy',
   };
   return statusMap[s] || status;
 };
 
 // Get status badge colors
 const getStatusBadge = (status: string) => {
-  const s = (status || "").toLowerCase();
-  if (s === "completed" || s === "results_approved" || s === "result_approved") {
-    return { label: getStatusLabel(status), bg: "bg-emerald-50", fg: "text-emerald-700", bd: "border-emerald-200" };
+  const s = (status || '').toLowerCase();
+  if (s === 'completed' || s === 'results_approved' || s === 'result_approved') {
+    return {
+      label: getStatusLabel(status),
+      bg: 'bg-emerald-50',
+      fg: 'text-emerald-700',
+      bd: 'border-emerald-200',
+    };
   }
-  if (s === "rejected" || s === "canceled") {
-    return { label: getStatusLabel(status), bg: "bg-red-50", fg: "text-red-700", bd: "border-red-200" };
+  if (s === 'rejected' || s === 'canceled') {
+    return {
+      label: getStatusLabel(status),
+      bg: 'bg-red-50',
+      fg: 'text-red-700',
+      bd: 'border-red-200',
+    };
   }
-  if (s === "in_progress" || s === "accepted") {
-    return { label: getStatusLabel(status), bg: "bg-blue-50", fg: "text-blue-700", bd: "border-blue-200" };
+  if (s === 'in_progress' || s === 'accepted') {
+    return {
+      label: getStatusLabel(status),
+      bg: 'bg-blue-50',
+      fg: 'text-blue-700',
+      bd: 'border-blue-200',
+    };
   }
-  if (s === "forward_analysis" || s === "sample_addition" || s === "awaiting_results_approval") {
-    return { label: getStatusLabel(status), bg: "bg-orange-50", fg: "text-orange-700", bd: "border-orange-200" };
+  if (s === 'forward_analysis' || s === 'sample_addition' || s === 'awaiting_results_approval') {
+    return {
+      label: getStatusLabel(status),
+      bg: 'bg-orange-50',
+      fg: 'text-orange-700',
+      bd: 'border-orange-200',
+    };
   }
-  if (s === "sample_error" || s === "rerun_testing") {
-    return { label: getStatusLabel(status), bg: "bg-yellow-50", fg: "text-yellow-700", bd: "border-yellow-200" };
+  if (s === 'sample_error' || s === 'rerun_testing') {
+    return {
+      label: getStatusLabel(status),
+      bg: 'bg-yellow-50',
+      fg: 'text-yellow-700',
+      bd: 'border-yellow-200',
+    };
   }
-  return { label: getStatusLabel(status), bg: "bg-slate-50", fg: "text-slate-700", bd: "border-slate-200" };
+  return {
+    label: getStatusLabel(status),
+    bg: 'bg-slate-50',
+    fg: 'text-slate-700',
+    bd: 'border-slate-200',
+  };
 };
 
 const getPaymentStatusMeta = (paymentStatus?: string) => {
-  const status = (paymentStatus || "PENDING").toUpperCase();
-  if (status === "COMPLETED") {
-    return { label: "Đã thanh toán", bg: "bg-emerald-50", fg: "text-emerald-700", bd: "border-emerald-200" };
+  const status = (paymentStatus || 'PENDING').toUpperCase();
+  if (status === 'COMPLETED') {
+    return {
+      label: 'Đã thanh toán',
+      bg: 'bg-emerald-50',
+      fg: 'text-emerald-700',
+      bd: 'border-emerald-200',
+    };
   }
-  return { label: "Chưa thanh toán", bg: "bg-orange-50", fg: "text-orange-700", bd: "border-orange-200" };
+  return {
+    label: 'Chưa thanh toán',
+    bg: 'bg-orange-50',
+    fg: 'text-orange-700',
+    bd: 'border-orange-200',
+  };
 };
 
 function FilterPill({
@@ -111,10 +149,10 @@ function FilterPill({
       onPress={onPress}
       activeOpacity={0.85}
       className={`px-3 py-2 rounded-full border ${
-        active ? "bg-sky-600 border-sky-600" : "bg-white border-sky-100"
+        active ? 'bg-sky-600 border-sky-600' : 'bg-white border-sky-100'
       }`}
     >
-      <Text className={`text-xs font-extrabold ${active ? "text-white" : "text-slate-600"}`}>
+      <Text className={`text-xs font-extrabold ${active ? 'text-white' : 'text-slate-600'}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -127,10 +165,10 @@ export default function AdminOrdersScreen() {
   const queryClient = useQueryClient();
 
   // Tất cả hooks phải được gọi trước khi có early return
-  const [searchQuery, setSearchQuery] = useState("");
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [hospitalFilter, setHospitalFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [hospitalFilter, setHospitalFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -147,10 +185,10 @@ export default function AdminOrdersScreen() {
     pageSize,
     goToPage,
   } = usePaginatedQuery<OrderResponse>({
-    queryKey: ["admin-orders", statusFilter, timeFilter],
-    queryFn: async (params) => await orderService.getAll(params),
+    queryKey: ['admin-orders', statusFilter, timeFilter],
+    queryFn: async params => await orderService.getAll(params),
     defaultPageSize: 20,
-    enabled: user?.role === "ROLE_ADMIN", // Chỉ fetch khi là admin
+    enabled: user?.role === 'ROLE_ADMIN', // Chỉ fetch khi là admin
   });
 
   // Update status mutation
@@ -158,19 +196,19 @@ export default function AdminOrdersScreen() {
     mutationFn: ({ orderId, status }: { orderId: string; status: string }) =>
       orderService.updateStatus(orderId, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setShowStatusModal(false);
       setSelectedOrder(null);
-      Alert.alert("Thành công", "Cập nhật trạng thái đơn hàng thành công");
+      Alert.alert('Thành công', 'Cập nhật trạng thái đơn hàng thành công');
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi", error?.message || "Không thể cập nhật trạng thái đơn hàng");
+      Alert.alert('Lỗi', error?.message || 'Không thể cập nhật trạng thái đơn hàng');
     },
   });
 
   // Guard: Chỉ ADMIN mới được vào - đặt sau tất cả hooks
-  if (user?.role !== "ROLE_ADMIN") {
+  if (user?.role !== 'ROLE_ADMIN') {
     return null;
   }
 
@@ -181,7 +219,7 @@ export default function AdminOrdersScreen() {
   // Get unique hospitals for filter
   const hospitals = useMemo(() => {
     const hospitalSet = new Set<string>();
-    orders.forEach((order) => {
+    orders.forEach(order => {
       const hospitalName = order.specifyId?.hospital?.hospitalName;
       if (hospitalName) hospitalSet.add(hospitalName);
     });
@@ -190,35 +228,45 @@ export default function AdminOrdersScreen() {
 
   // Filter orders
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return orders.filter(order => {
       // Search filter
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        String(order.orderId || "").toLowerCase().includes(q) ||
-        String(order.orderName || "").toLowerCase().includes(q) ||
-        String(order.customerName || "").toLowerCase().includes(q) ||
-        String(order.specifyId?.hospital?.hospitalName || "").toLowerCase().includes(q) ||
-        String(order.specifyId?.genomeTest?.testName || "").toLowerCase().includes(q);
+        String(order.orderId || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(order.orderName || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(order.customerName || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(order.specifyId?.hospital?.hospitalName || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(order.specifyId?.genomeTest?.testName || '')
+          .toLowerCase()
+          .includes(q);
 
       // Status filter
-      const matchesStatus = statusFilter === "all" || order.orderStatus?.toLowerCase() === statusFilter.toLowerCase();
+      const matchesStatus =
+        statusFilter === 'all' || order.orderStatus?.toLowerCase() === statusFilter.toLowerCase();
 
       // Hospital filter
       const matchesHospital =
-        hospitalFilter === "all" ||
-        order.specifyId?.hospital?.hospitalName === hospitalFilter;
+        hospitalFilter === 'all' || order.specifyId?.hospital?.hospitalName === hospitalFilter;
 
       // Time filter
       let matchesTime = true;
       if (order.createdAt) {
         const now = new Date();
         const orderDate = new Date(order.createdAt);
-        if (timeFilter === "today") {
+        if (timeFilter === 'today') {
           matchesTime = orderDate.toDateString() === now.toDateString();
-        } else if (timeFilter === "week") {
+        } else if (timeFilter === 'week') {
           matchesTime = orderDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        } else if (timeFilter === "month") {
+        } else if (timeFilter === 'month') {
           matchesTime = orderDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         }
       }
@@ -230,7 +278,7 @@ export default function AdminOrdersScreen() {
   // Group orders by date
   const groupedOrders = useMemo(() => {
     const groups: Record<string, OrderResponse[]> = {};
-    filteredOrders.forEach((order) => {
+    filteredOrders.forEach(order => {
       const date = formatDate(order.createdAt);
       if (!groups[date]) groups[date] = [];
       groups[date].push(order);
@@ -240,12 +288,12 @@ export default function AdminOrdersScreen() {
 
   // Available statuses for update
   const availableStatuses = [
-    { value: "accepted", label: "Đã chấp nhận", icon: CheckCircle2 },
-    { value: "in_progress", label: "Đang phân tích", icon: Clock },
-    { value: "completed", label: "Hoàn thành", icon: CheckCircle2 },
-    { value: "rejected", label: "Từ chối", icon: XCircle },
-    { value: "sample_error", label: "Lỗi mẫu", icon: AlertCircle },
-    { value: "rerun_testing", label: "Chạy lại", icon: Clock },
+    { value: 'accepted', label: 'Đã chấp nhận', icon: CheckCircle2 },
+    { value: 'in_progress', label: 'Đang phân tích', icon: Clock },
+    { value: 'completed', label: 'Hoàn thành', icon: CheckCircle2 },
+    { value: 'rejected', label: 'Từ chối', icon: XCircle },
+    { value: 'sample_error', label: 'Lỗi mẫu', icon: AlertCircle },
+    { value: 'rerun_testing', label: 'Chạy lại', icon: Clock },
   ];
 
   const handleUpdateStatus = (order: OrderResponse, newStatus: string) => {
@@ -300,9 +348,9 @@ export default function AdminOrdersScreen() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (statusFilter !== "all") count++;
-    if (hospitalFilter !== "all") count++;
-    if (timeFilter !== "all") count++;
+    if (statusFilter !== 'all') count++;
+    if (hospitalFilter !== 'all') count++;
+    if (timeFilter !== 'all') count++;
     return count;
   }, [statusFilter, hospitalFilter, timeFilter]);
 
@@ -311,12 +359,12 @@ export default function AdminOrdersScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F0F9FF" />
       <Stack.Screen
         options={{
-          title: "Quản lý đơn hàng",
-          headerStyle: { backgroundColor: "#0891b2" },
-          headerTintColor: "#fff",
+          title: 'Quản lý đơn hàng',
+          headerStyle: { backgroundColor: '#0891b2' },
+          headerTintColor: '#fff',
           headerLeft: () => (
-            <TouchableOpacity 
-              onPress={() => router.push("/admin-home")} 
+            <TouchableOpacity
+              onPress={() => router.push('/admin')}
               className="ml-2"
               activeOpacity={0.7}
             >
@@ -331,19 +379,17 @@ export default function AdminOrdersScreen() {
         <View className="flex-row items-center mb-3">
           <View className="flex-1">
             <Text className="text-slate-900 text-lg font-extrabold">Quản lý đơn hàng</Text>
-            <Text className="mt-0.5 text-xs text-slate-500">
-              {filteredOrders.length} đơn hàng
-            </Text>
+            <Text className="mt-0.5 text-xs text-slate-500">{filteredOrders.length} đơn hàng</Text>
           </View>
 
           <TouchableOpacity
-            onPress={() => setShowFilters((v) => !v)}
+            onPress={() => setShowFilters(v => !v)}
             className={`w-10 h-10 rounded-xl border items-center justify-center relative ${
-              showFilters ? "bg-sky-600 border-sky-600" : "bg-sky-50 border-sky-200"
+              showFilters ? 'bg-sky-600 border-sky-600' : 'bg-sky-50 border-sky-200'
             }`}
             activeOpacity={0.85}
           >
-            <SlidersHorizontal size={18} color={showFilters ? "#FFFFFF" : "#0284C7"} />
+            <SlidersHorizontal size={18} color={showFilters ? '#FFFFFF' : '#0284C7'} />
             {activeFilterCount > 0 && (
               <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white items-center justify-center">
                 <Text className="text-[10px] font-bold text-white">{activeFilterCount}</Text>
@@ -366,7 +412,7 @@ export default function AdminOrdersScreen() {
           {!!searchQuery.trim() && (
             <TouchableOpacity
               className="w-9 h-9 rounded-xl items-center justify-center"
-              onPress={() => setSearchQuery("")}
+              onPress={() => setSearchQuery('')}
               activeOpacity={0.75}
             >
               <X size={18} color="#64748B" />
@@ -384,10 +430,26 @@ export default function AdminOrdersScreen() {
                 <Text className="ml-2 text-xs font-extrabold text-slate-700">Thời gian</Text>
               </View>
               <View className="flex-row flex-wrap gap-2">
-                <FilterPill label="Hôm nay" active={timeFilter === "today"} onPress={() => setTimeFilter("today")} />
-                <FilterPill label="Tuần này" active={timeFilter === "week"} onPress={() => setTimeFilter("week")} />
-                <FilterPill label="Tháng này" active={timeFilter === "month"} onPress={() => setTimeFilter("month")} />
-                <FilterPill label="Tất cả" active={timeFilter === "all"} onPress={() => setTimeFilter("all")} />
+                <FilterPill
+                  label="Hôm nay"
+                  active={timeFilter === 'today'}
+                  onPress={() => setTimeFilter('today')}
+                />
+                <FilterPill
+                  label="Tuần này"
+                  active={timeFilter === 'week'}
+                  onPress={() => setTimeFilter('week')}
+                />
+                <FilterPill
+                  label="Tháng này"
+                  active={timeFilter === 'month'}
+                  onPress={() => setTimeFilter('month')}
+                />
+                <FilterPill
+                  label="Tất cả"
+                  active={timeFilter === 'all'}
+                  onPress={() => setTimeFilter('all')}
+                />
               </View>
             </View>
 
@@ -398,31 +460,35 @@ export default function AdminOrdersScreen() {
                 <Text className="ml-2 text-xs font-extrabold text-slate-700">Trạng thái</Text>
               </View>
               <View className="flex-row flex-wrap gap-2">
-                <FilterPill label="Tất cả" active={statusFilter === "all"} onPress={() => setStatusFilter("all")} />
+                <FilterPill
+                  label="Tất cả"
+                  active={statusFilter === 'all'}
+                  onPress={() => setStatusFilter('all')}
+                />
                 <FilterPill
                   label="Khởi tạo"
-                  active={statusFilter === "initiation"}
-                  onPress={() => setStatusFilter("initiation")}
+                  active={statusFilter === 'initiation'}
+                  onPress={() => setStatusFilter('initiation')}
                 />
                 <FilterPill
                   label="Chờ duyệt"
-                  active={statusFilter === "forward_analysis"}
-                  onPress={() => setStatusFilter("forward_analysis")}
+                  active={statusFilter === 'forward_analysis'}
+                  onPress={() => setStatusFilter('forward_analysis')}
                 />
                 <FilterPill
                   label="Đang xử lý"
-                  active={statusFilter === "in_progress"}
-                  onPress={() => setStatusFilter("in_progress")}
+                  active={statusFilter === 'in_progress'}
+                  onPress={() => setStatusFilter('in_progress')}
                 />
                 <FilterPill
                   label="Hoàn thành"
-                  active={statusFilter === "completed"}
-                  onPress={() => setStatusFilter("completed")}
+                  active={statusFilter === 'completed'}
+                  onPress={() => setStatusFilter('completed')}
                 />
                 <FilterPill
                   label="Từ chối"
-                  active={statusFilter === "rejected"}
-                  onPress={() => setStatusFilter("rejected")}
+                  active={statusFilter === 'rejected'}
+                  onPress={() => setStatusFilter('rejected')}
                 />
               </View>
             </View>
@@ -433,13 +499,17 @@ export default function AdminOrdersScreen() {
                 <View className="flex-row items-center mb-2">
                   <Text className="text-xs font-extrabold text-slate-700">Bệnh viện</Text>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="flex-row gap-2"
+                >
                   <FilterPill
                     label="Tất cả"
-                    active={hospitalFilter === "all"}
-                    onPress={() => setHospitalFilter("all")}
+                    active={hospitalFilter === 'all'}
+                    onPress={() => setHospitalFilter('all')}
                   />
-                  {hospitals.map((hospital) => (
+                  {hospitals.map(hospital => (
                     <FilterPill
                       key={hospital}
                       label={hospital}
@@ -471,17 +541,19 @@ export default function AdminOrdersScreen() {
             </Text>
           </View>
         ) : (
-          dayKeys.map((date) => (
+          dayKeys.map(date => (
             <View key={date} className="mb-6">
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-[15px] font-extrabold text-slate-900">{date}</Text>
                 <View className="px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200">
-                  <Text className="text-xs font-extrabold text-sky-700">{groupedOrders[date].length}</Text>
+                  <Text className="text-xs font-extrabold text-sky-700">
+                    {groupedOrders[date].length}
+                  </Text>
                 </View>
               </View>
 
-              {groupedOrders[date].map((order) => {
-                const statusBadge = getStatusBadge(order.orderStatus || "");
+              {groupedOrders[date].map(order => {
+                const statusBadge = getStatusBadge(order.orderStatus || '');
                 const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
 
                 return (
@@ -490,7 +562,7 @@ export default function AdminOrdersScreen() {
                     className="bg-white rounded-2xl p-4 mb-3 border border-sky-100"
                     onPress={() =>
                       router.push({
-                        pathname: "/order-detail",
+                        pathname: '/order-detail',
                         params: { orderId: order.orderId },
                       })
                     }
@@ -501,17 +573,27 @@ export default function AdminOrdersScreen() {
                         <Text className="text-xs font-extrabold text-sky-700" numberOfLines={1}>
                           {order.orderId}
                         </Text>
-                        <Text className="text-[10px] font-bold text-slate-500 mt-0.5" numberOfLines={1}>
+                        <Text
+                          className="text-[10px] font-bold text-slate-500 mt-0.5"
+                          numberOfLines={1}
+                        >
                           {formatDate(order.createdAt)}
                         </Text>
                       </View>
 
-                      <View className={`px-2.5 py-1 rounded-full border ${statusBadge.bg} ${statusBadge.bd}`}>
-                        <Text className={`text-xs font-extrabold ${statusBadge.fg}`}>{statusBadge.label}</Text>
+                      <View
+                        className={`px-2.5 py-1 rounded-full border ${statusBadge.bg} ${statusBadge.bd}`}
+                      >
+                        <Text className={`text-xs font-extrabold ${statusBadge.fg}`}>
+                          {statusBadge.label}
+                        </Text>
                       </View>
                     </View>
 
-                    <Text className="mt-2 text-[14px] font-extrabold text-slate-900" numberOfLines={2}>
+                    <Text
+                      className="mt-2 text-[14px] font-extrabold text-slate-900"
+                      numberOfLines={2}
+                    >
                       {order.orderName}
                     </Text>
 
@@ -534,23 +616,27 @@ export default function AdminOrdersScreen() {
                         </>
                       )}
 
-                      <View className={`px-2 py-0.5 rounded-full border ${paymentMeta.bg} ${paymentMeta.bd}`}>
-                        <Text className={`text-[10px] font-extrabold ${paymentMeta.fg}`}>{paymentMeta.label}</Text>
+                      <View
+                        className={`px-2 py-0.5 rounded-full border ${paymentMeta.bg} ${paymentMeta.bd}`}
+                      >
+                        <Text className={`text-[10px] font-extrabold ${paymentMeta.fg}`}>
+                          {paymentMeta.label}
+                        </Text>
                       </View>
                     </View>
 
                     <View className="mt-3 flex-row items-center justify-between">
                       <Text className="text-xs font-bold text-slate-500" numberOfLines={1}>
-                        {order.customerName || order.specifyId?.patient?.patientName || ""}
+                        {order.customerName || order.specifyId?.patient?.patientName || ''}
                       </Text>
 
                       <View className="flex-row gap-2">
                         {/* Update status button for admin */}
                         <TouchableOpacity
                           className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 items-center justify-center"
-                          onPress={(e) => {
+                          onPress={e => {
                             e.stopPropagation();
-                            handleUpdateStatus(order, order.orderStatus || "");
+                            handleUpdateStatus(order, order.orderStatus || '');
                           }}
                           activeOpacity={0.85}
                         >
@@ -606,25 +692,26 @@ export default function AdminOrdersScreen() {
           <TouchableOpacity
             className="bg-white rounded-3xl p-6 w-full max-w-[400px]"
             activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
+            onPress={e => e.stopPropagation()}
           >
             <Text className="text-lg font-extrabold text-slate-900 mb-2">Cập nhật trạng thái</Text>
             <Text className="text-sm text-slate-600 mb-4" numberOfLines={2}>
               Đơn hàng: {selectedOrder?.orderName || selectedOrder?.orderId}
             </Text>
             <Text className="text-xs text-slate-500 mb-4">
-              Trạng thái hiện tại: {getStatusLabel(selectedOrder?.orderStatus || "")}
+              Trạng thái hiện tại: {getStatusLabel(selectedOrder?.orderStatus || '')}
             </Text>
 
             <ScrollView className="max-h-64 mb-4" showsVerticalScrollIndicator={false}>
-              {availableStatuses.map((status) => {
+              {availableStatuses.map(status => {
                 const Icon = status.icon;
-                const isCurrent = selectedOrder?.orderStatus?.toLowerCase() === status.value.toLowerCase();
+                const isCurrent =
+                  selectedOrder?.orderStatus?.toLowerCase() === status.value.toLowerCase();
                 return (
                   <TouchableOpacity
                     key={status.value}
                     className={`flex-row items-center p-3 rounded-xl mb-2 border ${
-                      isCurrent ? "bg-sky-50 border-sky-300" : "bg-white border-slate-200"
+                      isCurrent ? 'bg-sky-50 border-sky-300' : 'bg-white border-slate-200'
                     }`}
                     onPress={() => {
                       if (!isCurrent && !updateStatusMutation.isPending) {
@@ -634,10 +721,10 @@ export default function AdminOrdersScreen() {
                     disabled={isCurrent || updateStatusMutation.isPending}
                     activeOpacity={0.7}
                   >
-                    <Icon size={20} color={isCurrent ? "#0284C7" : "#64748B"} />
+                    <Icon size={20} color={isCurrent ? '#0284C7' : '#64748B'} />
                     <Text
                       className={`ml-3 flex-1 text-sm font-bold ${
-                        isCurrent ? "text-sky-700" : "text-slate-700"
+                        isCurrent ? 'text-sky-700' : 'text-slate-700'
                       }`}
                     >
                       {status.label}

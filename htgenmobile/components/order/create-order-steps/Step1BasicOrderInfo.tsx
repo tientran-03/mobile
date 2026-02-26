@@ -90,16 +90,6 @@ export default function Step1BasicOrderInfo({
 
       <FormFieldGroup>
         <FormSelect
-          name="staffAnalystId"
-          label="Nhân viên phụ trách"
-          options={staffAnalystList}
-          getLabel={s => `${s.name} - ${getStaffPositionDisplayName(s.type)}`}
-          getValue={s => s.id}
-          placeholder="Lựa chọn"
-          modalTitle="Chọn nhân viên phụ trách"
-          searchable
-        />
-        <FormSelect
           name="sampleCollectorId"
           label="Nhân viên thu mẫu"
           options={sampleCollectorList}
@@ -108,6 +98,17 @@ export default function Step1BasicOrderInfo({
           placeholder="Lựa chọn"
           modalTitle="Chọn nhân viên thu mẫu"
           searchable
+        />
+        <FormSelect
+          name="staffAnalystId"
+          label="Nhân viên phụ trách"
+          options={staffAnalystList}
+          getLabel={s => `${s.name} - ${getStaffPositionDisplayName(s.position)}`}
+          getValue={s => s.id}
+          placeholder="Lựa chọn"
+          modalTitle="Chọn nhân viên phụ trách"
+          searchable
+          disabled={true}
         />
       </FormFieldGroup>
       <FormSelect

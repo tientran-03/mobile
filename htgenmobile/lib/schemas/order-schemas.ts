@@ -25,23 +25,24 @@ export const PAYMENT_TYPE_OPTIONS = [
 
 export const step1Schema = z.object({
   orderName: z.string().min(1, "Vui lòng nhập tên đơn hàng"),
-  doctorId: z.string().min(1, "Vui lòng chọn bác sĩ chỉ định"),
+  doctorId: z.string().optional(),
   customerId: z.string().optional(),
   paymentAmount: z.string().optional(),
   staffId: z.string().optional(),
-  staffAnalystId: z.string().min(1, "Vui lòng chọn nhân viên phụ trách"),
-  sampleCollectorId: z.string().min(1, "Vui lòng chọn nhân viên thu mẫu"),
-  barcodeId: z.string().min(1, "Vui lòng chọn mã Barcode PCĐ"),
+  staffAnalystId: z.string().optional(),
+  sampleCollectorId: z.string().optional(),
+  barcodeId: z.string().optional(),
+  patientId: z.string().optional(), // For selecting existing patient
   orderStatus: z.enum(["initiation", "forward_analysis", "accepted", "rejected", "in_progress", "sample_error", "rerun_testing", "completed", "sample_addition"]).optional(),
 });
 
 export type Step1FormData = z.infer<typeof step1Schema>;
 
 export const step2Schema = z.object({
-  patientName: z.string().min(1, "Vui lòng nhập tên người làm xét nghiệm"),
-  patientPhone: z.string().min(1, "Vui lòng nhập số điện thoại"),
+  patientName: z.string().optional(),
+  patientPhone: z.string().optional(),
   patientDob: z.string().optional(),
-  patientGender: z.enum(["male", "female", "other", ""]),
+  patientGender: z.enum(["male", "female", "other", ""]).optional(),
   patientEmail: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
   patientJob: z.string().optional(),
   patientContactName: z.string().optional(),
@@ -55,7 +56,7 @@ export const step2Schema = z.object({
 export type Step2FormData = z.infer<typeof step2Schema>;
 
 export const step5Schema = z.object({
-  genomeTestId: z.string().min(1, "Vui lòng chọn xét nghiệm"),
+  genomeTestId: z.string().optional(),
   testName: z.string().optional(),
   testSample: z.string().optional(),
   testContent: z.string().optional(),
@@ -79,7 +80,7 @@ export const step4Schema = z.object({
 export type Step4FormData = z.infer<typeof step4Schema>;
 
 // Reproduction service fields
-const reproductionServiceFields = z.object({
+const _reproductionServiceFields = z.object({
   fetusesNumber: z.string().optional(),
   fetusesWeek: z.string().optional(),
   fetusesDay: z.string().optional(),
@@ -91,7 +92,7 @@ const reproductionServiceFields = z.object({
 });
 
 // Embryo service fields
-const embryoServiceFields = z.object({
+const _embryoServiceFields = z.object({
   biospy: z.string().optional(),
   biospyDate: z.string().optional(),
   cellContainingSolution: z.string().optional(),
@@ -103,7 +104,7 @@ const embryoServiceFields = z.object({
 });
 
 // Disease service fields
-const diseaseServiceFields = z.object({
+const _diseaseServiceFields = z.object({
   symptom: z.string().optional(),
   diagnose: z.string().optional(),
   diagnoseImage: z.string().optional(),
@@ -115,7 +116,7 @@ const diseaseServiceFields = z.object({
 });
 
 export const step3Schema = z.object({
-  serviceType: z.enum(["embryo", "disease", "reproduction", ""]),
+  serviceType: z.enum(["embryo", "disease", "reproduction", ""]).optional(),
   genomeTestId: z.string().optional(),
   testName: z.string().optional(),
   testSample: z.string().optional(),
@@ -164,6 +165,7 @@ export type Step6FormData = z.infer<typeof step6Schema>;
 export const step7Schema = z.object({
   geneticTestResults: z.string().optional(),
   geneticTestResultsRelationship: z.string().optional(),
+  orderNote: z.string().optional(),
 });
 
 export type Step7FormData = z.infer<typeof step7Schema>;
@@ -190,6 +192,7 @@ export const createOrderDefaultValues: CreateOrderFormData = {
     staffAnalystId: "",
     sampleCollectorId: "",
     barcodeId: "",
+    patientId: "",
     orderStatus: undefined,
   },
   step2: {
@@ -269,6 +272,7 @@ export const createOrderDefaultValues: CreateOrderFormData = {
   step7: {
     geneticTestResults: "",
     geneticTestResultsRelationship: "",
+    orderNote: "",
   },
 };
 

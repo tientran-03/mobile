@@ -83,7 +83,7 @@ export default function AdminHospitalsScreen() {
   useEffect(() => {
     if (!authLoading && user && user.role !== "ROLE_ADMIN") {
       if (user.role === "ROLE_STAFF") {
-        router.replace("/home");
+        router.replace("/staff");
       } else {
         router.replace("/");
       }
@@ -296,7 +296,7 @@ export default function AdminHospitalsScreen() {
           headerTintColor: "#fff",
           headerLeft: () => (
             <TouchableOpacity 
-              onPress={() => router.push("/admin-home")} 
+              onPress={() => router.push("/admin")} 
               className="ml-2"
               activeOpacity={0.7}
             >

@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { API_BASE_URL } from "@/config/api";
+import { API_BASE_URL } from '@/config/api';
 
-const TOKEN_KEY = "@htgen:token";
+const TOKEN_KEY = '@htgen:token';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -22,7 +22,7 @@ class ApiClient {
     try {
       return await AsyncStorage.getItem(TOKEN_KEY);
     } catch (error) {
-      console.error("Error getting token:", error);
+      console.error('Error getting token:', error);
       return null;
     }
   }
@@ -31,7 +31,7 @@ class ApiClient {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
     } catch (error) {
-      console.error("Error setting token:", error);
+      console.error('Error setting token:', error);
     }
   }
 
@@ -39,41 +39,38 @@ class ApiClient {
     try {
       await AsyncStorage.removeItem(TOKEN_KEY);
     } catch (error) {
-      console.error("Error removing token:", error);
+      console.error('Error removing token:', error);
     }
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const token = await this.getToken();
 
-    const headers: HeadersInit & {Authorization?: string} = {
-      "Content-Type": "application/json",
+    const headers: HeadersInit & { Authorization?: string } = {
+      'Content-Type': 'application/json',
       ...options.headers,
     };
 
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     try {
       const fullUrl = `${this.baseURL}${endpoint}`;
-      console.log("🌐 API Request:", {
-        method: options.method || "GET",
+      console.log('🌐 API Request:', {
+        method: options.method || 'GET',
         url: fullUrl,
         baseURL: this.baseURL,
         endpoint,
         headers: Object.keys(headers),
       });
-      
+
       const response = await fetch(fullUrl, {
         ...options,
         headers,
       });
-      
-      console.log("📡 API Response:", {
+
+      console.log('📡 API Response:', {
         status: response.status,
         statusText: response.statusText,
         url: fullUrl,
@@ -83,14 +80,15 @@ class ApiClient {
       // Handle specific error codes
       if (response.status === 502 || response.status === 503 || response.status === 504) {
         console.error(`❌ Error ${response.status}: Bad Gateway / Service Unavailable`);
-        console.error("  - Backend server may be down or unreachable");
-        console.error("  - Cloudflare cannot connect to origin server");
-        console.error("  - Server may be overloaded or under maintenance");
-        const statusText = response.status === 502 
-          ? "Bad Gateway - Server không phản hồi"
-          : response.status === 503
-          ? "Service Unavailable - Dịch vụ tạm thời không khả dụng"
-          : "Gateway Timeout - Server phản hồi quá chậm";
+        console.error('  - Backend server may be down or unreachable');
+        console.error('  - Cloudflare cannot connect to origin server');
+        console.error('  - Server may be overloaded or under maintenance');
+        const statusText =
+          response.status === 502
+            ? 'Bad Gateway - Server không phản hồi'
+            : response.status === 503
+              ? 'Service Unavailable - Dịch vụ tạm thời không khả dụng'
+              : 'Gateway Timeout - Server phản hồi quá chậm';
         return {
           success: false,
           error: `${statusText}. Vui lòng thử lại sau hoặc liên hệ quản trị viên.`,
@@ -98,23 +96,24 @@ class ApiClient {
       }
 
       if (response.status === 530) {
-        console.error("❌ Error 530: Origin is unreachable. Possible issues:");
-        console.error("  - Domain may not be configured correctly");
-        console.error("  - Backend server may not be running on this domain");
-        console.error("  - Cloudflare/reverse proxy configuration issue");
-        console.error("  - SSL/TLS certificate problem");
+        console.error('❌ Error 530: Origin is unreachable. Possible issues:');
+        console.error('  - Domain may not be configured correctly');
+        console.error('  - Backend server may not be running on this domain');
+        console.error('  - Cloudflare/reverse proxy configuration issue');
+        console.error('  - SSL/TLS certificate problem');
         return {
           success: false,
-          error: "Không thể kết nối đến server. Vui lòng kiểm tra:\n- Domain có đang hoạt động không?\n- Backend có đang chạy không?\n- Có thể thử dùng IP local khi phát triển",
+          error:
+            'Không thể kết nối đến server. Vui lòng kiểm tra:\n- Domain có đang hoạt động không?\n- Backend có đang chạy không?\n- Có thể thử dùng IP local khi phát triển',
         };
       }
 
       if (response.status === 401) {
-        console.warn("Unauthorized - clearing token");
+        console.warn('Unauthorized - clearing token');
         await this.removeToken();
         return {
           success: false,
-          error: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+          error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
         };
       }
 
@@ -125,7 +124,7 @@ class ApiClient {
       }
 
       let data;
-      const contentLength = response.headers.get("content-length");
+      const contentLength = response.headers.get('content-length');
       const hasBody = contentLength === null || parseInt(contentLength, 10) > 0;
 
       if (hasBody) {
@@ -146,27 +145,32 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        console.error("API error response:", {
+        console.error('API error response:', {
           status: response.status,
           statusText: response.statusText,
           data: JSON.stringify(data, null, 2),
         });
-        
+
         // Extract validation errors if available
-        let errorMessage = data?.error || data?.message || `Server error: ${response.status} ${response.statusText}`;
+        let errorMessage =
+          data?.error || data?.message || `Server error: ${response.status} ${response.statusText}`;
         if (data?.data && Array.isArray(data.data)) {
-          const validationErrors = data.data.map((err: any) => {
-            if (typeof err === 'object') {
-              return err.message || err.field ? `${err.field}: ${err.message}` : JSON.stringify(err);
-            }
-            return String(err);
-          }).join('; ');
+          const validationErrors = data.data
+            .map((err: any) => {
+              if (typeof err === 'object') {
+                return err.message || err.field
+                  ? `${err.field}: ${err.message}`
+                  : JSON.stringify(err);
+              }
+              return String(err);
+            })
+            .join('; ');
           if (validationErrors) {
             errorMessage = `${errorMessage}: ${validationErrors}`;
           }
-          console.error("Validation errors:", data.data);
+          console.error('Validation errors:', data.data);
         }
-        
+
         return {
           success: false,
           error: errorMessage,
@@ -199,7 +203,7 @@ class ApiClient {
         }
         // Log response data for debugging
         if (__DEV__) {
-          console.log("📦 API Response Data:", {
+          console.log('📦 API Response Data:', {
             hasSuccess: data.success !== undefined,
             hasData: data.data !== undefined,
             hasLogs: data.logs !== undefined,
@@ -207,7 +211,7 @@ class ApiClient {
             dataType: Array.isArray(data) ? 'array' : typeof data,
           });
         }
-        
+
         // Check if response follows ApiResponse format
         if (data.success !== undefined) {
           // Backend returns ApiResponse format
@@ -253,18 +257,22 @@ class ApiClient {
         stack: error.stack,
         cause: error.cause,
       };
-      console.error("❌ API request error:", errorDetails);
-      
+      console.error('❌ API request error:', errorDetails);
+
       // Provide more helpful error messages
-      let errorMessage = error.message || "Network error occurred";
-      if (error.message?.includes("Network request failed")) {
+      let errorMessage = error.message || 'Network error occurred';
+      if (error.message?.includes('Network request failed')) {
         errorMessage = `Không thể kết nối đến server. Kiểm tra:\n- Backend có đang chạy không?\n- Domain/IP đúng chưa? (${this.baseURL})\n- Máy tính và điện thoại cùng WiFi?\n- Firewall có chặn không?\n- SSL certificate có hợp lệ không?`;
-      } else if (error.message?.includes("Failed to fetch")) {
+      } else if (error.message?.includes('Failed to fetch')) {
         errorMessage = `Không thể kết nối đến server tại ${this.baseURL}.\n\nCó thể do:\n- Domain chưa được cấu hình đúng\n- Backend chưa chạy trên domain này\n- Vấn đề với SSL certificate\n- Cloudflare/reverse proxy chưa được setup\n\nVui lòng kiểm tra kết nối mạng và cấu hình domain.`;
-      } else if (error.message?.includes("certificate") || error.message?.includes("SSL") || error.message?.includes("TLS")) {
+      } else if (
+        error.message?.includes('certificate') ||
+        error.message?.includes('SSL') ||
+        error.message?.includes('TLS')
+      ) {
         errorMessage = `Lỗi SSL/TLS certificate khi kết nối đến ${this.baseURL}.\n\nCó thể do:\n- Certificate chưa được cấu hình đúng\n- Certificate đã hết hạn\n- Domain chưa được setup SSL`;
       }
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -273,36 +281,36 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "GET" });
+    return this.request<T>(endpoint, { method: 'GET' });
   }
 
   async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "POST",
+      method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "PUT",
+      method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async patch<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: "PATCH",
+      method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "DELETE" });
+    return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
   async login(email: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.post("/api/auth/login", { email, password });
+    const response = await this.post('/api/auth/login', { email, password });
 
     if (response.success && response.data) {
       const data = response.data as any;
@@ -310,10 +318,12 @@ class ApiClient {
       const token = data.sessionId || data.token || data.accessToken || data.jwt;
 
       if (token) {
-        console.log("Token extracted successfully:", { tokenType: Object.keys(data).find(k => data[k] === token) });
+        console.log('Token extracted successfully:', {
+          tokenType: Object.keys(data).find(k => data[k] === token),
+        });
         await this.setToken(token);
       } else {
-        console.error("No token found in login response:", data);
+        console.error('No token found in login response:', data);
       }
     }
 
@@ -321,12 +331,12 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
-    await this.post("/api/auth/logout");
+    await this.post('/api/auth/logout');
     await this.removeToken();
   }
 
   async getCurrentUser(): Promise<ApiResponse<any>> {
-    return this.get("/api/auth/me");
+    return this.get('/api/auth/me');
   }
 }
 

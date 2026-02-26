@@ -1,5 +1,5 @@
-import { API_ENDPOINTS } from "@/config/api";
-import { apiClient } from "./api";
+import { API_ENDPOINTS } from '@/config/api';
+import { apiClient } from './api';
 
 export interface RoleResponse {
   id: string;
@@ -34,7 +34,7 @@ export const roleService = {
     if (response.success && response.data) {
       return Array.isArray(response.data) ? response.data : [];
     }
-    throw new Error(response.error || "Failed to fetch roles");
+    throw new Error(response.error || 'Failed to fetch roles');
   },
 
   /**
@@ -45,7 +45,7 @@ export const roleService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to fetch role");
+    throw new Error(response.error || 'Failed to fetch role');
   },
 
   /**
@@ -56,7 +56,7 @@ export const roleService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to fetch role");
+    throw new Error(response.error || 'Failed to fetch role');
   },
 
   /**
@@ -67,7 +67,7 @@ export const roleService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to create role");
+    throw new Error(response.error || 'Failed to create role');
   },
 
   /**
@@ -78,7 +78,7 @@ export const roleService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to update role");
+    throw new Error(response.error || 'Failed to update role');
   },
 
   /**
@@ -87,7 +87,7 @@ export const roleService = {
   delete: async (id: string): Promise<void> => {
     const response = await apiClient.delete(API_ENDPOINTS.ROLE_BY_ID(id));
     if (!response.success) {
-      throw new Error(response.error || "Failed to delete role");
+      throw new Error(response.error || 'Failed to delete role');
     }
   },
 };
