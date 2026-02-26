@@ -28,12 +28,24 @@ export interface CreateGenomeTestRequest {
 }
 
 export const genomeTestService = {
-  getAll: async () => {
-    return apiClient.get<GenomeTestResponse[]>(API_ENDPOINTS.GENOME_TESTS);
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.GENOME_TESTS}?${queryParams.toString()}`
+      : API_ENDPOINTS.GENOME_TESTS;
+    return apiClient.get<GenomeTestResponse[]>(url);
   },
 
-  getByServiceId: async (serviceId: string) => {
-    return apiClient.get<GenomeTestResponse[]>(API_ENDPOINTS.GENOME_TESTS_BY_SERVICE(serviceId));
+  getByServiceId: async (serviceId: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.GENOME_TESTS_BY_SERVICE(serviceId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.GENOME_TESTS_BY_SERVICE(serviceId);
+    return apiClient.get<GenomeTestResponse[]>(url);
   },
 
   getById: async (id: string) => {

@@ -24,6 +24,10 @@ export const getOrderStatusLabel = (status: string): string => {
     rerun_testing: "Chạy lại",
     completed: "Hoàn thành",
     sample_addition: "Thêm mẫu",
+    awaiting_results_approval: "Chờ duyệt kết quả",
+    results_approved: "Đã duyệt kết quả",
+    result_approved: "Đã duyệt kết quả",
+    canceled: "Đã hủy",
   };
   return statusMap[s] || status;
 };

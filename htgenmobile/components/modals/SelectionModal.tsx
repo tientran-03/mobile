@@ -41,10 +41,16 @@ export function SelectionModal({
   }, [q, options]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal 
+      visible={visible} 
+      transparent 
+      animationType="slide" 
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="absolute inset-0" onPress={onClose} />
-        <View className="max-h-[82%] rounded-t-3xl bg-white shadow-2xl">
+        <View className="max-h-[82%] rounded-t-3xl bg-white shadow-2xl" style={{ zIndex: 9999 }}>
           <View className="items-center pt-3">
             <View className="h-1.5 w-12 rounded-full bg-slate-200" />
           </View>

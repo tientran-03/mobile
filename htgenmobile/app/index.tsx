@@ -17,6 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 
+const getHomeRoute = (role?: string | null) => {
+  const r = role?.toUpperCase();
+  if (r === "ROLE_CUSTOMER") return "/customer";
+  if (r === "ROLE_ADMIN") return "/admin";
+  return "/staff";
+};
+
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +36,7 @@ export default function LoginScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && !authLoading) router.replace("/home");
+    if (user && !authLoading) router.replace(getHomeRoute(user?.role) as any);
   }, [user, authLoading, router]);
 
   const emailTrim = useMemo(() => email.trim(), [email]);
@@ -47,7 +54,7 @@ export default function LoginScreen() {
     if (!success) {
       Alert.alert(
         "Lỗi đăng nhập",
-        "Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có nhân viên staff của HTGen (hospitalId = 1) mới có thể đăng nhập mobile."
+        "Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có nhân viên staff của HTGen (hospitalId = 1) hoặc khách hàng (ROLE_CUSTOMER) mới có thể đăng nhập mobile."
       );
     }
   };

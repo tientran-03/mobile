@@ -72,6 +72,7 @@ export interface User {
   dateOfBirth: string;
   hospitalId: string;
   role?: string; // User role: ROLE_DOCTOR, ROLE_STAFF, ROLE_CUSTOMER, etc.
+  avatarUrl?: string; // Avatar URL from Cloudinary
 }
 
 export interface AdditionalSample {

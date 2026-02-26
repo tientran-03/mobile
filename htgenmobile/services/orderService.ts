@@ -55,25 +55,57 @@ export interface OrderResponse {
 }
 
 export const orderService = {
-  getAll: async () => {
-    return apiClient.get<OrderResponse[]>(API_ENDPOINTS.ORDERS);
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString() 
+      ? `${API_ENDPOINTS.ORDERS}?${queryParams.toString()}`
+      : API_ENDPOINTS.ORDERS;
+    return apiClient.get<OrderResponse[]>(url);
   },
 
   getById: async (id: string) => {
     return apiClient.get<OrderResponse>(API_ENDPOINTS.ORDER_BY_ID(id));
   },
 
-  getByStatus: async (status: string) => {
-    return apiClient.get<OrderResponse[]>(API_ENDPOINTS.ORDER_BY_STATUS(status));
+  getByStatus: async (status: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.ORDER_BY_STATUS(status)}?${queryParams.toString()}`
+      : API_ENDPOINTS.ORDER_BY_STATUS(status);
+    return apiClient.get<OrderResponse[]>(url);
   },
 
-  getByPatientId: async (patientId: string) => {
-    return apiClient.get<OrderResponse[]>(API_ENDPOINTS.ORDER_BY_PATIENT_ID(patientId));
+  getByPatientId: async (patientId: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.ORDER_BY_PATIENT_ID(patientId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.ORDER_BY_PATIENT_ID(patientId);
+    return apiClient.get<OrderResponse[]>(url);
   },
 
-  search: async (query: string) => {
+  getByCustomerId: async (customerId: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.ORDER_BY_CUSTOMER_ID(customerId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.ORDER_BY_CUSTOMER_ID(customerId);
+    return apiClient.get<OrderResponse[]>(url);
+  },
+
+  search: async (query: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("orderName", query);
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
     return apiClient.get<OrderResponse[]>(
-      `${API_ENDPOINTS.ORDER_SEARCH}?orderName=${encodeURIComponent(query)}`
+      `${API_ENDPOINTS.ORDER_SEARCH}?${queryParams.toString()}`
     );
   },
 

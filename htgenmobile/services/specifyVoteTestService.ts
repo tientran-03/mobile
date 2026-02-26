@@ -81,20 +81,38 @@ export interface SpecifyVoteTestRequest {
 }
 
 export const specifyVoteTestService = {
-  getAll: async () => {
-    return apiClient.get<SpecifyVoteTestResponse[]>(API_ENDPOINTS.SPECIFY_VOTE_TESTS);
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SPECIFY_VOTE_TESTS}?${queryParams.toString()}`
+      : API_ENDPOINTS.SPECIFY_VOTE_TESTS;
+    return apiClient.get<SpecifyVoteTestResponse[]>(url);
   },
 
   getById: async (id: string) => {
     return apiClient.get<SpecifyVoteTestResponse>(API_ENDPOINTS.SPECIFY_VOTE_TEST_BY_ID(id));
   },
 
-  getByPatientId: async (patientId: string) => {
-    return apiClient.get<SpecifyVoteTestResponse[]>(API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_PATIENT(patientId));
+  getByPatientId: async (patientId: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_PATIENT(patientId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_PATIENT(patientId);
+    return apiClient.get<SpecifyVoteTestResponse[]>(url);
   },
 
-  getByStatus: async (status: string) => {
-    return apiClient.get<SpecifyVoteTestResponse[]>(API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_STATUS(status));
+  getByStatus: async (status: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_STATUS(status)}?${queryParams.toString()}`
+      : API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_STATUS(status);
+    return apiClient.get<SpecifyVoteTestResponse[]>(url);
   },
 
   create: async (data: SpecifyVoteTestRequest) => {

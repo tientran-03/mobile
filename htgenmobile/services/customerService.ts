@@ -13,17 +13,27 @@ export interface CustomerResponse {
 }
 
 export const customerService = {
-  getAll: async () => {
-    return apiClient.get<CustomerResponse[]>(API_ENDPOINTS.CUSTOMERS || "/api/v1/customers");
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.CUSTOMERS}?${queryParams.toString()}`
+      : (API_ENDPOINTS.CUSTOMERS || "/api/v1/customers");
+    return apiClient.get<CustomerResponse[]>(url);
   },
 
   getById: async (id: string) => {
     return apiClient.get<CustomerResponse>(`/api/v1/customers/${id}`);
   },
 
-  search: async (name: string) => {
+  search: async (name: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("name", name);
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
     return apiClient.get<CustomerResponse[]>(
-      `/api/v1/customers/search?name=${encodeURIComponent(name)}`
+      `/api/v1/customers/search?${queryParams.toString()}`
     );
   },
 

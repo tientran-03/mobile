@@ -8,8 +8,14 @@ export interface ServiceResponse {
 }
 
 export const serviceService = {
-  getAll: async () => {
-    return apiClient.get<ServiceResponse[]>(API_ENDPOINTS.SERVICES);
+  getAll: async (params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SERVICES}?${queryParams.toString()}`
+      : API_ENDPOINTS.SERVICES;
+    return apiClient.get<ServiceResponse[]>(url);
   },
 
   getById: async (id: string) => {

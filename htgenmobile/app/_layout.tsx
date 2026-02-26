@@ -1,273 +1,108 @@
-import { OrdersInitiationBadge } from '@/components/order/create-order-steps/orders-badge';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { NotificationProvider } from '@/contexts/NotificationContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { ArrowLeft } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
+import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const createQueryClient = () => {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: (failureCount, error: any) => {
+          if (
+            error?.response?.status === 401 ||
+            error?.error?.includes('401') ||
+            error?.error?.includes('hết hạn')
+          ) {
+            return false;
+          }
+          return failureCount < 3;
+        },
+        onError: (error: any) => {
+          if (
+            error?.response?.status === 401 ||
+            error?.error?.includes('401') ||
+            error?.error?.includes('hết hạn')
+          ) {
+            console.warn('Global 401 handler: Session expired');
+          }
+        },
+      },
+      mutations: {
+        onError: (error: any) => {
+          if (
+            error?.response?.status === 401 ||
+            error?.error?.includes('401') ||
+            error?.error?.includes('hết hạn')
+          ) {
+            console.warn('Global 401 handler: Session expired');
+          }
+        },
+      },
+    },
+  });
+};
+
+const queryClient = createQueryClient();
+const BackButton = ({ toHome = false }: { toHome?: boolean }) => {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      onPress={() => (toHome ? router.push('/admin') : router.back())}
+      className="ml-2"
+      activeOpacity={0.7}
+    >
+      <ArrowLeft size={24} color="#fff" />
+    </TouchableOpacity>
+  );
+};
 
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Quay lại' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="home" options={{ headerShown: false }} />
-
+      <Stack.Screen name="customer" options={{ headerShown: false }} />
+      <Stack.Screen name="staff" options={{ headerShown: false }} />
+      <Stack.Screen name="admin" options={{ headerShown: false }} />
       <Stack.Screen
-        name="profile"
+        name="admin/orders"
         options={{
-          title: 'Thông tin người dùng',
+          title: 'Quản lý đơn hàng',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
         }}
       />
-
       <Stack.Screen
-        name="orders"
+        name="admin/hospitals"
         options={{
-          title: 'Danh sách đơn hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-              <Text style={{ color: '#fff', fontWeight: '800' }}>Khởi tạo</Text>
-              <OrdersInitiationBadge />
-            </View>
-          ),
-        }}
-      />
-
-      <Stack.Screen
-        name="patients"
-        options={{
-          title: 'Danh sách bệnh nhân',
+          title: 'Quản lý bệnh viện',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
         }}
       />
-
       <Stack.Screen
-        name="services"
+        name="admin/users"
         options={{
-          title: 'Danh sách dịch vụ',
+          title: 'Quản lý người dùng',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
         }}
       />
-
       <Stack.Screen
-        name="new-order"
+        name="admin/services"
         options={{
-          title: 'Thêm mới đơn hàng',
+          title: 'Quản lý dịch vụ',
           headerStyle: { backgroundColor: '#0891b2' },
           headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="create-genome-test"
-        options={{
-          title: 'Tạo mới xét nghiệm',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="create-order"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="quick-order"
-        options={{
-          title: 'Thêm nhanh đơn hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="orders-in-progress"
-        options={{
-          title: 'Đơn hàng đang phân tích',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="patient-metadatas"
-        options={{
-          title: 'Quản lý mẫu xét nghiệm',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="patient-appendices"
-        options={{
-          title: 'Phụ lục bệnh nhân',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="patient-test-results"
-        options={{
-          title: 'Kết quả xét nghiệm',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="prescription-slips"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="update-order"
-        options={{
-          title: 'Cập nhật đơn hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="update-order-wizard"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="order-detail"
-        options={{
-          title: 'Chi tiết đơn hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="create-patient"
-        options={{
-          title: 'Tạo mới bệnh nhân',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="patient-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="edit-patient"
-        options={{
-          title: 'Sửa thông tin bệnh nhân',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="create-prescription-slip"
-        options={{
-          title: 'Tạo mới phiếu chỉ định',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="prescription-slip-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="genome-tests"
-        options={{
-          title: 'Danh sách xét nghiệm',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="genome-test-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="edit-genome-test"
-        options={{
-          title: 'Sửa xét nghiệm',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="customers"
-        options={{
-          title: 'Danh sách khách hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="customer-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      <Stack.Screen
-        name="create-customer"
-        options={{
-          title: 'Tạo mới khách hàng',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="statistics"
-        options={{
-          title: 'Báo cáo & Thống kê',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
-        }}
-      />
-
-      <Stack.Screen
-        name="payment"
-        options={{
-          headerShown: false,
         }}
       />
     </Stack>
