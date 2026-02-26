@@ -9,7 +9,7 @@ import {
   BarChart3,
   Calendar,
 } from "lucide-react-native";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -43,6 +43,19 @@ export default function AdminStatisticsScreen() {
     queryFn: () => statisticsService.getRevenueStatistics(selectedYear),
     enabled: user?.role === "ROLE_ADMIN" && activeTab === "revenue",
   });
+
+  // Debug logging
+  useEffect(() => {
+    if (activeTab === "revenue" && revenueStats) {
+      console.log("💰 Revenue Stats Response:", {
+        success: revenueStats.success,
+        hasData: !!revenueStats.data,
+        data: revenueStats.data,
+        error: revenueStats.error,
+        selectedYear,
+      });
+    }
+  }, [revenueStats, activeTab, selectedYear]);
 
   const { data: serviceStats, isLoading: serviceLoading, refetch: refetchServices } = useQuery({
     queryKey: ["admin-statistics-services"],
@@ -209,6 +222,7 @@ export default function AdminStatisticsScreen() {
                 <RevenueTab
                   data={revenueStats?.success ? revenueStats.data : null}
                   selectedYear={selectedYear}
+                  rawResponse={revenueStats}
                 />
               )}
               {activeTab === "services" && (
@@ -226,7 +240,16 @@ export default function AdminStatisticsScreen() {
 }
 
 // Revenue Tab Component
-function RevenueTab({ data, selectedYear }: { data: any; selectedYear: number }) {
+function RevenueTab({ data, selectedYear, rawResponse }: { data: any; selectedYear: number; rawResponse?: any }) {
+  // Debug: Log raw response
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("📊 RevenueTab - Raw Response:", rawResponse);
+      console.log("📊 RevenueTab - Data:", data);
+      console.log("📊 RevenueTab - Selected Year:", selectedYear);
+    }
+  }, [rawResponse, data, selectedYear]);
+
   if (!data) {
     return (
       <View className="bg-white rounded-2xl p-8 items-center border border-sky-100">
@@ -234,14 +257,42 @@ function RevenueTab({ data, selectedYear }: { data: any; selectedYear: number })
         <Text className="text-sm font-bold text-slate-500 mt-3 text-center">
           Không có dữ liệu thống kê
         </Text>
+        {rawResponse?.error && (
+          <Text className="text-xs text-red-500 mt-2 text-center">
+            Lỗi: {rawResponse.error}
+          </Text>
+        )}
+        {rawResponse?.success === false && rawResponse?.message && (
+          <Text className="text-xs text-orange-500 mt-2 text-center">
+            {rawResponse.message}
+          </Text>
+        )}
       </View>
     );
   }
 
-  const monthlyRevenues = data.monthlyRevenues || [];
-  const totalRevenue = data.totalRevenue || 0;
-  const totalOrders = data.totalOrders || 0;
-  const orderStatusCounts = data.orderStatusCounts || [];
+  // Backend returns: monthlyRevenue, totalYearRevenue, totalYearOrders, orderStatusCount
+  const monthlyRevenues = data.monthlyRevenue || data.monthlyRevenues || [];
+  const totalRevenue = data.totalYearRevenue ?? data.totalRevenue ?? 0;
+  const totalOrders = data.totalYearOrders ?? data.totalOrders ?? 0;
+  
+  // Transform orderStatusCount object to array format for display
+  const orderStatusCounts: { status: string; count: number }[] = [];
+  if (data.orderStatusCount) {
+    // Backend returns object with rejectedCount, pendingCount, totalCount
+    if (data.orderStatusCount.rejectedCount > 0) {
+      orderStatusCounts.push({ status: "Đã từ chối", count: data.orderStatusCount.rejectedCount });
+    }
+    if (data.orderStatusCount.pendingCount > 0) {
+      orderStatusCounts.push({ status: "Đang chờ", count: data.orderStatusCount.pendingCount });
+    }
+    if (data.orderStatusCount.totalCount > 0) {
+      orderStatusCounts.push({ status: "Tổng cộng", count: data.orderStatusCount.totalCount });
+    }
+  } else if (data.orderStatusCounts && Array.isArray(data.orderStatusCounts)) {
+    // Fallback to array format if provided
+    orderStatusCounts.push(...data.orderStatusCounts);
+  }
 
   return (
     <View className="gap-4">
@@ -282,9 +333,9 @@ function RevenueTab({ data, selectedYear }: { data: any; selectedYear: number })
                 <Text className="text-sm font-bold text-slate-700">Tháng {item.month}</Text>
                 <View className="items-end">
                   <Text className="text-sm font-extrabold text-slate-900">
-                    {formatCurrency(item.revenue)}
+                    {formatCurrency(item.totalRevenue ?? item.revenue ?? 0)}
                   </Text>
-                  <Text className="text-xs text-slate-500">{item.orderCount} đơn</Text>
+                  <Text className="text-xs text-slate-500">{item.orderCount ?? 0} đơn</Text>
                 </View>
               </View>
             ))

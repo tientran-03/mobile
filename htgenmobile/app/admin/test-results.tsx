@@ -53,30 +53,77 @@ const formatDateTime = (dateString?: string): string => {
   }
 };
 
+// Map backend specifyStatus -> tiếng Việt (giống prescription-slips)
 const getStatusLabel = (status: string): string => {
-  const s = (status || "").toLowerCase();
+  if (!status) return "Khởi tạo";
+  const s = status.toLowerCase();
   const statusMap: Record<string, string> = {
+    initation: "Khởi tạo",
+    initiation: "Khởi tạo",
     pending: "Chờ xử lý",
     processing: "Đang xử lý",
-    completed: "Hoàn thành",
+    payment_failed: "Thanh toán thất bại",
+    waiting_receive_sample: "Chờ nhận mẫu",
+    sample_collecting: "Đang thu mẫu",
+    sample_retrieved: "Đã tiếp nhận mẫu",
+    forward_analysis: "Chuyển phân tích",
+    analyze_in_progress: "Đang phân tích",
+    rerun_testing: "Chạy lại",
+    awaiting_results_approval: "Chờ duyệt kết quả",
+    results_approved: "Kết quả đã duyệt",
+    canceled: "Hủy",
+    cancelled: "Hủy",
     rejected: "Từ chối",
-    cancelled: "Đã hủy",
+    sample_addition: "Thêm mẫu",
+    sample_error: "Mẫu lỗi",
+    completed: "Hoàn thành",
   };
   return statusMap[s] || status;
 };
 
 const getStatusBadge = (status: string) => {
   const s = (status || "").toLowerCase();
-  if (s === "completed") {
-    return { label: "Hoàn thành", bg: "bg-emerald-50", fg: "text-emerald-700", bd: "border-emerald-200" };
+
+  if (s === "completed" || s === "results_approved") {
+    return {
+      label: getStatusLabel(status),
+      bg: "bg-emerald-50",
+      fg: "text-emerald-700",
+      bd: "border-emerald-200",
+    };
   }
-  if (s === "rejected" || s === "cancelled") {
-    return { label: "Từ chối/Hủy", bg: "bg-red-50", fg: "text-red-700", bd: "border-red-200" };
+
+  if (s === "canceled" || s === "cancelled" || s === "rejected" || s === "payment_failed" || s === "sample_error") {
+    return {
+      label: getStatusLabel(status),
+      bg: "bg-red-50",
+      fg: "text-red-700",
+      bd: "border-red-200",
+    };
   }
-  if (s === "processing") {
-    return { label: "Đang xử lý", bg: "bg-blue-50", fg: "text-blue-700", bd: "border-blue-200" };
+
+  if (
+    s === "analyze_in_progress" ||
+    s === "sample_collecting" ||
+    s === "waiting_receive_sample" ||
+    s === "forward_analysis" ||
+    s === "processing" ||
+    s === "pending"
+  ) {
+    return {
+      label: getStatusLabel(status),
+      bg: "bg-orange-50",
+      fg: "text-orange-700",
+      bd: "border-orange-200",
+    };
   }
-  return { label: "Chờ xử lý", bg: "bg-orange-50", fg: "text-orange-700", bd: "border-orange-200" };
+
+  return {
+    label: getStatusLabel(status),
+    bg: "bg-slate-50",
+    fg: "text-slate-700",
+    bd: "border-slate-200",
+  };
 };
 
 export default function AdminTestResultsScreen() {

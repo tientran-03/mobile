@@ -5,11 +5,15 @@ import { apiClient } from "./api";
 export interface HospitalStaffResponse {
   staffId: string;
   staffName: string;
+  staffGender?: string;
+  staffDob?: string;
   staffEmail?: string;
   staffPhone?: string;
+  staffAddress?: string;
   hospitalId?: string;
   hospitalName?: string;
   staffPosition?: string;
+  userId?: string;
 }
 
 export const hospitalStaffService = {
@@ -24,6 +28,12 @@ export const hospitalStaffService = {
   search: async (name: string) => {
     return apiClient.get<HospitalStaffResponse[]>(
       `${API_ENDPOINTS.HOSPITAL_STAFFS}/search?name=${encodeURIComponent(name)}`
+    );
+  },
+
+  getByHospitalId: async (hospitalId: string) => {
+    return apiClient.get<HospitalStaffResponse[]>(
+      API_ENDPOINTS.HOSPITAL_STAFF_BY_HOSPITAL_ID(hospitalId)
     );
   },
 };

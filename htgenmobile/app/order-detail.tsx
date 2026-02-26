@@ -7,6 +7,7 @@ import {
   Trash2,
   Download,
   FileText,
+  CreditCard,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -127,6 +128,32 @@ export default function OrderDetailScreen() {
     } catch (error) {
       Alert.alert("Lỗi", "Có lỗi xảy ra khi mở hóa đơn. Vui lòng thử lại sau.");
     }
+  };
+
+  const handleStartPayment = (order: OrderResponse) => {
+    if (!order.paymentAmount || order.paymentAmount <= 0) {
+      Alert.alert(
+        "Không thể thanh toán",
+        "Đơn hàng này chưa có thông tin số tiền cần thanh toán.",
+      );
+      return;
+    }
+
+    // Chỉ cho thanh toán nếu chưa hoàn tất
+    if (order.paymentStatus && order.paymentStatus.toUpperCase() === "COMPLETED") {
+      Alert.alert("Thông báo", "Đơn hàng này đã được thanh toán.");
+      return;
+    }
+
+    router.push({
+      pathname: "/payment",
+      params: {
+        orderId: order.orderId,
+        orderName: order.orderName,
+        amount: String(order.paymentAmount),
+        specifyId: order.specifyId?.specifyVoteID,
+      },
+    } as any);
   };
 
   const {
@@ -299,6 +326,19 @@ export default function OrderDetailScreen() {
               <ArrowLeft size={24} color={COLORS.text} />
             </TouchableOpacity>
             <View style={styles.headerActions}>
+              {/* Payment action when order has amount and is not paid */}
+              {order.paymentAmount !== undefined &&
+                order.paymentAmount > 0 &&
+                (!order.paymentStatus ||
+                  order.paymentStatus.toUpperCase() !== "COMPLETED") && (
+                  <TouchableOpacity
+                    onPress={() => handleStartPayment(order)}
+                    style={styles.actionBtn}
+                  >
+                    <CreditCard size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                )}
+
               {/* Download / share order summary */}
               <TouchableOpacity
                 onPress={() => handleDownloadOrder(order)}

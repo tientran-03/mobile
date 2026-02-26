@@ -57,6 +57,15 @@ export function usePaginatedQuery<T>({
     queryKey: [...queryKey, currentPage, pageSize],
     queryFn: async () => {
       const response = await queryFn({ page: currentPage, size: pageSize });
+      if (__DEV__) {
+        console.log("🔍 usePaginatedQuery - Raw Response:", {
+          success: response.success,
+          hasData: !!response.data,
+          dataType: typeof response.data,
+          isArray: Array.isArray(response.data),
+          dataValue: response.data ? (Array.isArray(response.data) ? `Array(${response.data.length})` : JSON.stringify(response.data).substring(0, 200)) : 'undefined',
+        });
+      }
       return response;
     },
     enabled,
@@ -64,6 +73,9 @@ export function usePaginatedQuery<T>({
 
   const paginationInfo = useMemo(() => {
     if (!data?.success || !data.data) {
+      if (__DEV__) {
+        console.log("⚠️ usePaginatedQuery: No data", { data });
+      }
       return {
         items: [] as T[],
         totalPages: 0,
@@ -76,8 +88,21 @@ export function usePaginatedQuery<T>({
 
     // Check if response is paginated
     const responseData = data.data;
+    
+    if (__DEV__) {
+      console.log("📦 usePaginatedQuery: Response data", {
+        isArray: Array.isArray(responseData),
+        hasContent: (responseData as any)?.content !== undefined,
+        keys: typeof responseData === 'object' ? Object.keys(responseData) : [],
+        type: typeof responseData,
+      });
+    }
+
     if (Array.isArray(responseData)) {
       // Not paginated, return as is
+      if (__DEV__) {
+        console.log("✅ usePaginatedQuery: Returning array, length:", responseData.length);
+      }
       return {
         items: responseData,
         totalPages: 1,
@@ -90,6 +115,13 @@ export function usePaginatedQuery<T>({
 
     // Paginated response
     const paginated = responseData as PaginatedResponse<T>;
+    if (__DEV__) {
+      console.log("✅ usePaginatedQuery: Returning paginated", {
+        contentLength: paginated.content?.length || 0,
+        totalPages: paginated.totalPages,
+        totalElements: paginated.totalElements,
+      });
+    }
     return {
       items: paginated.content || [],
       totalPages: paginated.totalPages || 0,

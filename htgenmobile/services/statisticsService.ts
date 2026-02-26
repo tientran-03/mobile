@@ -3,18 +3,23 @@ import { apiClient } from "./api";
 
 export interface MonthlyRevenueResponse {
   month: number;
-  revenue: number;
+  year?: number;
+  totalRevenue: number; // Backend uses 'totalRevenue' not 'revenue'
   orderCount: number;
 }
 
+export interface OrderStatusCountResponse {
+  rejectedCount: number;
+  pendingCount: number;
+  totalCount: number;
+}
+
 export interface RevenueStatisticsResponse {
-  monthlyRevenues: MonthlyRevenueResponse[];
-  totalRevenue: number;
-  totalOrders: number;
-  orderStatusCounts: {
-    status: string;
-    count: number;
-  }[];
+  year?: number;
+  monthlyRevenue: MonthlyRevenueResponse[]; // Backend uses 'monthlyRevenue' not 'monthlyRevenues'
+  totalYearRevenue: number; // Backend uses 'totalYearRevenue' not 'totalRevenue'
+  totalYearOrders: number; // Backend uses 'totalYearOrders' not 'totalOrders'
+  orderStatusCount: OrderStatusCountResponse; // Backend uses 'orderStatusCount' (object) not 'orderStatusCounts' (array)
   availableYears: number[];
 }
 

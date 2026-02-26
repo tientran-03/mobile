@@ -36,6 +36,13 @@ import {
   HospitalResponse,
   HospitalRequest,
 } from "@/services/hospitalService";
+import {
+  hospitalStaffService,
+  HospitalStaffResponse,
+} from "@/services/hospitalStaffService";
+import { doctorService, DoctorResponse } from "@/services/doctorService";
+import { useQuery } from "@tanstack/react-query";
+import { UserSquare, UserCircle2 } from "lucide-react-native";
 
 function FilterPill({
   label,
@@ -78,6 +85,9 @@ export default function AdminHospitalsScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingHospital, setEditingHospital] = useState<HospitalResponse | null>(null);
   const [formHospitalName, setFormHospitalName] = useState("");
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailModalType, setDetailModalType] = useState<"doctors" | "staff" | "patients" | "customers" | null>(null);
+  const [selectedHospital, setSelectedHospital] = useState<HospitalResponse | null>(null);
 
   // Guard: Chỉ ADMIN mới được vào màn hình này
   useEffect(() => {
@@ -115,7 +125,20 @@ export default function AdminHospitalsScreen() {
 
   // Extract hospitals array from response
   const hospitals = useMemo(() => {
-    return hospitalsData || [];
+    if (__DEV__) {
+      console.log("🏥 Hospitals Data from usePaginatedQuery:", {
+        hospitalsData,
+        type: typeof hospitalsData,
+        isArray: Array.isArray(hospitalsData),
+        length: hospitalsData?.length,
+        firstItem: hospitalsData?.[0],
+      });
+    }
+    const result = hospitalsData || [];
+    if (__DEV__) {
+      console.log("🏥 Returning hospitals array, length:", result.length);
+    }
+    return result;
   }, [hospitalsData]);
 
   // Filter hospitals
@@ -242,6 +265,12 @@ export default function AdminHospitalsScreen() {
         },
       ]
     );
+  };
+
+  const handleShowDetail = (hospital: HospitalResponse, type: "doctors" | "staff" | "patients" | "customers") => {
+    setSelectedHospital(hospital);
+    setDetailModalType(type);
+    setShowDetailModal(true);
   };
 
   if (authLoading || isLoading) {
@@ -415,7 +444,12 @@ export default function AdminHospitalsScreen() {
           />
         }
       >
-        {filteredHospitals.length === 0 ? (
+        {isLoading ? (
+          <View className="flex-1 justify-center items-center py-20 px-5">
+            <ActivityIndicator size="large" color="#0284C7" />
+            <Text className="mt-4 text-sm text-slate-500">Đang tải dữ liệu...</Text>
+          </View>
+        ) : filteredHospitals.length === 0 ? (
           <View className="flex-1 justify-center items-center py-20 px-5">
             <Building2 size={48} color="#94A3B8" />
             <Text className="mt-4 text-base font-bold text-slate-700 text-center">
@@ -428,111 +462,27 @@ export default function AdminHospitalsScreen() {
                 ? "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"
                 : "Danh sách tổ chức sẽ hiển thị tại đây"}
             </Text>
+            {__DEV__ && (
+              <Text className="mt-4 text-xs text-red-500 text-center">
+                Debug: hospitals={hospitals.length}, filtered={filteredHospitals.length}
+              </Text>
+            )}
           </View>
         ) : (
           <View className="p-4">
-            {filteredHospitals.map((hospital, index) => (
-              <View
+            {filteredHospitals.map((hospital) => (
+              <HospitalCard
                 key={hospital.hospitalId}
-                className={`bg-white rounded-2xl p-4 mb-3 border border-sky-100 ${
-                  index === 0 ? "" : ""
-                }`}
-              >
-                <View className="flex-row items-start justify-between mb-3">
-                  <View className="flex-1">
-                    <View className="flex-row items-center mb-1">
-                      <Building2 size={18} color="#0284C7" />
-                      <Text className="ml-2 text-xs font-bold text-sky-600">
-                        Mã BV: {hospital.hospitalId}
-                      </Text>
-                    </View>
-                    <Text className="mt-1 text-base font-extrabold text-slate-900">
-                      {hospital.hospitalName || "Chưa có tên"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Action buttons */}
-                <View className="flex-row gap-2 mt-3 pt-3 border-t border-sky-100">
-                  <TouchableOpacity
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                        ? "bg-slate-100 border-slate-200 opacity-50"
-                        : "bg-blue-50 border-blue-200"
-                    }`}
-                    onPress={() => handleEdit(hospital)}
-                    activeOpacity={0.7}
-                    disabled={
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                    }
-                  >
-                    <Edit
-                      size={16}
-                      color={
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "#94A3B8"
-                          : "#2563EB"
-                      }
-                    />
-                    <Text
-                      className={`mt-1 text-xs font-bold ${
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "text-slate-500"
-                          : "text-blue-700"
-                      }`}
-                    >
-                      Sửa
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                        ? "bg-slate-100 border-slate-200 opacity-50"
-                        : "bg-red-50 border-red-200"
-                    }`}
-                    onPress={() => handleDelete(hospital)}
-                    activeOpacity={0.7}
-                    disabled={
-                      createMutation.isPending ||
-                      updateMutation.isPending ||
-                      deleteMutation.isPending
-                    }
-                  >
-                    <Trash2
-                      size={16}
-                      color={
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "#94A3B8"
-                          : "#DC2626"
-                      }
-                    />
-                    <Text
-                      className={`mt-1 text-xs font-bold ${
-                        createMutation.isPending ||
-                        updateMutation.isPending ||
-                        deleteMutation.isPending
-                          ? "text-slate-500"
-                          : "text-red-700"
-                      }`}
-                    >
-                      Xóa
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                hospital={hospital}
+                onShowDetail={handleShowDetail}
+                onEdit={() => handleEdit(hospital)}
+                onDelete={() => handleDelete(hospital)}
+                isPending={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  deleteMutation.isPending
+                }
+              />
             ))}
           </View>
         )}
@@ -611,6 +561,60 @@ export default function AdminHospitalsScreen() {
         </View>
       </Modal>
 
+      {/* Detail Modal - Show Doctors/Staff/Patients/Customers */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowDetailModal(false);
+          setDetailModalType(null);
+          setSelectedHospital(null);
+        }}
+      >
+        <View className="flex-1 bg-black/50">
+          <TouchableOpacity
+            className="flex-1"
+            activeOpacity={1}
+            onPress={() => {
+              setShowDetailModal(false);
+              setDetailModalType(null);
+              setSelectedHospital(null);
+            }}
+          />
+          <View className="bg-white rounded-t-3xl max-h-[80%]">
+            <View className="px-4 py-3 border-b border-sky-100 flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-lg font-extrabold text-slate-900">
+                  {selectedHospital?.hospitalName || "Chi tiết"}
+                </Text>
+                <Text className="text-xs text-slate-500 mt-0.5">
+                  {detailModalType === "doctors" && "Danh sách bác sĩ"}
+                  {detailModalType === "staff" && "Danh sách nhân viên"}
+                  {detailModalType === "patients" && "Danh sách bệnh nhân"}
+                  {detailModalType === "customers" && "Danh sách khách hàng"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDetailModal(false);
+                  setDetailModalType(null);
+                  setSelectedHospital(null);
+                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 items-center justify-center"
+                activeOpacity={0.7}
+              >
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <DetailModalContent
+              hospital={selectedHospital}
+              type={detailModalType}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Edit Modal */}
       <Modal
         visible={showEditModal}
@@ -678,5 +682,317 @@ export default function AdminHospitalsScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+// Hospital Card Component - Similar to Web
+function HospitalCard({
+  hospital,
+  onShowDetail,
+  onEdit,
+  onDelete,
+  isPending,
+}: {
+  hospital: HospitalResponse;
+  onShowDetail: (hospital: HospitalResponse, type: "doctors" | "staff" | "patients" | "customers") => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isPending: boolean;
+}) {
+  const isHospitalOne = hospital.hospitalId === 1;
+
+  return (
+    <View className="bg-white rounded-2xl p-4 mb-3 border border-sky-100">
+      <View className="flex-row items-start justify-between mb-3">
+        <View className="flex-1">
+          <View className="flex-row items-center mb-1">
+            <Building2 size={18} color="#0284C7" />
+            <Text className="ml-2 text-xs font-bold text-sky-600">
+              Mã BV: {hospital.hospitalId}
+            </Text>
+          </View>
+          <Text className="mt-1 text-base font-extrabold text-slate-900">
+            {hospital.hospitalName || "Chưa có tên"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Action buttons - Similar to Web */}
+      <View className="flex-row gap-2 flex-wrap">
+        {isHospitalOne ? (
+          // Hospital ID = 1: Show Doctors, Staff, Patients
+          <>
+            <TouchableOpacity
+              className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-blue-50 border border-blue-200 items-center"
+              onPress={() => onShowDetail(hospital, "doctors")}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <User size={16} color="#2563EB" />
+              <Text className="mt-1 text-xs font-bold text-blue-700">
+                Bác sĩ
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-green-50 border border-green-200 items-center"
+              onPress={() => onShowDetail(hospital, "staff")}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <Users size={16} color="#16A34A" />
+              <Text className="mt-1 text-xs font-bold text-green-700">
+                Nhân viên
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-purple-50 border border-purple-200 items-center"
+              onPress={() => onShowDetail(hospital, "patients")}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <UserSquare size={16} color="#9333EA" />
+              <Text className="mt-1 text-xs font-bold text-purple-700">
+                Bệnh nhân
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Hospital ID != 1: Show Customers, Doctors
+          <>
+            <TouchableOpacity
+              className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-orange-50 border border-orange-200 items-center"
+              onPress={() => onShowDetail(hospital, "customers")}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <Building2 size={16} color="#F97316" />
+              <Text className="mt-1 text-xs font-bold text-orange-700">
+                Khách hàng
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-blue-50 border border-blue-200 items-center"
+              onPress={() => onShowDetail(hospital, "doctors")}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <User size={16} color="#2563EB" />
+              <Text className="mt-1 text-xs font-bold text-blue-700">
+                Bác sĩ
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        <TouchableOpacity
+          className="py-2.5 px-3 rounded-xl bg-blue-50 border border-blue-200 items-center"
+          onPress={onEdit}
+          activeOpacity={0.7}
+          disabled={isPending}
+        >
+          <Edit size={16} color="#2563EB" />
+          <Text className="mt-1 text-xs font-bold text-blue-700">Sửa</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="py-2.5 px-3 rounded-xl bg-red-50 border border-red-200 items-center"
+          onPress={onDelete}
+          activeOpacity={0.7}
+          disabled={isPending}
+        >
+          <Trash2 size={16} color="#DC2626" />
+          <Text className="mt-1 text-xs font-bold text-red-700">Xóa</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// Detail Modal Content Component
+function DetailModalContent({
+  hospital,
+  type,
+}: {
+  hospital: HospitalResponse | null;
+  type: "doctors" | "staff" | "patients" | "customers" | null;
+}) {
+  const hospitalId = hospital?.hospitalId ? String(hospital.hospitalId) : null;
+
+  // Fetch doctors - return plain array
+  const { data: doctorsData, isLoading: doctorsLoading } = useQuery<DoctorResponse[]>({
+    queryKey: ["hospital-doctors", hospitalId],
+    queryFn: () => doctorService.getByHospitalId(hospitalId!),
+    enabled: type === "doctors" && !!hospitalId,
+  });
+
+  // Fetch staff
+  const { data: staffResponse, isLoading: staffLoading } = useQuery({
+    queryKey: ["hospital-staff", hospitalId],
+    queryFn: () => hospitalStaffService.getByHospitalId(hospitalId!),
+    enabled: type === "staff" && !!hospitalId,
+  });
+
+  // Doctors array from query (ensure always an array)
+  const doctors: DoctorResponse[] = Array.isArray(doctorsData) ? doctorsData : [];
+  const staff = staffResponse?.success ? (staffResponse.data || []) : [];
+  const [expandedStaffId, setExpandedStaffId] = useState<string | null>(null);
+
+  const formatDate = (value?: string) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString("vi-VN");
+  };
+
+  const getGenderLabel = (gender?: string) => {
+    if (!gender) return "-";
+    const g = gender.toUpperCase();
+    if (g.includes("MALE") || g === "M") return "Nam";
+    if (g.includes("FEMALE") || g === "F") return "Nữ";
+    return gender;
+  };
+
+  if (!hospital || !type) {
+    return (
+      <View className="p-4 items-center">
+        <Text className="text-sm text-slate-500">Không có dữ liệu</Text>
+      </View>
+    );
+  }
+
+  const isLoading = (type === "doctors" && doctorsLoading) || (type === "staff" && staffLoading);
+
+  return (
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <View className="p-4">
+        {isLoading ? (
+          <View className="py-8 items-center">
+            <ActivityIndicator size="large" color="#0284C7" />
+            <Text className="mt-3 text-sm text-slate-500">Đang tải dữ liệu...</Text>
+          </View>
+        ) : (
+          <>
+            {type === "doctors" && (
+              <>
+                {doctors.length === 0 ? (
+                  <View className="py-8 items-center">
+                    <User size={48} color="#CBD5E1" />
+                    <Text className="mt-3 text-sm text-slate-500">Chưa có bác sĩ nào</Text>
+                  </View>
+                ) : (
+                  <View className="gap-2">
+                    {doctors.map((doctor) => (
+                      <View
+                        key={doctor.doctorId}
+                        className="p-3 bg-blue-50 rounded-xl border border-blue-100"
+                      >
+                        <Text className="text-sm font-bold text-slate-900">
+                          {doctor.doctorName || "Chưa có tên"}
+                        </Text>
+                        <Text className="text-xs text-slate-600 mt-1">
+                          Mã: {doctor.doctorId}
+                        </Text>
+                        {doctor.doctorEmail && (
+                          <Text className="text-xs text-slate-500 mt-1">
+                            Email: {doctor.doctorEmail}
+                          </Text>
+                        )}
+                        {doctor.doctorPhone && (
+                          <Text className="text-xs text-slate-500 mt-1">
+                            SĐT: {doctor.doctorPhone}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            {type === "staff" && (
+              <>
+                {staff.length === 0 ? (
+                  <View className="py-8 items-center">
+                    <UserCircle2 size={48} color="#CBD5E1" />
+                    <Text className="mt-3 text-sm text-slate-500">Chưa có nhân viên nào</Text>
+                  </View>
+                ) : (
+                  <View className="gap-2">
+                    {staff.map((s) => (
+                      <TouchableOpacity
+                        key={s.staffId}
+                        className="p-3 bg-green-50 rounded-xl border border-green-100"
+                        activeOpacity={0.8}
+                        onPress={() =>
+                          setExpandedStaffId((prev) => (prev === s.staffId ? null : s.staffId))
+                        }
+                      >
+                        <View className="flex-row justify-between items-center">
+                          <View className="flex-1 pr-2">
+                            <Text className="text-sm font-bold text-slate-900">
+                              {s.staffName || "Chưa có tên"}
+                            </Text>
+                            <Text className="text-xs text-slate-600 mt-1">
+                              {s.staffPosition || "Chưa có chức vụ"}
+                            </Text>
+                            {s.staffEmail && (
+                              <Text className="text-xs text-slate-500 mt-1">
+                                Email: {s.staffEmail}
+                              </Text>
+                            )}
+                            {s.staffPhone && (
+                              <Text className="text-xs text-slate-500 mt-1">
+                                SĐT: {s.staffPhone}
+                              </Text>
+                            )}
+                          </View>
+                          <Text className="text-xs text-slate-500">
+                            {expandedStaffId === s.staffId ? "Thu gọn" : "Xem"}
+                          </Text>
+                        </View>
+
+                        {expandedStaffId === s.staffId && (
+                          <View className="mt-3 pt-2 border-t border-emerald-100">
+                            <Text className="text-xs text-slate-600">
+                              <Text className="font-semibold">Mã nhân viên: </Text>
+                              {s.staffId}
+                            </Text>
+                            <Text className="text-xs text-slate-600 mt-1">
+                              <Text className="font-semibold">Giới tính: </Text>
+                              {getGenderLabel(s.staffGender)}
+                            </Text>
+                            <Text className="text-xs text-slate-600 mt-1">
+                              <Text className="font-semibold">Ngày sinh: </Text>
+                              {formatDate(s.staffDob)}
+                            </Text>
+                            {s.staffAddress && (
+                              <Text className="text-xs text-slate-600 mt-1">
+                                <Text className="font-semibold">Địa chỉ: </Text>
+                                {s.staffAddress}
+                              </Text>
+                            )}
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            {(type === "patients" || type === "customers") && (
+              <View className="py-8 items-center">
+                <Text className="text-sm text-slate-500">
+                  Tính năng đang phát triển
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </ScrollView>
   );
 }

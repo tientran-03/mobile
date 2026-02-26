@@ -83,31 +83,26 @@ export default function AdminHomeScreen() {
     {
       id: "3",
       title: "Quản lý\nđơn hàng",
-      icon: <Image
-            source={require("@/assets/images/6.png")}
-            className="w-16 h-16"
-            resizeMode="contain"
-          />,
+      icon: (
+        <Image
+          source={require("@/assets/images/6.png")}
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
+      ),
       route: "/admin/orders",
     },
+    // Gộp "Thống kê nhanh" + "Thống kê chi tiết" thành một mục duy nhất
     {
       id: "4",
-      title: "Thống kê\nnhanh",
-      icon: <Image
-            source={require("@/assets/images/5.png")}
-            className="w-16 h-16"
-            resizeMode="contain"
-          />,
-      route: "/admin/dashboard",
-    },
-    {
-      id: "14",
-      title: "Thống kê\nchi tiết",
-      icon: <Image
-            source={require("@/assets/images/5.png")}
-            className="w-16 h-16"
-            resizeMode="contain"
-          />,
+      title: "Báo cáo\n& Thống kê",
+      icon: (
+        <Image
+          source={require("@/assets/images/5.png")}
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
+      ),
       route: "/admin/statistics",
     },
     {
@@ -189,6 +184,42 @@ export default function AdminHomeScreen() {
             resizeMode="contain"
           />,
       route: "/admin/hospitals",
+    },
+    {
+      id: "17",
+      title: "Quản lý\nmẫu xét nghiệm",
+      icon: (
+        <Image
+          source={require("@/assets/images/5.png")}
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
+      ),
+      route: "/patient-metadatas",
+    },
+    {
+      id: "18",
+      title: "Quản lý\nbarcode",
+      icon: (
+        <Image
+          source={require("@/assets/images/2.png")}
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
+      ),
+      route: "/barcodes",
+    },
+    {
+      id: "17",
+      title: "Quản lý\nmẫu xét nghiệm",
+      icon: (
+        <Image
+          source={require("@/assets/images/5.png")}
+          className="w-16 h-16"
+          resizeMode="contain"
+        />
+      ),
+      route: "/patient-metadatas",
     },
     {
       id: "10",

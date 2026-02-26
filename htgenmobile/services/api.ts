@@ -205,6 +205,8 @@ class ApiClient {
             hasLogs: data.logs !== undefined,
             keys: Object.keys(data),
             dataType: Array.isArray(data) ? 'array' : typeof data,
+            dataValue: data.data ? (Array.isArray(data.data) ? `Array(${data.data.length})` : typeof data.data) : 'undefined',
+            dataKeys: data.data && typeof data.data === 'object' ? Object.keys(data.data) : [],
           });
         }
         

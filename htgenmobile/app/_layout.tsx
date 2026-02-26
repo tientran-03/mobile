@@ -340,6 +340,24 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="barcodes"
+        options={{
+          title: "Quản lý barcode",
+          headerStyle: { backgroundColor: "#0891b2" },
+          headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
+        }}
+      />
+      <Stack.Screen
+        name="patient-metadatas"
+        options={{
+          title: "Quản lý mẫu xét nghiệm",
+          headerStyle: { backgroundColor: "#0891b2" },
+          headerTintColor: "#fff",
+          headerLeft: () => <BackButton />,
+        }}
+      />
+      <Stack.Screen
         name="payment"
         options={{
           headerShown: false,

@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
   DOCTOR_BY_ID: (id: string) => `/api/v1/doctors/${id}`,
   HOSPITAL_STAFFS: "/api/v1/hospital-staff",
   HOSPITAL_STAFF_BY_ID: (id: string) => `/api/v1/hospital-staff/${id}`,
+  HOSPITAL_STAFF_BY_HOSPITAL_ID: (hospitalId: string) => `/api/v1/hospital-staff/hospital/${hospitalId}`,
   
   BARCODES: "/api/v1/barcodes",
   BARCODE_BY_ID: (id: string) => `/api/v1/barcodes/${id}`,
