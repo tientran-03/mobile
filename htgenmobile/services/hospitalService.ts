@@ -1,5 +1,5 @@
-import { API_ENDPOINTS } from "@/config/api";
-import { apiClient } from "./api";
+import { API_ENDPOINTS } from '@/config/api';
+import { apiClient } from './api';
 
 export interface HospitalResponse {
   hospitalId: number;
@@ -14,10 +14,13 @@ export const hospitalService = {
   /**
    * Get all hospitals
    */
-  getAll: async (params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
+  getAll: async (params?: {
+    page?: number;
+    size?: number;
+  }): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
     const queryParams = new URLSearchParams();
-    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
-    if (params?.size) queryParams.append("size", params.size.toString());
+    if (params?.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params?.size) queryParams.append('size', params.size.toString());
     const url = queryParams.toString()
       ? `${API_ENDPOINTS.HOSPITALS}?${queryParams.toString()}`
       : API_ENDPOINTS.HOSPITALS;
@@ -32,17 +35,20 @@ export const hospitalService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to fetch hospital");
+    throw new Error(response.error || 'Failed to fetch hospital');
   },
 
   /**
    * Search hospitals by name
    */
-  search: async (name: string, params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
+  search: async (
+    name: string,
+    params?: { page?: number; size?: number }
+  ): Promise<{ success: boolean; data?: HospitalResponse[]; error?: string }> => {
     const queryParams = new URLSearchParams();
-    queryParams.append("name", name);
-    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
-    if (params?.size) queryParams.append("size", params.size.toString());
+    queryParams.append('name', name);
+    if (params?.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params?.size) queryParams.append('size', params.size.toString());
     return apiClient.get<HospitalResponse[]>(
       `${API_ENDPOINTS.HOSPITALS_SEARCH}?${queryParams.toString()}`
     );
@@ -56,7 +62,7 @@ export const hospitalService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to create hospital");
+    throw new Error(response.error || 'Failed to create hospital');
   },
 
   /**
@@ -67,7 +73,7 @@ export const hospitalService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to update hospital");
+    throw new Error(response.error || 'Failed to update hospital');
   },
 
   /**
@@ -78,6 +84,6 @@ export const hospitalService = {
     if (response.success) {
       return true;
     }
-    throw new Error(response.error || "Failed to delete hospital");
+    throw new Error(response.error || 'Failed to delete hospital');
   },
 };

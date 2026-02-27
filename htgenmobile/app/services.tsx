@@ -18,6 +18,7 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { GenomeTestResponse, genomeTestService } from "@/services/genomeTestService";
 import { SERVICE_TYPE_MAPPER } from "@/lib/schemas/order-schemas";
+import { getApiResponseData } from "@/lib/types/api-types";
 import { ServiceResponse, serviceService } from "@/services/serviceService";
 
 const formatVnd = (value?: number) => {

@@ -1,5 +1,5 @@
-import { API_ENDPOINTS } from "@/config/api";
-import { apiClient } from "./api";
+import { API_ENDPOINTS } from '@/config/api';
+import { apiClient } from './api';
 
 export interface PermissionResponse {
   id: string;
@@ -23,7 +23,7 @@ export const permissionService = {
     if (response.success && response.data) {
       return Array.isArray(response.data) ? response.data : [];
     }
-    throw new Error(response.error || "Failed to fetch permissions");
+    throw new Error(response.error || 'Failed to fetch permissions');
   },
 
   /**
@@ -34,7 +34,7 @@ export const permissionService = {
     if (response.success && response.data) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to fetch permission");
+    throw new Error(response.error || 'Failed to fetch permission');
   },
 
   /**

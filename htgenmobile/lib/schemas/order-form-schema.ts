@@ -148,8 +148,9 @@ export const orderFormSchema = z.object({
   drugResistance: z.string().optional(),
   relapse: z.string().optional(),
 
-  // Step 7: Order Note
   orderNote: z.string().optional(),
+  sendEmailToPatient: z.boolean().optional(),
+  sendZaloToPatient: z.boolean().optional(),
 });
 
 export type OrderFormData = z.infer<typeof orderFormSchema>;
@@ -229,8 +230,9 @@ export const defaultOrderFormValues: OrderFormData = {
   drugResistance: "",
   relapse: "",
 
-  // Step 7
   orderNote: "",
+  sendEmailToPatient: false,
+  sendZaloToPatient: false,
 };
 
 // Helper functions matching web

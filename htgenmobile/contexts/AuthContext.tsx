@@ -1,29 +1,46 @@
-import createContextHook from "@nkzw/create-context-hook";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import createContextHook from '@nkzw/create-context-hook';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 
-import { apiClient } from "@/services/api";
-import { userService, UpdateUserProfilePayload } from "@/services/userService";
-import { User } from "@/types";
+import { apiClient } from '@/services/api';
+import { customerService } from '@/services/customerService';
+import { User } from '@/types';
 
-// Kiểm tra role có được phép dùng app mobile không (STAFF hoặc ADMIN)
-const canUseMobileApp = (hospitalUser: any): boolean => {
+const isHTGenStaff = (hospitalUser: any): boolean => {
   if (!hospitalUser) {
     return false;
   }
-  const role = hospitalUser.role;
-  // Cho phép cả STAFF và ADMIN
-  return role === "ROLE_STAFF" || role === "ROLE_ADMIN";
+
+  const role = hospitalUser.role?.toUpperCase();
+
+  // Allow ROLE_CUSTOMER to login
+  if (role === 'ROLE_CUSTOMER') {
+    return true;
+  }
+
+  // For ROLE_STAFF, check hospitalId
+  if (role !== 'ROLE_STAFF') {
+    return false;
+  }
+
+  const hospitalId = hospitalUser.hospitalId;
+  if (hospitalId == null || hospitalId === undefined) {
+    return true;
+  }
+
+  if (hospitalId !== 1 && hospitalId !== '1') {
+    return false;
+  }
+  return true;
 };
 
-// Hàm điều hướng theo role
-const navigateByRole = (role: string | undefined, router: any) => {
-  if (role === "ROLE_ADMIN") {
-    router.replace("/admin-home");
-  } else {
-    router.replace("/home");
-  }
+/** Route user to correct home based on role: customer→/customer, admin→/admin, staff→/staff */
+const getHomeRouteForRole = (role?: string | null): string => {
+  const r = role?.toUpperCase();
+  if (r === 'ROLE_CUSTOMER') return '/customer';
+  if (r === 'ROLE_ADMIN') return '/admin';
+  return '/staff';
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -32,108 +49,284 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [authError, setAuthError] = useState<string | null>(null);
   const router = useRouter();
 
-  
-
   const checkAuth = useCallback(async () => {
+    // Safety timeout: ensure loading state is cleared even if something hangs
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[AuthContext] Safety timeout: forcing isLoading to false after 20s');
+      setIsLoading(false);
+    }, 20000);
+
     try {
-      // Luôn gọi API để lấy role mới nhất từ backend (đảm bảo role luôn đúng)
-      const userResponse = await apiClient.getCurrentUser();
-      if (userResponse.success && userResponse.data) {
-        const hospitalUser = (userResponse.data as any).hospitalUser;
-        if (hospitalUser) {
-          if (!canUseMobileApp(hospitalUser)) {
-            await AsyncStorage.removeItem("user");
-            await apiClient.logout();
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
-          const userData = mapHospitalUserToUser(hospitalUser);
-          await AsyncStorage.setItem("user", JSON.stringify(userData));
-          setUser(userData);
-          // Navigate ngay sau khi set user
-          if (userData.role === "ROLE_ADMIN") {
-            router.replace("/admin-home");
-          } else {
-            router.replace("/home");
-          }
-        }
-      } else {
-        // Không có session, xóa dữ liệu cũ
-        await AsyncStorage.removeItem("user");
-        setUser(null);
-        setAuthError(userResponse.error || null);
-      }
-    } catch (error) {
-      console.error("Error checking auth:", error);
-      // Nếu có lỗi, thử dùng dữ liệu trong AsyncStorage
-      const storedUser = await AsyncStorage.getItem("user");
+      const storedUser = await AsyncStorage.getItem('user');
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        navigateByRole(parsedUser.role, router);
+        // Allow ROLE_CUSTOMER to stay logged in even if stored
+        if (parsedUser.role === 'ROLE_CUSTOMER' || isHTGenStaff({ role: parsedUser.role })) {
+          setUser(parsedUser);
+          router.replace(getHomeRouteForRole(parsedUser.role) as any);
+        } else {
+          // Clear invalid stored user
+          await AsyncStorage.removeItem('user');
+          await apiClient.logout();
+          setUser(null);
+        }
+      } else {
+        let userResponse = await apiClient.getCurrentUser();
+
+        // Handle customer-related errors in checkAuth as well
+        if (!userResponse.success && userResponse.error) {
+          const errorMessage = userResponse.error.toLowerCase();
+          const isCustomerNotFoundError =
+            errorMessage.includes('customer') &&
+            (errorMessage.includes('not found') ||
+              errorMessage.includes('không tìm thấy') ||
+              errorMessage.includes('illegalargument'));
+
+          if (isCustomerNotFoundError) {
+            try {
+              const userInfoResponse = await apiClient.get('/api/v1/user/info');
+              if (userInfoResponse.success && userInfoResponse.data) {
+                const userInfo = userInfoResponse.data as any;
+                const userRole = userInfo.role || '';
+
+                if (userRole.toUpperCase() === 'ROLE_CUSTOMER') {
+                  // Allow login with minimal user data for ROLE_CUSTOMER
+                  const minimalUser: User = {
+                    id: userInfo.userId || userInfo.id || '',
+                    accountCode: userInfo.userId || userInfo.id || '',
+                    email: userInfo.email || '',
+                    name: userInfo.name || '',
+                    phone: userInfo.phone || '',
+                    gender: userInfo.gender || 'Trống',
+                    department: 'Trống',
+                    hospitalName: userInfo.hospitalName || 'Trống',
+                    dateOfBirth: userInfo.dob || userInfo.dateOfBirth || 'Trống',
+                    hospitalId: userInfo.hospitalId || null,
+                    role: 'ROLE_CUSTOMER',
+                    avatarUrl: userInfo.avatarUrl || undefined,
+                  };
+                  await AsyncStorage.setItem('user', JSON.stringify(minimalUser));
+                  setUser(minimalUser);
+                  router.replace('/customer' as any);
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch (fallbackError) {
+              console.error('[AuthContext] Error in checkAuth fallback:', fallbackError);
+            }
+          }
+        }
+
+        if (userResponse.success && userResponse.data) {
+          const hospitalUser = (userResponse.data as any).hospitalUser;
+          if (hospitalUser) {
+            if (!isHTGenStaff(hospitalUser)) {
+              await AsyncStorage.removeItem('user');
+              await apiClient.logout();
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+            const userData = mapHospitalUserToUser(hospitalUser);
+            await AsyncStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+            router.replace(getHomeRouteForRole(userData.role) as any);
+          }
+        } else if (userResponse.error) {
+          setAuthError(userResponse.error);
+          await AsyncStorage.removeItem('user');
+          await apiClient.logout();
+        }
       }
+    } catch (error) {
+      console.error('Error checking auth:', error);
     } finally {
+      clearTimeout(safetyTimeout);
       setIsLoading(false);
     }
   }, [router]);
 
   const mapHospitalUserToUser = (hospitalUser: any): User => {
     return {
-      id: hospitalUser.userId || "",
-      accountCode: hospitalUser.userId || "",
-      email: hospitalUser.email || "",
-      name: hospitalUser.displayName || hospitalUser.username || "",
-      phone: hospitalUser.phone || "",
-      gender: hospitalUser.gender || "Trống",
-      department: hospitalUser.hospitalId || "Trống",
-      hospitalName: hospitalUser.hospitalName || "Trống",
-      dateOfBirth: hospitalUser.dob || "Trống",
+      id: hospitalUser.userId || '',
+      accountCode: hospitalUser.userId || '',
+      email: hospitalUser.email || '',
+      name: hospitalUser.displayName || hospitalUser.username || '',
+      phone: hospitalUser.phone || '',
+      gender: hospitalUser.gender || 'Trống',
+      department: hospitalUser.hospitalId || 'Trống',
+      hospitalName: hospitalUser.hospitalName || 'Trống',
+      dateOfBirth: hospitalUser.dob || 'Trống',
       hospitalId: hospitalUser.hospitalId || null,
-      avatarUrl: hospitalUser.avatarUrl || undefined,
-      role: hospitalUser.role || undefined,
+      role: hospitalUser.role || null, // Store user role for permission checks
+      avatarUrl: hospitalUser.avatarUrl || undefined, // Store avatar URL
     };
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setAuthError(null);
+      console.log('[AuthContext] Starting login for:', email);
+
       const response = await apiClient.login(email, password);
+      console.log(
+        '[AuthContext] Login response:',
+        response.success ? 'Success' : 'Failed',
+        response.error
+      );
 
       if (!response.success) {
-        setAuthError(response.error || "Đăng nhập thất bại");
+        setAuthError(response.error || 'Đăng nhập thất bại');
         return false;
       }
 
-      const userResponse = await apiClient.getCurrentUser();
+      // Wait a bit to ensure token is saved to AsyncStorage
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      console.log('[AuthContext] Getting current user...');
+      let userResponse = await apiClient.getCurrentUser();
+      console.log(
+        '[AuthContext] GetCurrentUser response:',
+        userResponse.success ? 'Success' : 'Failed',
+        userResponse.error
+      );
+
+      // If getCurrentUser fails, check if it's a customer-related error
+      // This can happen when ROLE_CUSTOMER user doesn't have a customer record yet
+      if (!userResponse.success && userResponse.error) {
+        const errorMessage = userResponse.error.toLowerCase();
+        const isCustomerNotFoundError =
+          errorMessage.includes('customer') &&
+          (errorMessage.includes('not found') ||
+            errorMessage.includes('không tìm thấy') ||
+            errorMessage.includes('illegalargument'));
+
+        if (isCustomerNotFoundError) {
+          console.log(
+            '[AuthContext] Customer-related error detected, attempting to create customer record...'
+          );
+          try {
+            // Try to get user info from another endpoint to get userId
+            const userInfoResponse = await apiClient.get('/api/v1/user/info');
+            if (userInfoResponse.success && userInfoResponse.data) {
+              const userInfo = userInfoResponse.data as any;
+              const userId = userInfo.userId || userInfo.id;
+              const userRole = userInfo.role || '';
+
+              // Only create customer if user has ROLE_CUSTOMER
+              if (userId && userRole.toUpperCase() === 'ROLE_CUSTOMER') {
+                // Create customer record with minimal info
+                const createCustomerResponse = await customerService.create({
+                  userId: userId,
+                  customerName: userInfo.name || email.split('@')[0],
+                  customerEmail: email,
+                });
+
+                if (createCustomerResponse.success) {
+                  console.log('[AuthContext] Customer record created, retrying getCurrentUser...');
+                  // Retry getCurrentUser after creating customer
+                  userResponse = await apiClient.getCurrentUser();
+                } else {
+                  console.warn(
+                    '[AuthContext] Failed to create customer record:',
+                    createCustomerResponse.error
+                  );
+                }
+              } else {
+                console.log('[AuthContext] User is not ROLE_CUSTOMER, skipping customer creation');
+              }
+            }
+          } catch (createError: any) {
+            console.error('[AuthContext] Error creating customer record:', createError);
+            // Continue with fallback login even if customer creation fails
+          }
+        }
+      }
+
       if (userResponse.success && userResponse.data) {
         const hospitalUser = (userResponse.data as any).hospitalUser;
         if (hospitalUser) {
-          if (!canUseMobileApp(hospitalUser)) {
+          if (!isHTGenStaff(hospitalUser)) {
+            console.log('[AuthContext] User is not HTGen staff');
             await apiClient.logout();
-            setAuthError("Bạn không có quyền truy cập ứng dụng mobile (chỉ STAFF và ADMIN được phép).");
+            setAuthError('Bạn không có quyền truy cập');
             return false;
           }
           const userData = mapHospitalUserToUser(hospitalUser);
-          await AsyncStorage.setItem("user", JSON.stringify(userData));
-          // Set user vào state và navigate ngay lập tức
+          await AsyncStorage.setItem('user', JSON.stringify(userData));
           setUser(userData);
-          // Navigate ngay sau khi set user
-          if (userData.role === "ROLE_ADMIN") {
-            router.replace("/admin-home");
-          } else {
-            router.replace("/home");
-          }
+          router.replace(getHomeRouteForRole(userData.role) as any);
           return true;
+        } else {
+          console.log('[AuthContext] No hospitalUser in response');
         }
       } else {
-        setAuthError(userResponse.error || "Không thể lấy thông tin người dùng");
+        // If still failed, check if it's a customer-related error for ROLE_CUSTOMER
+        // Allow login with minimal user data as fallback
+        const errorMessage = userResponse.error?.toLowerCase() || '';
+        const isCustomerNotFoundError =
+          errorMessage.includes('customer') &&
+          (errorMessage.includes('not found') ||
+            errorMessage.includes('không tìm thấy') ||
+            errorMessage.includes('illegalargument'));
+
+        if (isCustomerNotFoundError) {
+          console.log(
+            '[AuthContext] Customer error persists, attempting fallback login for ROLE_CUSTOMER'
+          );
+          try {
+            // Try to get user info to confirm role
+            const userInfoResponse = await apiClient.get('/api/v1/user/info');
+            if (userInfoResponse.success && userInfoResponse.data) {
+              const userInfo = userInfoResponse.data as any;
+              const userRole = userInfo.role || '';
+
+              // Only allow fallback login for ROLE_CUSTOMER
+              if (userRole.toUpperCase() === 'ROLE_CUSTOMER') {
+                console.log(
+                  '[AuthContext] Allowing login with minimal user data for ROLE_CUSTOMER'
+                );
+                // Create minimal user object for ROLE_CUSTOMER
+                const minimalUser: User = {
+                  id: userInfo.userId || userInfo.id || email,
+                  accountCode: userInfo.userId || userInfo.id || email,
+                  email: email,
+                  name: userInfo.name || email.split('@')[0],
+                  phone: userInfo.phone || '',
+                  gender: userInfo.gender || 'Trống',
+                  department: 'Trống',
+                  hospitalName: userInfo.hospitalName || 'Trống',
+                  dateOfBirth: userInfo.dob || userInfo.dateOfBirth || 'Trống',
+                  hospitalId: userInfo.hospitalId || null,
+                  role: 'ROLE_CUSTOMER',
+                  avatarUrl: userInfo.avatarUrl || undefined,
+                };
+                await AsyncStorage.setItem('user', JSON.stringify(minimalUser));
+                setUser(minimalUser);
+                router.replace('/customer' as any);
+                return true;
+              }
+            }
+          } catch (fallbackError) {
+            console.error('[AuthContext] Error in fallback login:', fallbackError);
+          }
+        }
+
+        console.error('[AuthContext] Failed to get current user:', userResponse.error);
+        setAuthError(userResponse.error || 'Không thể lấy thông tin người dùng');
       }
 
       return false;
-    } catch (error) {
-      console.error("Error logging in:", error);
-      setAuthError("Có lỗi xảy ra khi đăng nhập");
+    } catch (error: any) {
+      console.error('[AuthContext] Error logging in:', error);
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Network')) {
+        setAuthError(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo backend server đang chạy.'
+        );
+      } else {
+        setAuthError('Có lỗi xảy ra khi đăng nhập');
+      }
       return false;
     }
   };
@@ -141,74 +334,65 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const logout = async () => {
     try {
       await apiClient.logout();
-      await AsyncStorage.removeItem("user");
+      await AsyncStorage.removeItem('user');
       setUser(null);
       setAuthError(null);
-      router.replace("/");
+      router.replace('/');
     } catch (error) {
-      console.error("Error logging out:", error);
-      await AsyncStorage.removeItem("user");
+      console.error('Error logging out:', error);
+      await AsyncStorage.removeItem('user');
       setUser(null);
       setAuthError(null);
-      router.replace("/");
+      router.replace('/');
     }
   };
+
+  const updateUser = useCallback(
+    async (updatedUserData: Partial<User>) => {
+      try {
+        const currentUser = user;
+        if (!currentUser) return;
+
+        const updatedUser: User = {
+          ...currentUser,
+          ...updatedUserData,
+        };
+
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      } catch (error) {
+        console.error('Error updating user:', error);
+      }
+    },
+    [user]
+  );
 
   const clearAuthError = () => {
     setAuthError(null);
   };
 
-  const updateUserProfile = async (
-    payload: Partial<Omit<UpdateUserProfilePayload, "userId">>,
-  ): Promise<boolean> => {
-    try {
-      setAuthError(null);
-
-      if (!user?.id) {
-        setAuthError("Không tìm thấy thông tin người dùng hiện tại");
-        return false;
-      }
-
-      const response = await userService.updateProfile({
-        userId: user.id,
-        ...payload,
-      });
-
-      if (!response.success) {
-        setAuthError(response.error || "Cập nhật hồ sơ thất bại");
-        return false;
-      }
-
-      // backend trả về HospitalUser trong data
-      const hospitalUser = response.data as any;
-      if (hospitalUser) {
-        if (!canUseMobileApp(hospitalUser)) {
-          await AsyncStorage.removeItem("user");
-          await apiClient.logout();
-          setUser(null);
-          setAuthError("Bạn không có quyền truy cập");
-          return false;
-        }
-        const userData = mapHospitalUserToUser(hospitalUser);
-
-        // Nếu FE vừa gửi dob thì luôn ưu tiên hiển thị theo dob đó
-        if (payload.dob) {
-          userData.dateOfBirth = payload.dob;
-        }
-
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        return true;
-      }
-
-      setAuthError("Không thể lấy thông tin người dùng sau khi cập nhật");
-      return false;
-    } catch (error) {
-      console.error("Error updating user profile:", error);
-      setAuthError("Có lỗi xảy ra khi cập nhật hồ sơ");
-      return false;
-    }
-  };
+  /**
+   * Check if user has permission to create prescription slips
+   * Based on backend permissions:
+   * - ROLE_DOCTOR: allowed
+   * - ROLE_CUSTOMER: allowed
+   * - ROLE_STAFF: allowed
+   * - ROLE_ADMIN: allowed
+   * - ROLE_SAMPLE_COLLECTOR: not allowed
+   * - ROLE_LAB_TECHNICIAN: not allowed
+   */
+  const canCreatePrescriptionSlip = useCallback((): boolean => {
+    if (!user?.role) return false;
+    const role = user.role.toUpperCase();
+    const allowedRoles = [
+      'ROLE_DOCTOR',
+      'ROLE_CUSTOMER',
+      'ROLE_STAFF',
+      'ROLE_ADMIN',
+      'ROLE_ADMIN_HOSPITAL',
+    ];
+    return allowedRoles.includes(role);
+  }, [user]);
 
   useEffect(() => {
     checkAuth();
@@ -220,7 +404,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     authError,
     login,
     logout,
+    updateUser,
     clearAuthError,
-    updateUserProfile,
+    canCreatePrescriptionSlip,
   };
 });

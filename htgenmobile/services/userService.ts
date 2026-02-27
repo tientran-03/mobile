@@ -1,5 +1,5 @@
-import { API_ENDPOINTS } from "@/config/api";
-import { apiClient } from "./api";
+import { API_ENDPOINTS } from '@/config/api';
+import { apiClient } from './api';
 
 export interface UserResponse {
   userId: string;
@@ -26,14 +26,27 @@ export interface UnblockUserRequest {
   userId: string;
 }
 
+export interface UpdateProfileRequest {
+  userId: string;
+  displayName?: string;
+  phone?: string;
+  address?: string;
+  dob?: string;
+  gender?: 'male' | 'female';
+  avatarUrl?: string;
+}
+
 export const userService = {
   /**
    * Get all users
    */
-  getAll: async (params?: { page?: number; size?: number }): Promise<{ success: boolean; data?: UserResponse[]; error?: string }> => {
+  getAll: async (params?: {
+    page?: number;
+    size?: number;
+  }): Promise<{ success: boolean; data?: UserResponse[]; error?: string }> => {
     const queryParams = new URLSearchParams();
-    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
-    if (params?.size) queryParams.append("size", params.size.toString());
+    if (params?.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params?.size) queryParams.append('size', params.size.toString());
     const url = queryParams.toString()
       ? `${API_ENDPOINTS.USERS}?${queryParams.toString()}`
       : API_ENDPOINTS.USERS;
@@ -51,34 +64,41 @@ export const userService = {
     if (response.success) {
       return true;
     }
-    throw new Error(response.error || "Failed to block user");
+    throw new Error(response.error || 'Failed to block user');
   },
 
   /**
    * Unblock a user
    */
   unblock: async (userId: string): Promise<boolean> => {
-    console.log("🔓 Unblocking user:", userId);
+    console.log('🔓 Unblocking user:', userId);
     const response = await apiClient.post<boolean>(API_ENDPOINTS.USER_UNBLOCK, {
       userId,
     });
-    console.log("🔓 Unblock response:", response);
+    console.log('🔓 Unblock response:', response);
     if (response.success) {
       return true;
     }
-    throw new Error(response.error || "Failed to unblock user");
+    throw new Error(response.error || 'Failed to unblock user');
   },
 
   /**
    * Count users by role
    */
   countByRole: async (role: string): Promise<number> => {
-    const response = await apiClient.get<number>(
-      API_ENDPOINTS.USER_COUNT_BY_ROLE(role)
-    );
+    const response = await apiClient.get<number>(API_ENDPOINTS.USER_COUNT_BY_ROLE(role));
     if (response.success && response.data !== undefined) {
       return response.data;
     }
-    throw new Error(response.error || "Failed to count users");
+    throw new Error(response.error || 'Failed to count users');
+  },
+
+  /**
+   * Update user profile
+   */
+  updateProfile: async (
+    data: UpdateProfileRequest
+  ): Promise<{ success: boolean; data?: UserResponse; error?: string; message?: string }> => {
+    return apiClient.put<UserResponse>(API_ENDPOINTS.USER_PROFILE, data);
   },
 };

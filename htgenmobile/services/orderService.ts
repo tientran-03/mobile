@@ -89,6 +89,16 @@ export const orderService = {
     return apiClient.get<OrderResponse[]>(url);
   },
 
+  getByCustomerId: async (customerId: string, params?: { page?: number; size?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append("page", params.page.toString());
+    if (params?.size) queryParams.append("size", params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.ORDER_BY_CUSTOMER_ID(customerId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.ORDER_BY_CUSTOMER_ID(customerId);
+    return apiClient.get<OrderResponse[]>(url);
+  },
+
   search: async (query: string, params?: { page?: number; size?: number }) => {
     const queryParams = new URLSearchParams();
     queryParams.append("orderName", query);
@@ -108,16 +118,10 @@ export const orderService = {
   },
 
   updateStatus: async (id: string, status: string) => {
-    return apiClient.patch<OrderResponse>(
-      `${API_ENDPOINTS.ORDER_BY_ID(id)}/status?status=${status}`
-    );
-  },
-
-  reject: async (id: string, rejectReason: string) => {
-    return apiClient.patch<OrderResponse>(
-      `${API_ENDPOINTS.ORDER_BY_ID(id)}/reject`,
-      { rejectReason }
-    );
+    const encodedStatus = encodeURIComponent(status);
+    const endpoint = `${API_ENDPOINTS.ORDER_BY_ID(id)}/status?status=${encodedStatus}`;
+    console.log(`[OrderService] updateStatus: id=${id}, status=${status}, endpoint=${endpoint}`);
+    return apiClient.patch<OrderResponse>(endpoint);
   },
 
   delete: async (id: string) => {

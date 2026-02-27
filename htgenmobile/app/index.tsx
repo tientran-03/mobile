@@ -1,40 +1,60 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { Stack, useRouter } from "expo-router";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import { LinearGradient } from 'expo-linear-gradient';
+import { Stack, useRouter } from 'expo-router';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from '@/contexts/AuthContext';
+
+const getHomeRoute = (role?: string | null) => {
+  const r = role?.toUpperCase();
+  if (r === 'ROLE_CUSTOMER') return '/customer';
+  if (r === 'ROLE_ADMIN') return '/admin';
+  return '/staff';
+};
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [focusField, setFocusField] = useState<"email" | "password" | null>(null);
+  const [focusField, setFocusField] = useState<'email' | 'password' | null>(null);
 
-  const { login, isLoading: authLoading } = useAuth();
+  const { login, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [initTimeout, setInitTimeout] = useState(false);
 
-  // Không cần useEffect redirect ở đây vì navigation đã được xử lý trong login() function
+  // Show retry button after 10 seconds of loading
+  useEffect(() => {
+    if (!authLoading) {
+      setInitTimeout(false);
+      return;
+    }
+    const timer = setTimeout(() => setInitTimeout(true), 10000);
+    return () => clearTimeout(timer);
+  }, [authLoading]);
+
+  useEffect(() => {
+    if (user && !authLoading) router.replace(getHomeRoute(user?.role) as any);
+  }, [user, authLoading, router]);
 
   const emailTrim = useMemo(() => email.trim(), [email]);
 
   const handleLogin = async () => {
     if (!emailTrim || !password.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu");
+      Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu');
       return;
     }
 
@@ -44,15 +64,15 @@ export default function LoginScreen() {
 
     if (!success) {
       Alert.alert(
-        "Lỗi đăng nhập",
-        "Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có tài khoản STAFF và ADMIN mới có thể đăng nhập ứng dụng mobile."
+        'Lỗi đăng nhập',
+        'Email hoặc mật khẩu không đúng, hoặc tài khoản này không được phép sử dụng ứng dụng mobile.\n\nChỉ có nhân viên staff của HTGen (hospitalId = 1) hoặc khách hàng (ROLE_CUSTOMER) mới có thể đăng nhập mobile.'
       );
     }
   };
 
-  const inputWrap = (key: "email" | "password") =>
+  const inputWrap = (key: 'email' | 'password') =>
     `h-14 rounded-2xl flex-row items-center px-4 border ${
-      focusField === key ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-slate-50"
+      focusField === key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-slate-50'
     }`;
 
   if (authLoading) {
@@ -61,6 +81,22 @@ export default function LoginScreen() {
         <StatusBar barStyle="light-content" backgroundColor="#0C4A6E" />
         <ActivityIndicator size="large" color="#fff" />
         <Text className="mt-3 text-white/80 text-xs font-bold">Đang khởi tạo...</Text>
+        {initTimeout && (
+          <View className="mt-6 items-center">
+            <Text className="text-white/60 text-xs mb-3 text-center px-8">
+              Kết nối server đang chậm. Có thể server không phản hồi.
+            </Text>
+            <TouchableOpacity
+              className="bg-white/20 px-6 py-2.5 rounded-xl border border-white/30"
+              onPress={() => {
+                // Force reload by clearing the loading state
+                router.replace('/');
+              }}
+            >
+              <Text className="text-white font-semibold text-sm">Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -70,17 +106,14 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0C4A6E" />
       <Stack.Screen options={{ headerShown: false }} />
 
-      <LinearGradient
-        colors={["#0C4A6E", "#075985", "#0E7490"]}
-        style={{ flex: 1 }}
-      >
+      <LinearGradient colors={['#0C4A6E', '#075985', '#0E7490']} style={{ flex: 1 }}>
         <View className="absolute -top-24 -left-20 w-[240px] h-[240px] rounded-full bg-white/10" />
         <View className="absolute top-28 -right-20 w-[210px] h-[210px] rounded-full bg-white/8" />
         <View className="absolute -bottom-28 -right-24 w-[280px] h-[280px] rounded-full bg-white/10" />
 
         <KeyboardAvoidingView
           className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View className="flex-1 justify-center px-4">
             <View className="items-center mb-5">
@@ -93,9 +126,7 @@ export default function LoginScreen() {
               <Text className="mt-3 text-[18px] font-extrabold text-white tracking-wide">
                 HIGH TECH GENETICS
               </Text>
-              <Text className="mt-1 text-xs text-white/80 font-semibold">
-                HT Viet Nam Co., Ltd
-              </Text>
+              <Text className="mt-1 text-xs text-white/80 font-semibold">HT Viet Nam Co., Ltd</Text>
             </View>
 
             <View className="bg-white rounded-3xl p-6 border border-white/20 shadow-2xl shadow-black/20">
@@ -106,7 +137,7 @@ export default function LoginScreen() {
                 Nhập thông tin để tiếp tục
               </Text>
 
-              <View className={inputWrap("email")}>
+              <View className={inputWrap('email')}>
                 <View className="w-10 h-10 rounded-xl bg-sky-100 items-center justify-center mr-3">
                   <Mail size={20} color="#075985" />
                 </View>
@@ -119,13 +150,13 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   autoComplete="email"
-                  onFocus={() => setFocusField("email")}
+                  onFocus={() => setFocusField('email')}
                   onBlur={() => setFocusField(null)}
                   returnKeyType="next"
                 />
               </View>
 
-              <View className={`mt-3 ${inputWrap("password")}`}>
+              <View className={`mt-3 ${inputWrap('password')}`}>
                 <View className="w-10 h-10 rounded-xl bg-sky-100 items-center justify-center mr-3">
                   <Lock size={20} color="#075985" />
                 </View>
@@ -137,13 +168,13 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoComplete="password"
-                  onFocus={() => setFocusField("password")}
+                  onFocus={() => setFocusField('password')}
                   onBlur={() => setFocusField(null)}
                   returnKeyType="done"
                 />
                 <TouchableOpacity
                   className="w-10 h-10 rounded-xl items-center justify-center"
-                  onPress={() => setShowPassword((v) => !v)}
+                  onPress={() => setShowPassword(v => !v)}
                   activeOpacity={0.75}
                 >
                   {showPassword ? (
@@ -155,22 +186,18 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity className="self-end mt-3" activeOpacity={0.75}>
-                <Text className="text-sky-700 text-sm font-extrabold">
-                  Quên mật khẩu?
-                </Text>
+                <Text className="text-sky-700 text-sm font-extrabold">Quên mật khẩu?</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleLogin}
                 disabled={isLoading}
                 activeOpacity={0.85}
-                className={`mt-5 h-14 rounded-2xl overflow-hidden ${
-                  isLoading ? "opacity-80" : ""
-                }`}
+                className={`mt-5 h-14 rounded-2xl overflow-hidden ${isLoading ? 'opacity-80' : ''}`}
               >
                 <LinearGradient
-                  colors={["#075985", "#0E7490"]}
-                  style={{flex: 1, alignItems: "center", justifyContent: "center"}}
+                  colors={['#075985', '#0E7490']}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
                 >
                   {isLoading ? (
                     <ActivityIndicator color="#fff" />

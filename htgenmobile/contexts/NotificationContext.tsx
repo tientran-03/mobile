@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import { Notification } from "@/components/notification/Notification";
+import { pushNotificationService } from "@/services/pushNotificationService";
+import * as Notifications from 'expo-notifications';
+import { useAuth } from "./AuthContext";
 
 export type NotificationType = "success" | "error" | "warning" | "info";
 
@@ -25,6 +28,13 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const { user } = useAuth();
+  const notificationListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription>();
+
+  const hideNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   const showNotification = useCallback((notification: Omit<NotificationData, "id">) => {
     const id = `notification-${Date.now()}-${Math.random()}`;
@@ -42,11 +52,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         hideNotification(id);
       }, newNotification.duration);
     }
-  }, []);
-
-  const hideNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+  }, [hideNotification]);
 
   const showSuccess = useCallback(
     (title: string, message?: string, duration?: number) => {
@@ -75,6 +81,60 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     },
     [showNotification]
   );
+
+  useEffect(() => {
+    const initializePushNotifications = async () => {
+      try {
+        const token = await pushNotificationService.registerForPushNotifications();
+        if (token && user?.id) {
+          await pushNotificationService.registerTokenWithBackend(user.id);
+        }
+      } catch (error) {
+        console.error('[NotificationProvider] Error initializing push notifications:', error);
+      }
+    };
+
+    if (user?.id) {
+      initializePushNotifications();
+    }
+
+    notificationListener.current = pushNotificationService.addNotificationReceivedListener(
+      (notification) => {
+        const { title, body, data } = notification.request.content;
+        console.log('[NotificationProvider] Push notification received:', { title, body, data });
+        showNotification({
+          type: (data?.type as NotificationType) || 'info',
+          title: title || 'Thông báo',
+          message: body,
+          duration: 5000,
+          onPress: data?.onPress ? () => {
+            if (data?.screen) {
+              console.log('[NotificationProvider] Navigate to:', data.screen);
+            }
+          } : undefined,
+        });
+      }
+    );
+
+    responseListener.current = pushNotificationService.addNotificationResponseReceivedListener(
+      (response) => {
+        const { data } = response.notification.request.content;
+        console.log('[NotificationProvider] Notification tapped:', data);
+        if (data?.screen) {
+          console.log('[NotificationProvider] Navigate to:', data.screen);
+        }
+      }
+    );
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, [user?.id, showNotification]);
 
   return (
     <NotificationContext.Provider

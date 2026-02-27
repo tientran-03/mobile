@@ -60,7 +60,7 @@ export default function AdminConfigScreen() {
   useEffect(() => {
     if (!authLoading && user && user.role !== "ROLE_ADMIN") {
       if (user.role === "ROLE_STAFF") {
-        router.replace("/home");
+        router.replace("/staff");
       } else {
         router.replace("/");
       }

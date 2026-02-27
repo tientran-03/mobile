@@ -83,7 +83,7 @@ export default function PendingOrdersScreen() {
         };
       })
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }, [ordersResponse]);
+  }, [ordersData]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
