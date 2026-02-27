@@ -1,31 +1,50 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import React from "react";
-import { FormProvider, useForm } from "react-hook-form";
-import { Alert, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { ArrowLeft, Heart } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { Alert, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FormInput, FormSelect, FormTextarea } from "@/components/form";
-import { GENDER_OPTIONS, patientDefaultValues, patientSchema } from "@/lib/schemas/patient-schemas";
-import { patientService } from "@/services/patientService";
+import { SuccessModal } from '@/components/modals';
+import {
+  FormInput,
+  FormNumericInput,
+  FormSelect,
+  FormTextarea,
+} from '@/components/form';
+import {
+  createPatientDefaultValues,
+  createPatientSchema,
+  GENDER_OPTIONS,
+  type CreatePatientFormData,
+} from '@/lib/schemas/patient-schemas';
+import { patientClinicalService } from '@/services/patientClinicalService';
+import { patientService } from '@/services/patientService';
+
+const generatePatientId = () => {
+  return `PAT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 export default function CreatePatientScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const methods = useForm({
-    resolver: zodResolver(patientSchema),
-    mode: "onTouched",
-    defaultValues: patientDefaultValues,
+    resolver: zodResolver(createPatientSchema),
+    mode: 'onTouched',
+    defaultValues: createPatientDefaultValues,
   });
 
   const createPatientMutation = useMutation({
-    mutationFn: async (data: any) => {
-      // Format date if provided
-      const submitData = {
-        ...data,
+    mutationFn: async (data: CreatePatientFormData) => {
+      const patientId = generatePatientId();
+      const patientPayload = {
+        patientId,
+        patientName: data.patientName,
+        patientPhone: data.patientPhone,
         patientDob: data.patientDob ? new Date(data.patientDob).toISOString() : null,
         gender: data.gender || null,
         patientEmail: data.patientEmail?.trim() || null,
@@ -34,45 +53,81 @@ export default function CreatePatientScreen() {
         patientContactPhone: data.patientContactPhone?.trim() || null,
         patientAddress: data.patientAddress?.trim() || null,
       };
-      const response = await patientService.create(submitData);
-      if (!response.success) {
-        throw new Error(response.message || "Không thể tạo bệnh nhân");
+
+      const patientRes = await patientService.create(patientPayload);
+      if (!patientRes.success) {
+        throw new Error(patientRes.message || patientRes.error || 'Không thể tạo bệnh nhân');
       }
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["patients"] });
-      Alert.alert("Thành công", "Bệnh nhân đã được tạo thành công", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+
+      const hasClinicalData =
+        data.familyHistory ||
+        data.patientHistory ||
+        data.patientHeight !== undefined ||
+        data.patientWeight !== undefined ||
+        data.medicalHistory ||
+        data.chronicDisease ||
+        data.acuteDisease ||
+        data.toxicExposure ||
+        (data.medicalUsingInput && data.medicalUsingInput.trim());
+
+      if (hasClinicalData) {
+        const medicalUsing = data.medicalUsingInput
+          ? data.medicalUsingInput
+              .split('\n')
+              .map((s) => s.trim())
+              .filter((s) => s)
+          : undefined;
+
+        const clinicalPayload = {
+          patientId,
+          familyHistory: data.familyHistory?.trim() || undefined,
+          patientHistory: data.patientHistory?.trim() || undefined,
+          patientHeight: data.patientHeight,
+          patientWeight: data.patientWeight,
+          medicalHistory: data.medicalHistory?.trim() || undefined,
+          medicalUsing,
+          chronicDisease: data.chronicDisease?.trim() || undefined,
+          toxicExposure: data.toxicExposure?.trim() || undefined,
+          acuteDisease: data.acuteDisease?.trim() || undefined,
+        };
+
+        const clinicalRes = await patientClinicalService.create(clinicalPayload);
+        if (!clinicalRes.success && clinicalRes.error) {
+          console.warn('Lưu thông tin lâm sàng thất bại:', clinicalRes.error);
+        }
+      }
+
+      return { success: true, patientId };
     },
     onError: (error: any) => {
-      Alert.alert("Lỗi tạo bệnh nhân", error?.message || "Không thể tạo bệnh nhân. Vui lòng thử lại.");
+      Alert.alert(
+        'Lỗi tạo bệnh nhân',
+        error?.message || 'Không thể tạo bệnh nhân. Vui lòng thử lại.'
+      );
     },
   });
 
   const handleSubmit = async () => {
     const isValid = await methods.trigger();
     if (!isValid) {
-      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin bắt buộc");
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc (Họ tên, Số điện thoại)');
       return;
     }
 
-    const formData = methods.getValues();
-    createPatientMutation.mutate(formData);
+    try {
+      const formData = createPatientSchema.parse(methods.getValues());
+      await createPatientMutation.mutateAsync(formData);
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      setShowSuccessModal(true);
+    } catch {
+      // onError đã xử lý Alert
+    }
   };
 
   return (
     <FormProvider {...methods}>
       <SafeAreaView className="flex-1 bg-sky-50" edges={['top', 'left', 'right']}>
-        <Stack.Screen
-          options={{
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen options={{ headerShown: false }} />
         <StatusBar barStyle="dark-content" />
 
         <View className="pb-3 px-4 bg-white border-b border-sky-100">
@@ -85,8 +140,8 @@ export default function CreatePatientScreen() {
               <ArrowLeft size={20} color="#0284C7" />
             </TouchableOpacity>
             <View className="flex-1">
-              <Text className="text-slate-900 text-lg font-extrabold">Tạo mới bệnh nhân</Text>
-              <Text className="mt-0.5 text-xs text-slate-500">Nhập thông tin bệnh nhân</Text>
+              <Text className="text-slate-900 text-lg font-extrabold">Thêm bệnh nhân mới</Text>
+              <Text className="mt-0.5 text-xs text-slate-500">{'Thông tin cá nhân & lâm sàng'}</Text>
             </View>
           </View>
         </View>
@@ -96,19 +151,15 @@ export default function CreatePatientScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="bg-white rounded-2xl border border-sky-100 p-4">
-            <FormInput
-              name="patientId"
-              label="Mã bệnh nhân"
-              required
-              placeholder="Nhập mã bệnh nhân"
-            />
+          {/* Thông tin cá nhân */}
+          <View className="bg-white rounded-2xl border border-sky-100 p-4 mb-4">
+            <Text className="text-slate-900 text-base font-extrabold mb-4">Thông tin cá nhân</Text>
 
             <FormInput
               name="patientName"
-              label="Tên bệnh nhân"
+              label="Họ và tên"
               required
-              placeholder="Nhập tên bệnh nhân"
+              placeholder="Nhập họ và tên"
             />
 
             <FormInput
@@ -170,6 +221,82 @@ export default function CreatePatientScreen() {
               minHeight={80}
             />
           </View>
+
+          {/* Thông tin lâm sàng */}
+          <View className="bg-white rounded-2xl border border-rose-100 p-4">
+            <View className="flex-row items-center mb-4">
+              <Heart size={18} color="#E11D48" />
+              <Text className="ml-2 text-slate-900 text-base font-extrabold">Thông tin lâm sàng</Text>
+            </View>
+
+            <View className="flex-row gap-3 mb-2">
+              <View className="flex-1">
+                <FormNumericInput
+                  name="patientHeight"
+                  label="Chiều cao (cm)"
+                  type="decimal"
+                  placeholder="Nhập chiều cao"
+                />
+              </View>
+              <View className="flex-1">
+                <FormNumericInput
+                  name="patientWeight"
+                  label="Cân nặng (kg)"
+                  type="decimal"
+                  placeholder="Nhập cân nặng"
+                />
+              </View>
+            </View>
+
+            <FormTextarea
+              name="patientHistory"
+              label="Tiền sử bản thân"
+              placeholder="Nhập tiền sử bản thân"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="familyHistory"
+              label="Tiền sử gia đình"
+              placeholder="Nhập tiền sử gia đình"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="medicalHistory"
+              label="Tiền sử y tế"
+              placeholder="Nhập tiền sử y tế"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="acuteDisease"
+              label="Bệnh lý cấp tính"
+              placeholder="Nhập bệnh lý cấp tính"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="chronicDisease"
+              label="Bệnh mãn tính"
+              placeholder="Nhập bệnh mãn tính"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="medicalUsingInput"
+              label="Thuốc đang sử dụng"
+              placeholder="Nhập thuốc đang sử dụng (mỗi thuốc một dòng)"
+              minHeight={80}
+            />
+
+            <FormTextarea
+              name="toxicExposure"
+              label="Phơi nhiễm độc hại"
+              placeholder="Nhập thông tin phơi nhiễm độc hại"
+              minHeight={80}
+            />
+          </View>
         </ScrollView>
 
         <View className="p-4 bg-white border-t border-sky-100">
@@ -177,15 +304,24 @@ export default function CreatePatientScreen() {
             onPress={handleSubmit}
             disabled={createPatientMutation.isPending}
             className={`p-4 rounded-2xl flex-row items-center justify-center ${
-              createPatientMutation.isPending ? "bg-slate-300" : "bg-sky-600"
+              createPatientMutation.isPending ? 'bg-slate-300' : 'bg-sky-600'
             }`}
             activeOpacity={0.85}
           >
             <Text className="text-white text-base font-extrabold">
-              {createPatientMutation.isPending ? "Đang tạo..." : "Tạo mới"}
+              {createPatientMutation.isPending ? 'Đang tạo...' : 'Lưu'}
             </Text>
           </TouchableOpacity>
         </View>
+
+        <SuccessModal
+          visible={showSuccessModal}
+          message="Bệnh nhân đã được tạo thành công"
+          onClose={() => {
+            setShowSuccessModal(false);
+            router.back();
+          }}
+        />
       </SafeAreaView>
     </FormProvider>
   );

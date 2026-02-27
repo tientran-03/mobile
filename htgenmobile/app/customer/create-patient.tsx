@@ -2,12 +2,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, Heart } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Alert, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormInput, FormNumericInput, FormSelect, FormTextarea } from '@/components/form';
+import { SuccessModal } from '@/components/modals';
 import {
   createPatientDefaultValues,
   createPatientSchema,
@@ -24,6 +25,7 @@ const generatePatientId = () => {
 export default function CreatePatientScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const methods = useForm({
     resolver: zodResolver(createPatientSchema),
@@ -92,15 +94,6 @@ export default function CreatePatientScreen() {
 
       return { success: true, patientId };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      Alert.alert('Thành công', 'Bệnh nhân đã được tạo thành công', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    },
     onError: (error: any) => {
       Alert.alert(
         'Lỗi tạo bệnh nhân',
@@ -116,8 +109,12 @@ export default function CreatePatientScreen() {
       return;
     }
 
-    const formData = methods.getValues();
-    createPatientMutation.mutate(formData);
+    try {
+      const formData = createPatientSchema.parse(methods.getValues());
+      await createPatientMutation.mutateAsync(formData);
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      setShowSuccessModal(true);
+    } catch {}
   };
 
   return (
@@ -149,7 +146,6 @@ export default function CreatePatientScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Thông tin cá nhân */}
           <View className="bg-white rounded-2xl border border-sky-100 p-4 mb-4">
             <Text className="text-slate-900 text-base font-extrabold mb-4">Thông tin cá nhân</Text>
 
@@ -308,6 +304,15 @@ export default function CreatePatientScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <SuccessModal
+          visible={showSuccessModal}
+          message="Bệnh nhân đã được tạo thành công"
+          onClose={() => {
+            setShowSuccessModal(false);
+            router.back();
+          }}
+        />
       </SafeAreaView>
     </FormProvider>
   );

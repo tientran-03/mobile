@@ -63,6 +63,14 @@ export interface SpecifyVoteTestResponse {
     hospitalId: string;
     hospitalName: string;
   };
+  patientClinical?: {
+    patientHeight?: number;
+    patientWeight?: number;
+    patientHistory?: string;
+    familyHistory?: string;
+    chronicDisease?: string;
+    acuteDisease?: string;
+  };
 }
 
 export interface SpecifyVoteTestRequest {
@@ -93,6 +101,34 @@ export const specifyVoteTestService = {
 
   getById: async (id: string) => {
     return apiClient.get<SpecifyVoteTestResponse>(API_ENDPOINTS.SPECIFY_VOTE_TEST_BY_ID(id));
+  },
+
+  getByHospitalId: async (hospitalId: string, params?: { page?: number; size?: number }) => {
+    if (!hospitalId) {
+      return { success: false, error: 'Hospital ID is required', data: [] };
+    }
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params?.size) queryParams.append('size', params.size.toString());
+    const url = queryParams.toString()
+      ? `${API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_HOSPITAL(hospitalId)}?${queryParams.toString()}`
+      : API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_HOSPITAL(hospitalId);
+    return apiClient.get<SpecifyVoteTestResponse[]>(url);
+  },
+
+  getByHospitalIdPaged: async (
+    hospitalId: string,
+    params?: { page?: number; size?: number; sort?: string }
+  ) => {
+    if (!hospitalId) {
+      return { success: false, error: 'Hospital ID is required', data: { content: [], totalElements: 0 } };
+    }
+    const queryParams = new URLSearchParams();
+    if (params?.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params?.size) queryParams.append('size', params.size.toString());
+    if (params?.sort) queryParams.append('sort', params.sort);
+    const url = `${API_ENDPOINTS.SPECIFY_VOTE_TESTS_BY_HOSPITAL_PAGED(hospitalId)}?${queryParams.toString()}`;
+    return apiClient.get<{ content: SpecifyVoteTestResponse[]; totalElements: number }>(url);
   },
 
   getByPatientId: async (patientId: string, params?: { page?: number; size?: number }) => {

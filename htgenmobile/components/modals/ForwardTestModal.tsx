@@ -17,6 +17,8 @@ interface ForwardTestModalProps {
     fullSpecifyData?: any;
   } | null;
   onSuccess?: () => void;
+  /** When ONLINE_PAYMENT, called with order info to navigate to payment screen */
+  onNavigateToPayment?: (params: { orderId: string; orderName: string; amount: number; specifyId: string }) => void;
 }
 
 export const ForwardTestModal: React.FC<ForwardTestModalProps> = ({
@@ -24,6 +26,7 @@ export const ForwardTestModal: React.FC<ForwardTestModalProps> = ({
   onClose,
   specifyData,
   onSuccess,
+  onNavigateToPayment,
 }) => {
   const { user } = useAuth();
   const [hasFastq, setHasFastq] = useState(false);
@@ -62,8 +65,9 @@ export const ForwardTestModal: React.FC<ForwardTestModalProps> = ({
     try {
       const genomeTest = specifyData.fullSpecifyData?.genomeTest;
       const paymentAmount = genomeTest?.finalPrice ?? genomeTest?.price ?? 0;
-      const testSamples = genomeTest?.testSample || [];
-      const patientId = specifyData.fullSpecifyData?.patientId;
+      const rawSamples = genomeTest?.testSample;
+      const testSamples = Array.isArray(rawSamples) ? rawSamples : (rawSamples ? [String(rawSamples)] : []);
+      const patientId = specifyData.fullSpecifyData?.patientId ?? specifyData.fullSpecifyData?.patient?.patientId;
 
       // Step 1: Create PatientMetadata for each sample
       const createdMetadataLabcodes: string[] = [];
@@ -100,20 +104,36 @@ export const ForwardTestModal: React.FC<ForwardTestModalProps> = ({
 
       const orderResult = await orderService.create(orderRequest);
 
-      if (orderResult.success) {
-        Alert.alert(
-          'Thành công',
-          'Đã chuyển phiếu chỉ định thành đơn hàng thành công!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onSuccess?.();
-                onClose();
+      if (orderResult.success && orderResult.data) {
+        const order = orderResult.data;
+        const orderId = order.orderId;
+        const orderNameVal = order.orderName || orderName.trim();
+        const amountVal = paymentAmount > 0 ? paymentAmount : (order.paymentAmount ?? 0);
+
+        if (paymentType === 'ONLINE_PAYMENT' && amountVal > 0 && onNavigateToPayment) {
+          onClose();
+          onSuccess?.();
+          onNavigateToPayment({
+            orderId,
+            orderName: orderNameVal,
+            amount: amountVal,
+            specifyId: specifyData.specifyVoteID,
+          });
+        } else {
+          Alert.alert(
+            'Thành công',
+            'Đã chuyển phiếu chỉ định thành đơn hàng thành công!',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  onSuccess?.();
+                  onClose();
+                },
               },
-            },
-          ]
-        );
+            ]
+          );
+        }
       } else {
         throw new Error(orderResult.error || 'Không thể tạo đơn hàng');
       }

@@ -1,35 +1,35 @@
-import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, Mail, MapPin, Phone, Plus, Search, User, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { Stack, useRouter } from "expo-router";
+import { Search, X, User, Phone, Mail, MapPin, ArrowLeft, Plus } from "lucide-react-native";
+import React, { useMemo, useState, useEffect } from "react";
 import {
-  ActivityIndicator,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  Text,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+  Platform,
+  StatusBar,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PaginationControls } from '@/components/PaginationControls';
-import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
-import { PatientResponse, patientService } from '@/services/patientService';
+import { PaginationControls } from "@/components/PaginationControls";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { patientService, PatientResponse } from "@/services/patientService";
 
 const genderLabel = (g?: string) => {
-  const s = (g || '').toUpperCase();
-  if (s === 'MALE') return 'Nam';
-  if (s === 'FEMALE') return 'Nữ';
-  if (s === 'OTHER') return 'Khác';
-  return g || '';
+  const s = (g || "").toUpperCase();
+  if (s === "MALE") return "Nam";
+  if (s === "FEMALE") return "Nữ";
+  if (s === "OTHER") return "Khác";
+  return g || "";
 };
 
 export default function PatientsScreen() {
   const router = useRouter();
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [focusSearch, setFocusSearch] = useState(false);
 
   // Debounce search query - chờ 500ms sau khi người dùng ngừng gõ
@@ -53,17 +53,17 @@ export default function PatientsScreen() {
     pageSize,
     goToPage,
   } = usePaginatedQuery<PatientResponse>({
-    queryKey: ['patients', debouncedQuery.trim()],
-    queryFn: async params => {
+    queryKey: ["patients", debouncedQuery.trim()],
+    queryFn: async (params) => {
       const q = debouncedQuery.trim();
-      console.log('[Patients] Searching with query:', q);
+      console.log("[Patients] Searching with query:", q);
       if (q) {
         const result = await patientService.search(q, params);
-        console.log('[Patients] Search result:', result);
+        console.log("[Patients] Search result:", result);
         return result;
       }
       const result = await patientService.getAll(params);
-      console.log('[Patients] GetAll result:', result);
+      console.log("[Patients] GetAll result:", result);
       return result;
     },
     defaultPageSize: 20,
@@ -124,7 +124,7 @@ export default function PatientsScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={() => router.push('/staff/create-patient')}
+              onPress={() => router.push("/customer/create-patient")}
               className="w-10 h-10 rounded-xl bg-sky-600 items-center justify-center mr-2"
               activeOpacity={0.8}
             >
@@ -139,9 +139,9 @@ export default function PatientsScreen() {
 
         <View
           className={`mt-3 flex-row items-center rounded-2xl px-3 bg-sky-50 border ${
-            focusSearch ? 'border-sky-400' : 'border-sky-100'
+            focusSearch ? "border-sky-400" : "border-sky-100"
           }`}
-          style={{ ...(Platform.OS === 'android' ? { elevation: 0 } : {}) }}
+          style={{ ...(Platform.OS === "android" ? { elevation: 0 } : {}) }}
         >
           <Search size={18} color="#64748B" />
           <TextInput
@@ -157,7 +157,7 @@ export default function PatientsScreen() {
           {searchInput.trim() ? (
             <TouchableOpacity
               className="w-9 h-9 rounded-xl items-center justify-center"
-              onPress={() => setSearchInput('')}
+              onPress={() => setSearchInput("")}
               activeOpacity={0.75}
             >
               <X size={18} color="#64748B" />
@@ -171,7 +171,11 @@ export default function PatientsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
         refreshControl={
-          <RefreshControl refreshing={isFetching} onRefresh={() => refetch()} tintColor="#0284C7" />
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={() => refetch()}
+            tintColor="#0284C7"
+          />
         }
       >
         {patients.length === 0 ? (
@@ -180,16 +184,16 @@ export default function PatientsScreen() {
               <User size={26} color="#0284C7" />
             </View>
             <Text className="mt-4 text-base font-extrabold text-slate-900">
-              {debouncedQuery.trim() ? 'Không tìm thấy kết quả' : 'Chưa có bệnh nhân'}
+              {debouncedQuery.trim() ? "Không tìm thấy kết quả" : "Chưa có bệnh nhân"}
             </Text>
             <Text className="mt-2 text-xs font-bold text-slate-500 text-center">
               {debouncedQuery.trim()
-                ? 'Thử từ khóa khác hoặc xóa tìm kiếm.'
-                : 'Danh sách bệnh nhân sẽ hiển thị tại đây.'}
+                ? "Thử từ khóa khác hoặc xóa tìm kiếm."
+                : "Danh sách bệnh nhân sẽ hiển thị tại đây."}
             </Text>
             {!debouncedQuery.trim() && (
               <TouchableOpacity
-                onPress={() => router.push('/staff/create-patient')}
+                onPress={() => router.push("/customer/create-patient")}
                 className="mt-6 rounded-2xl bg-sky-600 px-6 py-3 flex-row items-center"
                 activeOpacity={0.85}
               >
@@ -200,11 +204,12 @@ export default function PatientsScreen() {
           </View>
         ) : (
           patients.map((p: PatientResponse) => {
-            const code = p.patientCode || p.patientId || '';
-            const name = p.patientName || p.name || 'Không có tên';
-            const phone = p.patientPhone || p.phone || '';
-            const email = p.patientEmail || p.email || '';
-            const address = p.patientAddress || p.address || '';
+            // Map data từ backend response
+            const code = p.patientCode || p.patientId || "";
+            const name = p.patientName || p.name || "Không có tên";
+            const phone = p.patientPhone || p.phone || "";
+            const email = p.patientEmail || p.email || "";
+            const address = p.patientAddress || p.address || "";
             const gender = p.gender;
 
             return (
@@ -212,7 +217,7 @@ export default function PatientsScreen() {
                 key={p.patientId}
                 activeOpacity={0.85}
                 className="bg-white rounded-2xl p-4 mb-3 border border-sky-100"
-                onPress={() => router.push(`/staff/patient-detail?id=${p.patientId}`)}
+                onPress={() => router.push(`/customer/patient-detail?id=${p.patientId}`)}
               >
                 <View className="flex-row justify-between items-center">
                   <View className="px-2.5 py-1.5 rounded-full bg-sky-50 border border-sky-200">
@@ -227,7 +232,9 @@ export default function PatientsScreen() {
                   ) : null}
                 </View>
 
-                <Text className="mt-3 text-[15px] font-extrabold text-slate-900">{name}</Text>
+                <Text className="mt-3 text-[15px] font-extrabold text-slate-900">
+                  {name}
+                </Text>
 
                 <View className="mt-3 gap-2">
                   {!!phone && (

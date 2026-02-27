@@ -41,6 +41,10 @@ export const patientService = {
     return apiClient.get<PatientResponse>(API_ENDPOINTS.PATIENT_BY_PHONE(encodeURIComponent(phone)));
   },
 
+  getByHospitalId: async (hospitalId: string) => {
+    return apiClient.get<PatientResponse[]>(API_ENDPOINTS.PATIENTS_BY_HOSPITAL(hospitalId));
+  },
+
   search: async (name: string, params?: { page?: number; size?: number }) => {
     const queryParams = new URLSearchParams();
     queryParams.append("name", name);

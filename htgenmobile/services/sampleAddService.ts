@@ -2,7 +2,8 @@ import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 
 export interface SampleAddResponse {
-  sampleAddId: string;
+  id?: string;
+  sampleAddId?: string;
   sampleName: string;
   sampleCode?: string;
   orderId?: string;
@@ -11,6 +12,9 @@ export interface SampleAddResponse {
   patientName?: string;
   status: string;
   requestDate?: string;
+  paymentStatus?: string;
+  note?: string;
+  invoiceLink?: string;
 }
 
 export const sampleAddService = {
