@@ -1,5 +1,5 @@
 import { Stack, useRouter } from "expo-router";
-import { Search, X, User, Phone, Mail, MapPin, ArrowLeft } from "lucide-react-native";
+import { Search, X, User, Phone, Mail, MapPin, ArrowLeft, Plus } from "lucide-react-native";
 import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
@@ -123,7 +123,15 @@ export default function PatientsScreen() {
               </Text>
             </View>
 
-            <View className="px-3 py-1.5 rounded-2xl bg-sky-50 border border-sky-200 mr-2">
+            <TouchableOpacity
+              onPress={() => router.push("/staff/create-patient")}
+              className="w-10 h-10 rounded-xl bg-sky-600 items-center justify-center mr-2"
+              activeOpacity={0.8}
+            >
+              <Plus size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <View className="px-3 py-1.5 rounded-2xl bg-sky-50 border border-sky-200">
               <Text className="text-sm font-extrabold text-sky-700">{patients.length}</Text>
             </View>
           </View>
@@ -183,6 +191,16 @@ export default function PatientsScreen() {
                 ? "Thử từ khóa khác hoặc xóa tìm kiếm."
                 : "Danh sách bệnh nhân sẽ hiển thị tại đây."}
             </Text>
+            {!debouncedQuery.trim() && (
+              <TouchableOpacity
+                onPress={() => router.push("/staff/create-patient")}
+                className="mt-6 rounded-2xl bg-sky-600 px-6 py-3 flex-row items-center"
+                activeOpacity={0.85}
+              >
+                <Plus size={18} color="#fff" />
+                <Text className="ml-2 text-white font-extrabold">Thêm bệnh nhân</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           patients.map((p: PatientResponse) => {

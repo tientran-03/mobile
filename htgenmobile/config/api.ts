@@ -35,14 +35,24 @@ export const API_ENDPOINTS = {
   PATIENTS: "/api/v1/patients",
   PATIENT_BY_ID: (id: string) => `/api/v1/patients/${id}`,
   PATIENT_BY_PHONE: (phone: string) => `/api/v1/patients/phone/${phone}`,
+<<<<<<< HEAD
   PATIENT_SEARCH: "/api/v1/patients/search/name",
   
   SERVICES: "/api/v1/services",
+=======
+  PATIENTS_BY_HOSPITAL: (hospitalId: string) => `/api/v1/patients/hospital/${hospitalId}`,
+  PATIENT_SEARCH: '/api/v1/patients/search/name',
+
+  SERVICES: '/api/v1/services',
+>>>>>>> 31a254f929f9f14d3664fcd55972c764aa05c7b8
   SERVICE_BY_ID: (id: string) => `/api/v1/services/${id}`,
   
   SAMPLE_ADDS: "/api/v1/sample-adds",
   SAMPLE_ADD_BY_ID: (id: string) => `/api/v1/sample-adds/${id}`,
   SAMPLE_ADD_BY_ORDER: (orderId: string) => `/api/v1/sample-adds/order/${orderId}`,
+
+  SAMPLE_ADD_SERVICES: '/api/v1/sample-add-services',
+  SAMPLE_ADD_SERVICE_BY_ID: (id: string) => `/api/v1/sample-add-services/${id}`,
 
   USERS: "/api/v1/user/list",
   USER_INFO: "/api/v1/user/info",
@@ -67,9 +77,20 @@ export const API_ENDPOINTS = {
   SPECIFY_VOTE_TESTS: "/api/v1/specify-vote-tests",
   SPECIFY_VOTE_TEST_BY_ID: (id: string) => `/api/v1/specify-vote-tests/${id}`,
   SPECIFY_VOTE_TESTS_BY_STATUS: (status: string) => `/api/v1/specify-vote-tests/status/${status}`,
+<<<<<<< HEAD
   SPECIFY_VOTE_TESTS_BY_PATIENT: (patientId: string) => `/api/v1/specify-vote-tests/patient/${patientId}`,
   
   GENOME_TESTS: "/api/v1/genome-tests",
+=======
+  SPECIFY_VOTE_TESTS_BY_PATIENT: (patientId: string) =>
+    `/api/v1/specify-vote-tests/patient/${patientId}`,
+  SPECIFY_VOTE_TESTS_BY_HOSPITAL: (hospitalId: string) =>
+    `/api/v1/specify-vote-tests/hospital/${hospitalId}`,
+  SPECIFY_VOTE_TESTS_BY_HOSPITAL_PAGED: (hospitalId: string) =>
+    `/api/v1/specify-vote-tests/hospital/${hospitalId}/paged`,
+
+  GENOME_TESTS: '/api/v1/genome-tests',
+>>>>>>> 31a254f929f9f14d3664fcd55972c764aa05c7b8
   GENOME_TEST_BY_ID: (id: string) => `/api/v1/genome-tests/${id}`,
   GENOME_TESTS_BY_SERVICE: (serviceId: string) => `/api/v1/genome-tests/service/${serviceId}`,
 
@@ -124,6 +145,9 @@ export const API_ENDPOINTS = {
   STATISTICS_PAYMENT_HISTORY: "/api/v1/statistics/payment-history",
   STATISTICS_SERVICES: "/api/v1/statistics/services",
   STATISTICS_HOSPITALS: "/api/v1/statistics/hospitals",
+
+  CUSTOMER_STATISTICS: "/api/v1/customer-statistics",
+  CUSTOMER_STATISTICS_PAYMENT_HISTORY: "/api/v1/customer-statistics/payment-history",
   
   ROLES: "/api/v1/roles",
   ROLE_BY_ID: (id: string) => `/api/v1/roles/${id}`,

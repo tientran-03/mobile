@@ -1,233 +1,264 @@
-import { useQuery } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { useQuery } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  CreditCard,
   FileText,
   FlaskConical,
-  TrendingUp,
-  Users,
+  ReceiptText,
   XCircle,
-  AlertCircle,
-} from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+} from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  StatusBar,
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getApiResponseData } from "@/lib/types/api-types";
-import { SERVICE_TYPE_MAPPER } from "@/lib/schemas/order-schemas";
-import { getOrderStatusLabel } from "@/lib/constants/order-status";
-import { OrderResponse, orderService } from "@/services/orderService";
-import { patientService } from "@/services/patientService";
-import { specifyVoteTestService } from "@/services/specifyVoteTestService";
-import { genomeTestService } from "@/services/genomeTestService";
-import { serviceService } from "@/services/serviceService";
+import { useAuth } from '@/contexts/AuthContext';
+import { getApiResponseData, getApiResponseSingle } from '@/lib/types/api-types';
+import {
+  customerStatisticsService,
+  type CustomerPaymentHistoryResponse,
+  type CustomerStatisticsResponse,
+} from '@/services/customerStatisticsService';
 
-type TimeFilter = "today" | "week" | "month" | "all";
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("vi-VN").format(amount);
+const formatCurrency = (amount: number | null | undefined): string => {
+  if (amount == null) return 'N/A';
+  return new Intl.NumberFormat('vi-VN').format(amount);
 };
 
-export default function StatisticsScreen() {
+const formatDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return 'N/A';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+  return (
+    <View className={`bg-white rounded-2xl border border-sky-100 shadow-sm ${className}`}>
+      {children}
+    </View>
+  );
+};
+
+const SectionHeader = ({ title, right }: { title: string; right?: React.ReactNode }) => (
+  <View className="flex-row items-center justify-between mb-3">
+    <Text className="text-slate-900 text-base font-extrabold">{title}</Text>
+    {right}
+  </View>
+);
+
+const Chip = ({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  onPress?: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.85}
+    className={`px-3 py-2 rounded-xl border ${
+      active ? 'bg-sky-600 border-sky-600' : 'bg-white border-sky-200'
+    }`}
+  >
+    <Text className={`text-xs font-extrabold ${active ? 'text-white' : 'text-slate-600'}`}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+const PaymentStatusBadge = ({ status }: { status: string | null }) => {
+  const config: Record<string, { label: string; className: string; text: string }> = {
+    COMPLETED: {
+      label: 'Hoàn thành',
+      className: 'bg-green-50 border-green-200',
+      text: 'text-green-700',
+    },
+    PENDING: {
+      label: 'Đang chờ',
+      className: 'bg-yellow-50 border-yellow-200',
+      text: 'text-yellow-700',
+    },
+    FAILED: { label: 'Thất bại', className: 'bg-red-50 border-red-200', text: 'text-red-700' },
+    UNPAID: { label: 'Chưa TT', className: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
+  };
+  const c =
+    status && config[status]
+      ? config[status]
+      : {
+          label: status || 'N/A',
+          className: 'bg-slate-50 border-slate-200',
+          text: 'text-slate-700',
+        };
+
+  return (
+    <View className={`px-2.5 py-1 rounded-full border ${c.className}`}>
+      <Text className={`text-[11px] font-extrabold ${c.text}`}>{c.label}</Text>
+    </View>
+  );
+};
+
+const PaymentTypeBadge = ({ type }: { type: string | null }) => {
+  const config: Record<string, { label: string; className: string; text: string }> = {
+    CASH: { label: 'Tiền mặt', className: 'bg-blue-50 border-blue-200', text: 'text-blue-700' },
+    ONLINE_PAYMENT: {
+      label: 'Chuyển khoản',
+      className: 'bg-purple-50 border-purple-200',
+      text: 'text-purple-700',
+    },
+  };
+  const c =
+    type && config[type]
+      ? config[type]
+      : { label: type || 'N/A', className: 'bg-slate-50 border-slate-200', text: 'text-slate-700' };
+
+  return (
+    <View className={`px-2.5 py-1 rounded-full border ${c.className}`}>
+      <Text className={`text-[11px] font-extrabold ${c.text}`}>{c.label}</Text>
+    </View>
+  );
+};
+
+const MONTH_OPTIONS = [
+  { value: 'all', label: 'Tất cả' },
+  ...Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: `Th${i + 1}`,
+  })),
+];
+
+function ProgressRow({
+  label,
+  count,
+  total,
+  dotClass,
+  barClass,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  dotClass: string;
+  barClass: string;
+}) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2">
+          <View className={`w-2.5 h-2.5 rounded-full ${dotClass}`} />
+          <Text className="text-sm font-bold text-slate-700">{label}</Text>
+          <Text className="text-xs text-slate-400 font-bold">({count})</Text>
+        </View>
+        <Text className="text-sm font-extrabold text-slate-800">{pct}%</Text>
+      </View>
+      <View className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+        <View className={`h-full ${barClass}`} style={{ width: `${pct}%` }} />
+      </View>
+    </View>
+  );
+}
+
+export default function CustomerStatisticsScreen() {
   const router = useRouter();
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const { user } = useAuth();
+  const hospitalId = user?.hospitalId != null ? Number(user.hospitalId) : undefined;
 
-  const { data: ordersResponse, isLoading: ordersLoading, refetch: refetchOrders, isFetching: ordersFetching } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => orderService.getAll(),
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const {
+    data: statsRes,
+    isLoading: loadingStats,
+    refetch: refetchStats,
+    isFetching: fetchingStats,
+  } = useQuery({
+    queryKey: ['customer-statistics', selectedYear, hospitalId],
+    queryFn: () => customerStatisticsService.getStatistics(selectedYear, hospitalId),
+    enabled: true,
   });
 
-  const { data: patientsResponse, isLoading: patientsLoading } = useQuery({
-    queryKey: ["patients"],
-    queryFn: () => patientService.getAll(),
+  const monthNum = selectedMonth === 'all' ? undefined : parseInt(selectedMonth, 10);
+  const {
+    data: paymentsRes,
+    isLoading: loadingPayments,
+    refetch: refetchPayments,
+    isFetching: fetchingPayments,
+  } = useQuery({
+    queryKey: ['customer-payment-history', selectedYear, monthNum, currentPage, hospitalId],
+    queryFn: () =>
+      customerStatisticsService.getPaymentHistory({
+        year: selectedYear,
+        month: monthNum,
+        page: currentPage - 1,
+        size: pageSize,
+        hospitalId,
+      }),
+    enabled: true,
   });
 
-  const { data: slipsResponse, isLoading: slipsLoading } = useQuery({
-    queryKey: ["specify-vote-tests"],
-    queryFn: () => specifyVoteTestService.getAll(),
-  });
+  const statistics = useMemo(
+    () => getApiResponseSingle<CustomerStatisticsResponse>(statsRes),
+    [statsRes]
+  );
+  const paymentHistory = useMemo(
+    () => getApiResponseData<CustomerPaymentHistoryResponse>(paymentsRes) || [],
+    [paymentsRes]
+  );
 
-  const { data: genomeTestsResponse, isLoading: genomeTestsLoading } = useQuery({
-    queryKey: ["genome-tests"],
-    queryFn: () => genomeTestService.getAll(),
-  });
+  const yearOptions = useMemo(() => {
+    const years = statistics?.availableYears || [];
+    const current = new Date().getFullYear();
+    const set = new Set([current, ...years]);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [statistics?.availableYears]);
 
-  const { data: servicesResponse, isLoading: servicesLoading } = useQuery({
-    queryKey: ["services"],
-    queryFn: () => serviceService.getAll(),
-  });
-
-  const orders: OrderResponse[] = useMemo(() => {
-    return getApiResponseData<OrderResponse>(ordersResponse) || [];
-  }, [ordersResponse]);
-
-  const patients = useMemo(() => {
-    return getApiResponseData(patientsResponse) || [];
-  }, [patientsResponse]);
-
-  const slips = useMemo(() => {
-    return getApiResponseData(slipsResponse) || [];
-  }, [slipsResponse]);
-
-  const genomeTests = useMemo(() => {
-    return getApiResponseData(genomeTestsResponse) || [];
-  }, [genomeTestsResponse]);
-
-  const services = useMemo(() => {
-    return getApiResponseData(servicesResponse) || [];
-  }, [servicesResponse]);
-
-  const filteredOrders = useMemo(() => {
-    if (timeFilter === "all") return orders;
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    return orders.filter((order: any) => {
-      const orderDate = order.orderDate ? new Date(order.orderDate) : null;
-      if (!orderDate) return false;
-
-      if (timeFilter === "today") {
-        return orderDate >= today;
-      } else if (timeFilter === "week") {
-        return orderDate >= weekAgo;
-      } else if (timeFilter === "month") {
-        return orderDate >= monthAgo;
-      }
-      return true;
-    });
-  }, [orders, timeFilter]);
-  const stats = useMemo(() => {
-    const totalOrders = filteredOrders.length;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const ordersToday = filteredOrders.filter((order: any) => {
-      const orderDate = order.orderDate || order.createdAt ? new Date(order.orderDate || order.createdAt) : null;
-      return orderDate && orderDate >= today;
-    }).length;
-
-    const ordersByStatus: Record<string, number> = {};
-    filteredOrders.forEach((order: any) => {
-      const status = order.orderStatus || "unknown";
-      ordersByStatus[status] = (ordersByStatus[status] || 0) + 1;
-    });
-
-    const pendingOrders = filteredOrders.filter((order: any) => {
-      const status = (order.orderStatus || "").toLowerCase();
-      return (
-        status === "initiation" ||
-        status === "in_progress" ||
-        status === "forward_analysis" ||
-        status === "accepted"
-      );
-    }).length;
-
-    const completedOrders = ordersByStatus["completed"] || 0;
-    const rejectedOrders = ordersByStatus["rejected"] || 0;
-    const analyzingOrders = filteredOrders.filter((order: any) => {
-      const status = (order.orderStatus || "").toLowerCase();
-      return status === "in_progress" || status === "forward_analysis" || status === "analyze_in_progress";
-    }).length;
-
-    const failedOrders = filteredOrders.filter((order: any) => {
-      const status = (order.orderStatus || "").toLowerCase();
-      return status === "rejected" || status === "sample_error" || status === "payment_failed";
-    }).length;
-
-    const revenue = filteredOrders.reduce((sum: number, order: any) => {
-      return sum + (order.paymentAmount || 0);
-    }, 0);
-
-    const serviceUsage: Record<string, number> = {};
-    filteredOrders.forEach((order: any) => {
-      let serviceName = "";
-      
-      if (order.specifyId) {
-        if (order.specifyId.serviceId) {
-          const service = services.find((s: any) => s.serviceId === order.specifyId.serviceId);
-          if (service?.name) {
-            serviceName = service.name;
-          }
-        }
-      
-        if (!serviceName && order.specifyId.serviceType) {
-          serviceName = order.specifyId.serviceType;
-        }
-        if (!serviceName && order.specifyId.genomeTestId) {
-          const genomeTest = genomeTests.find((gt: any) => gt.testId === order.specifyId.genomeTestId);
-          if (genomeTest?.service?.name) {
-            serviceName = genomeTest.service.name;
-          }
-        }
-      }
-      
-      if (serviceName) {
-        serviceUsage[serviceName] = (serviceUsage[serviceName] || 0) + 1;
-      }
-    });
-    const topServices = Object.entries(serviceUsage)
-      .map(([serviceName, count]) => ({
-        name: SERVICE_TYPE_MAPPER[serviceName] || serviceName,
-        count,
-        originalName: serviceName,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const paymentByMonth: Record<string, number> = {};
-    filteredOrders.forEach((order: any) => {
-      const orderDate = order.orderDate || order.createdAt;
-      if (orderDate && order.paymentAmount) {
-        const date = new Date(orderDate);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-        paymentByMonth[monthKey] = (paymentByMonth[monthKey] || 0) + (order.paymentAmount || 0);
-      }
-    });
-    const monthlyPayments = Object.entries(paymentByMonth)
-      .map(([month, amount]) => ({ month, amount }))
-      .sort((a, b) => b.month.localeCompare(a.month))
-      .slice(0, 6)
-      .reverse(); 
-
-    return {
-      totalOrders,
-      ordersToday,
-      pendingOrders,
-      completedOrders,
-      rejectedOrders,
-      analyzingOrders,
-      failedOrders,
-      revenue,
-      ordersByStatus,
-      totalPatients: patients.length,
-      totalSlips: slips.length,
-      topServices,
-      monthlyPayments,
+  const statsCards = useMemo(() => {
+    const oc = statistics?.orderStatusCount;
+    const base = {
+      total: String(oc?.totalCount ?? 0),
+      pending: String(oc?.pendingCount ?? 0),
+      completed: String(oc?.completedCount ?? 0),
+      rejected: String(oc?.rejectedCount ?? 0),
     };
-  }, [filteredOrders, patients, slips, genomeTests, services]);
+    return [
+      { name: 'Tổng đơn', value: base.total, icon: FileText, tone: 'bg-sky-600' },
+      { name: 'Đang xử lý', value: base.pending, icon: Clock, tone: 'bg-amber-500' },
+      { name: 'Hoàn thành', value: base.completed, icon: CheckCircle2, tone: 'bg-emerald-600' },
+      { name: 'Từ chối/Hủy', value: base.rejected, icon: XCircle, tone: 'bg-rose-600' },
+    ];
+  }, [statistics?.orderStatusCount]);
 
-  const isLoading = ordersLoading || patientsLoading || slipsLoading || genomeTestsLoading || servicesLoading;
-  const isFetching = ordersFetching;
+  const serviceUsages = statistics?.serviceUsages ?? [];
+  const hasMorePayments = paymentHistory.length >= pageSize;
 
-  const timeFilters: { key: TimeFilter; label: string }[] = [
-    { key: "today", label: "Hôm nay" },
-    { key: "week", label: "Tuần này" },
-    { key: "month", label: "Tháng này" },
-    { key: "all", label: "Tất cả" },
-  ];
+  const handleRefresh = () => {
+    refetchStats();
+    refetchPayments();
+  };
+
+  const isLoading = loadingStats || loadingPayments;
+  const isFetching = fetchingStats || fetchingPayments;
 
   if (isLoading) {
     return (
@@ -238,264 +269,300 @@ export default function StatisticsScreen() {
     );
   }
 
+  const total = statistics?.orderStatusCount?.totalCount ?? 0;
+  const completed = statistics?.orderStatusCount?.completedCount ?? 0;
+  const pending = statistics?.orderStatusCount?.pendingCount ?? 0;
+  const rejected = statistics?.orderStatusCount?.rejectedCount ?? 0;
+
   return (
     <SafeAreaView className="flex-1 bg-sky-50" edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" />
 
-      <View className="pb-3 px-4 bg-white border-b border-sky-100">
+      {/* Header */}
+      <View className="px-4 pb-3 pt-2 bg-white border-b border-sky-100">
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center mr-3"
-            activeOpacity={0.8}
+            className="w-10 h-10 rounded-2xl bg-sky-50 border border-sky-200 items-center justify-center mr-3"
+            activeOpacity={0.85}
           >
             <ArrowLeft size={20} color="#0284C7" />
           </TouchableOpacity>
+
           <View className="flex-1">
-            <Text className="text-slate-900 text-lg font-extrabold">Báo cáo & Thống kê</Text>
-            <Text className="mt-0.5 text-xs text-slate-500">Tổng quan hoạt động hệ thống</Text>
+            <Text className="text-slate-900 text-lg font-extrabold">Thống kê đơn hàng</Text>
+            <Text className="mt-0.5 text-xs text-slate-500 font-semibold">
+              Tổng quan đơn hàng & thanh toán theo bệnh viện
+            </Text>
           </View>
         </View>
 
-        {/* Time filters */}
-        <View className="mt-3 flex-row gap-2">
-          {timeFilters.map((f) => {
-            const active = timeFilter === f.key;
-            return (
-              <TouchableOpacity
-                key={f.key}
-                onPress={() => setTimeFilter(f.key)}
-                activeOpacity={0.85}
-                className={`flex-1 py-2 rounded-2xl border ${
-                  active
-                    ? "bg-sky-600 border-sky-600"
-                    : "bg-white border-sky-200"
-                }`}
-              >
-                <Text
-                  className={`text-center text-xs font-extrabold ${
-                    active ? "text-white" : "text-slate-600"
-                  }`}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Year chips */}
+        <View className="mt-3">
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-sm text-slate-700 font-extrabold">Chọn năm</Text>
+            <View className="px-2 py-1 rounded-full bg-sky-50 border border-sky-200">
+              <Text className="text-[11px] font-extrabold text-sky-700">
+                BV: {hospitalId ?? 'N/A'}
+              </Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-2">
+              {yearOptions.map(y => (
+                <Chip
+                  key={y}
+                  label={String(y)}
+                  active={selectedYear === y}
+                  onPress={() => setSelectedYear(y)}
+                />
+              ))}
+            </View>
+          </ScrollView>
         </View>
       </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
         refreshControl={
-          <RefreshControl
-            refreshing={isFetching}
-            onRefresh={() => refetchOrders()}
-            tintColor="#0284C7"
-          />
+          <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} tintColor="#0284C7" />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Overview Cards */}
-        <View className="mb-4">
-          <Text className="text-slate-900 text-base font-extrabold mb-3">Tổng quan</Text>
-          <View className="flex-row flex-wrap gap-3">
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-sky-100 items-center justify-center mr-2">
-                  <FileText size={20} color="#0284C7" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Tổng đơn hàng</Text>
+        {/* Stats cards */}
+        <SectionHeader title="Tổng quan" />
+        <View className="flex-row flex-wrap gap-3 mb-5">
+          {statsCards.map(stat => {
+            const Icon = stat.icon;
+            return (
+              <View key={stat.name} className="w-[48.5%]">
+                <Card className="p-4">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 pr-2">
+                      <Text className="text-xs text-slate-500 font-extrabold">{stat.name}</Text>
+                      <Text className="text-2xl font-extrabold text-slate-900 mt-1">
+                        {stat.value}
+                      </Text>
+                    </View>
+                    <View className={`${stat.tone} p-3 rounded-2xl`}>
+                      <Icon size={20} color="#fff" />
+                    </View>
+                  </View>
+                </Card>
               </View>
-              <Text className="text-2xl font-extrabold text-slate-900">{stats.totalOrders}</Text>
-            </View>
-
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-green-100 items-center justify-center mr-2">
-                  <Calendar size={20} color="#16A34A" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Đơn hôm nay</Text>
-              </View>
-              <Text className="text-2xl font-extrabold text-slate-900">{stats.ordersToday}</Text>
-            </View>
-
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-orange-100 items-center justify-center mr-2">
-                  <Clock size={20} color="#F97316" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Đang xử lý</Text>
-              </View>
-              <Text className="text-2xl font-extrabold text-slate-900">{stats.pendingOrders}</Text>
-            </View>
-
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-emerald-100 items-center justify-center mr-2">
-                  <TrendingUp size={20} color="#10B981" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Doanh thu</Text>
-              </View>
-              <Text className="text-lg font-extrabold text-sky-700">
-                {formatCurrency(stats.revenue)} VNĐ
-              </Text>
-            </View>
-          </View>
+            );
+          })}
         </View>
 
-        {/* Status Statistics */}
-        <View className="mb-4">
-          <Text className="text-slate-900 text-base font-extrabold mb-3">Thống kê theo trạng thái</Text>
-          <View className="bg-white rounded-2xl border border-sky-100 p-4">
-            <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100">
-              <View className="flex-row items-center">
-                <CheckCircle2 size={18} color="#16A34A" />
-                <Text className="ml-2 text-sm font-extrabold text-slate-900">Hoàn thành</Text>
+        {/* Most used service */}
+        <SectionHeader title="Dịch vụ dùng nhiều nhất" />
+        <Card className="p-4 mb-5">
+          {statistics?.mostUsedService?.orderCount ? (
+            <View className="flex-row items-center justify-between p-4 bg-sky-50 rounded-2xl border border-sky-100">
+              <View className="flex-1 pr-3">
+                <Text className="font-extrabold text-slate-900" numberOfLines={1}>
+                  {statistics.mostUsedService.serviceName}
+                </Text>
+                <Text className="text-xs text-slate-500 mt-1 font-semibold">
+                  Mã: {statistics.mostUsedService.serviceId || 'N/A'}
+                </Text>
               </View>
-              <Text className="text-lg font-extrabold text-green-600">{stats.completedOrders}</Text>
-            </View>
-
-            <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100">
-              <View className="flex-row items-center">
-                <Clock size={18} color="#F97316" />
-                <Text className="ml-2 text-sm font-extrabold text-slate-900">Đang phân tích</Text>
+              <View className="items-end">
+                <Text className="text-2xl font-extrabold text-sky-700">
+                  {statistics.mostUsedService.orderCount}
+                </Text>
+                <Text className="text-xs text-sky-600 font-bold">đơn hàng</Text>
               </View>
-              <Text className="text-lg font-extrabold text-orange-600">{stats.analyzingOrders}</Text>
             </View>
-
-            <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100">
-              <View className="flex-row items-center">
-                <AlertCircle size={18} color="#EF4444" />
-                <Text className="ml-2 text-sm font-extrabold text-slate-900">Thất bại</Text>
-              </View>
-              <Text className="text-lg font-extrabold text-red-600">{stats.failedOrders}</Text>
+          ) : (
+            <View className="py-10 items-center">
+              <FlaskConical size={36} color="#94A3B8" />
+              <Text className="text-slate-500 mt-2 font-semibold">Chưa có dữ liệu dịch vụ</Text>
             </View>
+          )}
+        </Card>
 
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <XCircle size={18} color="#EF4444" />
-                <Text className="ml-2 text-sm font-extrabold text-slate-900">Từ chối</Text>
-              </View>
-              <Text className="text-lg font-extrabold text-red-600">{stats.rejectedOrders}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Other Statistics */}
-        <View className="mb-4">
-          <Text className="text-slate-900 text-base font-extrabold mb-3">Thống kê khác</Text>
-          <View className="flex-row flex-wrap gap-3">
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-purple-100 items-center justify-center mr-2">
-                  <Users size={20} color="#9333EA" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Tổng bệnh nhân</Text>
-              </View>
-              <Text className="text-2xl font-extrabold text-slate-900">{stats.totalPatients}</Text>
-            </View>
-
-            <View className="bg-white rounded-2xl p-4 border border-sky-100 flex-1 min-w-[48%]">
-              <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-xl bg-indigo-100 items-center justify-center mr-2">
-                  <FileText size={20} color="#6366F1" />
-                </View>
-                <Text className="text-xs text-slate-500 font-bold">Phiếu chỉ định</Text>
-              </View>
-              <Text className="text-2xl font-extrabold text-slate-900">{stats.totalSlips}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Top Services */}
-        {stats.topServices.length > 0 && (
-          <View className="mb-4">
-            <Text className="text-slate-900 text-base font-extrabold mb-3">
-              Dịch vụ được sử dụng nhiều nhất
-            </Text>
-            <View className="bg-white rounded-2xl border border-sky-100 p-4">
-              {stats.topServices.map((service, index) => (
+        {/* Service usages */}
+        {serviceUsages.length > 0 && (
+          <>
+            <SectionHeader title="Theo dịch vụ" />
+            <Card className="p-2 mb-5">
+              {serviceUsages.map((svc, idx) => (
                 <View
-                  key={service.originalName}
-                  className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100 last:mb-0 last:pb-0 last:border-0"
+                  key={svc.serviceId ?? idx}
+                  className="flex-row items-center justify-between px-3 py-3 border-b border-sky-100 last:border-0"
                 >
-                  <View className="flex-row items-center flex-1">
-                    <View className="w-8 h-8 rounded-lg bg-sky-100 items-center justify-center mr-3">
-                      <Text className="text-xs font-extrabold text-sky-700">#{index + 1}</Text>
+                  <View className="flex-row items-center flex-1 pr-3">
+                    <View className="w-9 h-9 rounded-2xl bg-sky-50 border border-sky-100 items-center justify-center mr-3">
+                      <Text className="text-xs font-extrabold text-sky-700">{idx + 1}</Text>
                     </View>
                     <View className="flex-1">
                       <Text className="text-sm font-extrabold text-slate-900" numberOfLines={1}>
-                        {service.name}
+                        {svc.serviceName}
                       </Text>
+                      {!!svc.serviceId && (
+                        <Text className="text-xs text-slate-500 font-semibold">
+                          Mã: {svc.serviceId}
+                        </Text>
+                      )}
                     </View>
                   </View>
                   <View className="px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200">
-                    <Text className="text-sm font-extrabold text-sky-700">{service.count}</Text>
+                    <Text className="text-sm font-extrabold text-sky-700">{svc.orderCount}</Text>
                   </View>
                 </View>
               ))}
-            </View>
-          </View>
+            </Card>
+          </>
         )}
 
-        {/* Payment by Month */}
-        {stats.monthlyPayments.length > 0 && (
-          <View className="mb-4">
-            <Text className="text-slate-900 text-base font-extrabold mb-3">
-              Doanh thu theo tháng
-            </Text>
-            <View className="bg-white rounded-2xl border border-sky-100 p-4">
-              {stats.monthlyPayments.map((item) => {
-                const [year, month] = item.month.split("-");
-                const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString(
-                  "vi-VN",
-                  { month: "long", year: "numeric" }
-                );
-                return (
-                  <View
-                    key={item.month}
-                    className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100 last:mb-0 last:pb-0 last:border-0"
-                  >
-                    <View className="flex-row items-center">
-                      <Calendar size={18} color="#64748B" />
-                      <Text className="ml-2 text-sm font-bold text-slate-700">{monthName}</Text>
-                    </View>
-                    <Text className="text-sm font-extrabold text-sky-700">
-                      {formatCurrency(item.amount)} VNĐ
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+        {/* Order ratio */}
+        {total > 0 && (
+          <>
+            <SectionHeader title={`Tỷ lệ đơn hàng năm ${selectedYear}`} />
+            <Card className="p-4 mb-5">
+              <View className="gap-4">
+                <ProgressRow
+                  label="Hoàn thành"
+                  count={completed}
+                  total={total}
+                  dotClass="bg-emerald-600"
+                  barClass="bg-emerald-600"
+                />
+                <ProgressRow
+                  label="Đang xử lý"
+                  count={pending}
+                  total={total}
+                  dotClass="bg-amber-500"
+                  barClass="bg-amber-500"
+                />
+                <ProgressRow
+                  label="Từ chối/Hủy"
+                  count={rejected}
+                  total={total}
+                  dotClass="bg-rose-600"
+                  barClass="bg-rose-600"
+                />
+              </View>
+            </Card>
+          </>
         )}
 
-        {/* Detailed Status Breakdown */}
-        {Object.keys(stats.ordersByStatus).length > 0 && (
-          <View className="mb-4">
-            <Text className="text-slate-900 text-base font-extrabold mb-3">Chi tiết trạng thái</Text>
-            <View className="bg-white rounded-2xl border border-sky-100 p-4">
-              {Object.entries(stats.ordersByStatus)
-                .sort(([, a], [, b]) => b - a)
-                .map(([status, count]) => (
-                  <View
-                    key={status}
-                    className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100 last:mb-0 last:pb-0 last:border-0"
-                  >
-                    <Text className="text-sm font-bold text-slate-700">
-                      {getOrderStatusLabel(status)}
-                    </Text>
-                    <View className="px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200">
-                      <Text className="text-sm font-extrabold text-sky-700">{count}</Text>
+        {/* Payment history */}
+        <SectionHeader
+          title="Lịch sử thanh toán"
+          right={
+            <View className="flex-row items-center gap-2">
+              <ReceiptText size={16} color="#0284C7" />
+              <Text className="text-xs font-extrabold text-sky-700">Năm {selectedYear}</Text>
+            </View>
+          }
+        />
+
+        {/* Month chips (sticky-ish look by placing above list) */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+          <View className="flex-row gap-2">
+            {MONTH_OPTIONS.map(opt => (
+              <Chip
+                key={opt.value}
+                label={opt.label}
+                active={selectedMonth === opt.value}
+                onPress={() => {
+                  setSelectedMonth(opt.value);
+                  setCurrentPage(1);
+                }}
+              />
+            ))}
+          </View>
+        </ScrollView>
+
+        <Card className="overflow-hidden mb-2">
+          {paymentHistory.length === 0 ? (
+            <View className="py-12 items-center">
+              <FileText size={40} color="#94A3B8" />
+              <Text className="text-slate-500 mt-2 font-semibold">Chưa có lịch sử thanh toán</Text>
+            </View>
+          ) : (
+            <>
+              {paymentHistory.map(p => (
+                <View key={p.paymentId} className="px-4 py-4 border-b border-sky-100 last:border-0">
+                  <View className="flex-row items-start gap-3">
+                    <View className="w-10 h-10 rounded-2xl bg-sky-50 border border-sky-100 items-center justify-center">
+                      <CreditCard size={18} color="#0284C7" />
+                    </View>
+
+                    <View className="flex-1">
+                      <View className="flex-row items-start justify-between gap-3">
+                        <View className="flex-1">
+                          <Text className="text-xs text-slate-500 font-extrabold">Mã đơn</Text>
+                          <Text className="font-mono text-sm font-extrabold text-slate-900">
+                            {p.orderId || 'N/A'}
+                          </Text>
+                          <Text
+                            className="text-sm text-slate-600 mt-1 font-semibold"
+                            numberOfLines={2}
+                          >
+                            {p.orderName || 'N/A'}
+                          </Text>
+                        </View>
+
+                        <View className="items-end">
+                          <Text className="text-sm text-slate-500 font-extrabold">Số tiền</Text>
+                          <Text className="text-base font-extrabold text-sky-700">
+                            {formatCurrency(p.paymentAmount)}{' '}
+                            <Text className="text-xs text-slate-500 font-bold">VNĐ</Text>
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="flex-row flex-wrap gap-2 mt-3">
+                        <PaymentStatusBadge status={p.paymentStatus} />
+                        <PaymentTypeBadge type={p.paymentType} />
+                      </View>
+
+                      <Text className="text-xs text-slate-500 mt-2 font-semibold">
+                        {formatDate(p.transactionDate)}
+                      </Text>
                     </View>
                   </View>
-                ))}
-            </View>
-          </View>
-        )}
+                </View>
+              ))}
+
+              {(currentPage > 1 || hasMorePayments) && (
+                <View className="flex-row items-center justify-between px-4 py-3 border-t border-sky-100 bg-white">
+                  <Text className="text-sm text-slate-500 font-bold">Trang {currentPage}</Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className={`w-10 h-10 rounded-2xl items-center justify-center border ${
+                        currentPage === 1
+                          ? 'bg-slate-50 border-slate-200'
+                          : 'bg-sky-50 border-sky-200'
+                      }`}
+                    >
+                      <ChevronLeft size={18} color={currentPage === 1 ? '#94A3B8' : '#0284C7'} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setCurrentPage(p => p + 1)}
+                      disabled={!hasMorePayments}
+                      className={`w-10 h-10 rounded-2xl items-center justify-center border ${
+                        !hasMorePayments
+                          ? 'bg-slate-50 border-slate-200'
+                          : 'bg-sky-50 border-sky-200'
+                      }`}
+                    >
+                      <ChevronRight size={18} color={!hasMorePayments ? '#94A3B8' : '#0284C7'} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
