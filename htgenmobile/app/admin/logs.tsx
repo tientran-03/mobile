@@ -1,30 +1,40 @@
-import { useQuery } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, Eye, FileText, Filter, Search, Shield } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { useQuery } from "@tanstack/react-query";
+import { Stack, useRouter } from "expo-router";
 import {
-  ActivityIndicator,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
+  ArrowLeft,
+  FileText,
+  Shield,
+  Eye,
+  AlertTriangle,
+  Filter,
+  Search,
+  Calendar,
+} from "lucide-react-native";
+import React, { useState, useMemo } from "react";
+import {
+  View,
   Text,
+  ScrollView,
   TextInput,
   TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  StatusBar,
+  RefreshControl,
+  Modal,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from '@/contexts/AuthContext';
-import { logService } from '@/services/logService';
+import { useAuth } from "@/contexts/AuthContext";
+import { logService } from "@/services/logService";
 
-type LogTab = 'system' | 'audit' | 'security';
+// Chỉ giữ lại 2 tab: system & security (bỏ audit logs)
+type LogTab = "system" | "security";
 
 const formatDateTime = (dateString?: string): string => {
-  if (!dateString) return '';
+  if (!dateString) return "";
   try {
     const date = new Date(dateString);
-    return date.toLocaleString('vi-VN');
+    return date.toLocaleString("vi-VN");
   } catch {
     return dateString;
   }
@@ -33,92 +43,60 @@ const formatDateTime = (dateString?: string): string => {
 export default function AdminLogsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<LogTab>('system');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<LogTab>("system");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [levelFilter, setLevelFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   // System Logs
-  const {
-    data: systemLogsResponse,
-    isLoading: systemLoading,
-    refetch: refetchSystem,
-  } = useQuery({
-    queryKey: ['admin-logs-system', searchQuery, levelFilter],
+  const { data: systemLogsResponse, isLoading: systemLoading, refetch: refetchSystem } = useQuery({
+    queryKey: ["admin-logs-system", searchQuery, levelFilter],
     queryFn: () =>
       logService.querySystemLogs({
         keyword: searchQuery || undefined,
-        level: levelFilter !== 'all' ? levelFilter : undefined,
+        level: levelFilter !== "all" ? levelFilter : undefined,
         limit: 100,
       }),
-    enabled: user?.role === 'ROLE_ADMIN' && activeTab === 'system',
-  });
-
-  // Audit Logs
-  const {
-    data: auditLogsResponse,
-    isLoading: auditLoading,
-    refetch: refetchAudit,
-  } = useQuery({
-    queryKey: ['admin-logs-audit', searchQuery],
-    queryFn: () => {
-      // Use Unix milliseconds timestamp (same format as web frontend uses for Loki)
-      // Query last 7 days like web frontend
-      const endTime = Date.now(); // Unix milliseconds
-      const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // 7 days ago
-
-      return logService.queryAuditLogs({
-        keyword: searchQuery || undefined,
-        startTime: startTime.toString(), // Unix milliseconds as string
-        endTime: endTime.toString(), // Unix milliseconds as string
-        page: 0,
-        size: 50,
-      });
-    },
-    enabled: user?.role === 'ROLE_ADMIN' && activeTab === 'audit',
+    enabled: user?.role === "ROLE_ADMIN" && activeTab === "system",
   });
 
   // Security Logs
-  const {
-    data: securityLogsResponse,
-    isLoading: securityLoading,
-    refetch: refetchSecurity,
-  } = useQuery({
-    queryKey: ['admin-logs-security', searchQuery],
-    queryFn: () => {
-      // Use Unix milliseconds timestamp (same format as web frontend uses for Loki)
-      // Query last 7 days like web frontend
-      const endTime = Date.now(); // Unix milliseconds
-      const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+  const { data: securityLogsResponse, isLoading: securityLoading, refetch: refetchSecurity } =
+    useQuery({
+      queryKey: ["admin-logs-security", searchQuery],
+      queryFn: () => {
+        // Use Unix milliseconds timestamp (same format as web frontend uses for Loki)
+        // Query last 7 days like web frontend
+        const endTime = Date.now(); // Unix milliseconds
+        const startTime = endTime - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+        
+        return logService.querySecurityLogs({
+          keyword: searchQuery || undefined,
+          startTime: startTime.toString(), // Unix milliseconds as string
+          endTime: endTime.toString(), // Unix milliseconds as string
+          page: 0,
+          size: 50,
+        });
+      },
+      enabled: user?.role === "ROLE_ADMIN" && activeTab === "security",
+    });
 
-      return logService.querySecurityLogs({
-        keyword: searchQuery || undefined,
-        startTime: startTime.toString(), // Unix milliseconds as string
-        endTime: endTime.toString(), // Unix milliseconds as string
-        page: 0,
-        size: 50,
-      });
-    },
-    enabled: user?.role === 'ROLE_ADMIN' && activeTab === 'security',
-  });
-
-  if (user?.role !== 'ROLE_ADMIN') {
+  if (user?.role !== "ROLE_ADMIN") {
     return null;
   }
 
-  const isLoading = systemLoading || auditLoading || securityLoading;
+  const isLoading = systemLoading || securityLoading;
 
   const handleRefetch = () => {
-    if (activeTab === 'system') refetchSystem();
-    else if (activeTab === 'audit') refetchAudit();
-    else if (activeTab === 'security') refetchSecurity();
+    if (activeTab === "system") refetchSystem();
+    else if (activeTab === "security") refetchSecurity();
   };
 
   // Get logs based on active tab
   const logs = useMemo(() => {
-    if (activeTab === 'system') {
+    if (activeTab === "system") {
       if (!systemLogsResponse?.success || !systemLogsResponse.data) return [];
       const response = systemLogsResponse.data;
       const allEntries: any[] = [];
@@ -128,99 +106,7 @@ export default function AdminLogsScreen() {
         });
       });
       return allEntries.slice(0, 100); // Limit to 100 entries
-    } else if (activeTab === 'audit') {
-      // Handle different response formats for audit logs
-      if (!auditLogsResponse) return [];
-
-      // Support both ApiResponse<AuditLogResponse> and direct AuditLogResponse
-      let responseData: any = null;
-      const raw = auditLogsResponse as any;
-
-      if (raw.logs && Array.isArray(raw.logs)) {
-        // Backend returned logs object directly
-        responseData = raw;
-      } else if (raw.data) {
-        // ApiResponse wrapper
-        if (raw.success === false) return [];
-        responseData = raw.data;
-      } else {
-        console.warn('⚠️ Audit logs: No data field in response', raw);
-        return [];
-      }
-
-      if (!responseData) {
-        console.warn('⚠️ Audit logs: No data in response');
-        return [];
-      }
-
-      // Log data structure for debugging
-      if (__DEV__) {
-        console.log('📋 Audit logs data structure:', {
-          hasLogs: responseData.logs !== undefined,
-          isArray: Array.isArray(responseData),
-          hasContent: responseData.content !== undefined,
-          keys: Object.keys(responseData),
-          logsType: typeof responseData.logs,
-          logsIsArray: Array.isArray(responseData.logs),
-          logsLength: responseData.logs?.length,
-          logsValue: responseData.logs
-            ? Array.isArray(responseData.logs)
-              ? `Array(${responseData.logs.length})`
-              : typeof responseData.logs
-            : 'undefined',
-        });
-      }
-
-      // Handle different data formats
-      if (responseData.logs !== undefined) {
-        if (Array.isArray(responseData.logs)) {
-          const logs = responseData.logs;
-          if (__DEV__) {
-            console.log('✅ Audit logs: Returning logs array, length:', logs.length);
-            if (logs.length > 0) {
-              console.log('📝 First log sample:', {
-                action: logs[0].action,
-                resource: logs[0].resource,
-                timestamp: logs[0].timestamp,
-              });
-            }
-          }
-          return logs;
-        } else {
-          console.warn('⚠️ Audit logs: logs is not an array', {
-            type: typeof responseData.logs,
-            value: responseData.logs,
-          });
-        }
-      }
-
-      if (Array.isArray(responseData)) {
-        if (__DEV__) {
-          console.log('✅ Audit logs: Returning direct array, length:', responseData.length);
-        }
-        return responseData;
-      }
-
-      if (responseData.content && Array.isArray(responseData.content)) {
-        // Paginated response
-        if (__DEV__) {
-          console.log(
-            '✅ Audit logs: Returning content array, length:',
-            responseData.content.length
-          );
-        }
-        return responseData.content;
-      }
-
-      console.warn('⚠️ Audit logs: Unknown data format', {
-        responseData,
-        hasLogs: responseData.logs !== undefined,
-        logsType: typeof responseData.logs,
-        logsIsArray: Array.isArray(responseData.logs),
-        allKeys: Object.keys(responseData),
-      });
-      return [];
-    } else if (activeTab === 'security') {
+    } else if (activeTab === "security") {
       // Handle different response formats for security logs
       if (!securityLogsResponse) return [];
 
@@ -234,18 +120,18 @@ export default function AdminLogsScreen() {
         if (raw.success === false) return [];
         responseData = raw.data;
       } else {
-        console.warn('⚠️ Security logs: No data field in response', raw);
+        console.warn("⚠️ Security logs: No data field in response", raw);
         return [];
       }
 
       if (!responseData) {
-        console.warn('⚠️ Security logs: No data in response');
+        console.warn("⚠️ Security logs: No data in response");
         return [];
       }
 
       // Log data structure for debugging
       if (__DEV__) {
-        console.log('📋 Security logs data structure:', {
+        console.log("📋 Security logs data structure:", {
           hasLogs: responseData.logs !== undefined,
           isArray: Array.isArray(responseData),
           hasContent: responseData.content !== undefined,
@@ -263,44 +149,37 @@ export default function AdminLogsScreen() {
         return responseData.content;
       }
 
-      console.warn('⚠️ Security logs: Unknown data format', responseData);
+      console.warn("⚠️ Security logs: Unknown data format", responseData);
       return [];
     }
     return [];
-  }, [activeTab, systemLogsResponse, auditLogsResponse, securityLogsResponse]);
+  }, [activeTab, systemLogsResponse, securityLogsResponse]);
 
   const filteredLogs = useMemo(() => {
     if (__DEV__) {
-      console.log('🔍 Filtering logs:', {
+      console.log("🔍 Filtering logs:", {
         activeTab,
         logsLength: logs.length,
         searchQuery: searchQuery.trim(),
       });
     }
-
+    
     if (!searchQuery.trim()) {
       if (__DEV__) {
-        console.log('✅ Returning all logs, count:', logs.length);
+        console.log("✅ Returning all logs, count:", logs.length);
       }
       return logs;
     }
-
+    
     const q = searchQuery.toLowerCase();
     const filtered = logs.filter((log: any) => {
-      if (activeTab === 'system') {
+      if (activeTab === "system") {
         return (
           log.message?.toLowerCase().includes(q) ||
           log.logger?.toLowerCase().includes(q) ||
           log.traceId?.toLowerCase().includes(q)
         );
-      } else if (activeTab === 'audit') {
-        return (
-          log.action?.toLowerCase().includes(q) ||
-          log.resource?.toLowerCase().includes(q) ||
-          log.username?.toLowerCase().includes(q) ||
-          log.details?.toLowerCase().includes(q)
-        );
-      } else if (activeTab === 'security') {
+      } else if (activeTab === "security") {
         return (
           log.action?.toLowerCase().includes(q) ||
           log.endpoint?.toLowerCase().includes(q) ||
@@ -311,11 +190,11 @@ export default function AdminLogsScreen() {
       }
       return true;
     });
-
+    
     if (__DEV__) {
-      console.log('✅ Filtered logs count:', filtered.length);
+      console.log("✅ Filtered logs count:", filtered.length);
     }
-
+    
     return filtered;
   }, [logs, searchQuery, activeTab]);
 
@@ -324,9 +203,9 @@ export default function AdminLogsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F0F9FF" />
       <Stack.Screen
         options={{
-          title: 'Quản lý log hệ thống',
-          headerStyle: { backgroundColor: '#0891b2' },
-          headerTintColor: '#fff',
+          title: "Quản lý log hệ thống",
+          headerStyle: { backgroundColor: "#0891b2" },
+          headerTintColor: "#fff",
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} className="ml-2">
               <ArrowLeft size={24} color="#fff" />
@@ -340,17 +219,19 @@ export default function AdminLogsScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
             <TouchableOpacity
-              onPress={() => setActiveTab('system')}
+              onPress={() => setActiveTab("system")}
               className={`px-4 py-2 rounded-xl border ${
-                activeTab === 'system' ? 'bg-sky-600 border-sky-600' : 'bg-white border-sky-200'
+                activeTab === "system"
+                  ? "bg-sky-600 border-sky-600"
+                  : "bg-white border-sky-200"
               }`}
               activeOpacity={0.85}
             >
               <View className="flex-row items-center gap-2">
-                <FileText size={16} color={activeTab === 'system' ? '#fff' : '#64748b'} />
+                <FileText size={16} color={activeTab === "system" ? "#fff" : "#64748b"} />
                 <Text
                   className={`text-xs font-bold ${
-                    activeTab === 'system' ? 'text-white' : 'text-slate-600'
+                    activeTab === "system" ? "text-white" : "text-slate-600"
                   }`}
                 >
                   System Logs
@@ -358,35 +239,19 @@ export default function AdminLogsScreen() {
               </View>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setActiveTab('audit')}
+              onPress={() => setActiveTab("security")}
               className={`px-4 py-2 rounded-xl border ${
-                activeTab === 'audit' ? 'bg-sky-600 border-sky-600' : 'bg-white border-sky-200'
+                activeTab === "security"
+                  ? "bg-sky-600 border-sky-600"
+                  : "bg-white border-sky-200"
               }`}
               activeOpacity={0.85}
             >
               <View className="flex-row items-center gap-2">
-                <Eye size={16} color={activeTab === 'audit' ? '#fff' : '#64748b'} />
+                <Shield size={16} color={activeTab === "security" ? "#fff" : "#64748b"} />
                 <Text
                   className={`text-xs font-bold ${
-                    activeTab === 'audit' ? 'text-white' : 'text-slate-600'
-                  }`}
-                >
-                  Audit Logs
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveTab('security')}
-              className={`px-4 py-2 rounded-xl border ${
-                activeTab === 'security' ? 'bg-sky-600 border-sky-600' : 'bg-white border-sky-200'
-              }`}
-              activeOpacity={0.85}
-            >
-              <View className="flex-row items-center gap-2">
-                <Shield size={16} color={activeTab === 'security' ? '#fff' : '#64748b'} />
-                <Text
-                  className={`text-xs font-bold ${
-                    activeTab === 'security' ? 'text-white' : 'text-slate-600'
+                    activeTab === "security" ? "text-white" : "text-slate-600"
                   }`}
                 >
                   Security Logs
@@ -410,7 +275,7 @@ export default function AdminLogsScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
-          {activeTab === 'system' && (
+          {activeTab === "system" && (
             <TouchableOpacity
               onPress={() => setShowFilters(!showFilters)}
               className="px-4 py-2 rounded-xl border border-sky-200 bg-white"
@@ -422,27 +287,27 @@ export default function AdminLogsScreen() {
         </View>
 
         {/* Filter Panel for System Logs */}
-        {showFilters && activeTab === 'system' && (
+        {showFilters && activeTab === "system" && (
           <View className="mt-3 pt-3 border-t border-sky-100">
             <Text className="text-xs font-bold text-slate-700 mb-2">Mức độ</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View className="flex-row gap-2">
-                {['all', 'error', 'warn', 'info', 'debug'].map(level => (
+                {["all", "error", "warn", "info", "debug"].map((level) => (
                   <TouchableOpacity
                     key={level}
                     onPress={() => setLevelFilter(level)}
                     className={`px-3 py-1.5 rounded-full border ${
                       levelFilter === level
-                        ? 'bg-sky-600 border-sky-600'
-                        : 'bg-white border-sky-200'
+                        ? "bg-sky-600 border-sky-600"
+                        : "bg-white border-sky-200"
                     }`}
                   >
                     <Text
                       className={`text-xs font-bold ${
-                        levelFilter === level ? 'text-white' : 'text-slate-600'
+                        levelFilter === level ? "text-white" : "text-slate-600"
                       }`}
                     >
-                      {level === 'all' ? 'Tất cả' : level.toUpperCase()}
+                      {level === "all" ? "Tất cả" : level.toUpperCase()}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -473,11 +338,11 @@ export default function AdminLogsScreen() {
           ) : (
             filteredLogs.map((log: any, index: number) => {
               const getLevelColor = (level?: string) => {
-                const l = (level || '').toLowerCase();
-                if (l === 'error') return 'bg-red-50 border-red-200';
-                if (l === 'warn') return 'bg-yellow-50 border-yellow-200';
-                if (l === 'info') return 'bg-blue-50 border-blue-200';
-                return 'bg-slate-50 border-slate-200';
+                const l = (level || "").toLowerCase();
+                if (l === "error") return "bg-red-50 border-red-200";
+                if (l === "warn") return "bg-yellow-50 border-yellow-200";
+                if (l === "info") return "bg-blue-50 border-blue-200";
+                return "bg-slate-50 border-slate-200";
               };
 
               return (
@@ -492,46 +357,43 @@ export default function AdminLogsScreen() {
                 >
                   <View className="flex-row items-start justify-between mb-2">
                     <View className="flex-1">
-                      {activeTab === 'system' && (
+                      {activeTab === "system" && (
                         <View
                           className={`px-2 py-1 rounded-lg border ${getLevelColor(log.level)} self-start mb-2`}
                         >
                           <Text className="text-[10px] font-bold text-slate-700">
-                            {log.level?.toUpperCase() || 'LOG'}
+                            {log.level?.toUpperCase() || "LOG"}
                           </Text>
                         </View>
                       )}
-                      <Text
-                        className="text-sm font-extrabold text-slate-900 mb-1"
-                        numberOfLines={2}
-                      >
-                        {activeTab === 'system'
-                          ? log.message || 'No message'
-                          : activeTab === 'audit'
+                      <Text className="text-sm font-extrabold text-slate-900 mb-1" numberOfLines={2}>
+                        {activeTab === "system"
+                          ? log.message || "No message"
+                          : activeTab === "audit"
                             ? `${log.action} - ${log.resource}`
-                            : `${log.action} - ${log.endpoint || 'N/A'}`}
+                            : `${log.action} - ${log.endpoint || "N/A"}`}
                       </Text>
                       <Text className="text-xs text-slate-500">
                         {formatDateTime(log.timestamp)}
                       </Text>
                     </View>
-                    {activeTab === 'security' && log.threatScore && (
+                    {activeTab === "security" && log.threatScore && (
                       <View
                         className={`px-2 py-1 rounded-lg border ${
                           log.threatScore >= 7
-                            ? 'bg-red-50 border-red-200'
+                            ? "bg-red-50 border-red-200"
                             : log.threatScore >= 4
-                              ? 'bg-yellow-50 border-yellow-200'
-                              : 'bg-green-50 border-green-200'
+                              ? "bg-yellow-50 border-yellow-200"
+                              : "bg-green-50 border-green-200"
                         }`}
                       >
                         <Text
                           className={`text-[10px] font-bold ${
                             log.threatScore >= 7
-                              ? 'text-red-700'
+                              ? "text-red-700"
                               : log.threatScore >= 4
-                                ? 'text-yellow-700'
-                                : 'text-green-700'
+                                ? "text-yellow-700"
+                                : "text-green-700"
                           }`}
                         >
                           Threat: {log.threatScore}
@@ -540,26 +402,28 @@ export default function AdminLogsScreen() {
                     )}
                   </View>
 
-                  {activeTab !== 'system' && (
+                  {activeTab !== "system" && (
                     <View className="mt-2 pt-2 border-t border-sky-50">
-                      {activeTab === 'audit' && (
+                      {activeTab === "audit" && (
                         <>
                           <View className="flex-row items-center gap-2 mb-1">
                             <Text className="text-xs text-slate-500">User:</Text>
                             <Text className="text-xs font-bold text-slate-700">
-                              {log.username || 'N/A'}
+                              {log.username || "N/A"}
                             </Text>
                           </View>
                           <View className="flex-row items-center gap-2">
                             <Text className="text-xs text-slate-500">Status:</Text>
                             <View
                               className={`px-2 py-0.5 rounded ${
-                                log.status === 'SUCCESS' ? 'bg-emerald-50' : 'bg-red-50'
+                                log.status === "SUCCESS"
+                                  ? "bg-emerald-50"
+                                  : "bg-red-50"
                               }`}
                             >
                               <Text
                                 className={`text-[10px] font-bold ${
-                                  log.status === 'SUCCESS' ? 'text-emerald-700' : 'text-red-700'
+                                  log.status === "SUCCESS" ? "text-emerald-700" : "text-red-700"
                                 }`}
                               >
                                 {log.status}
@@ -568,24 +432,26 @@ export default function AdminLogsScreen() {
                           </View>
                         </>
                       )}
-                      {activeTab === 'security' && (
+                      {activeTab === "security" && (
                         <>
                           <View className="flex-row items-center gap-2 mb-1">
                             <Text className="text-xs text-slate-500">IP:</Text>
                             <Text className="text-xs font-bold text-slate-700">
-                              {log.ipAddress || 'N/A'}
+                              {log.ipAddress || "N/A"}
                             </Text>
                           </View>
                           <View className="flex-row items-center gap-2">
                             <Text className="text-xs text-slate-500">Status:</Text>
                             <View
                               className={`px-2 py-0.5 rounded ${
-                                log.status === 'SUCCESS' ? 'bg-emerald-50' : 'bg-red-50'
+                                log.status === "SUCCESS"
+                                  ? "bg-emerald-50"
+                                  : "bg-red-50"
                               }`}
                             >
                               <Text
                                 className={`text-[10px] font-bold ${
-                                  log.status === 'SUCCESS' ? 'text-emerald-700' : 'text-red-700'
+                                  log.status === "SUCCESS" ? "text-emerald-700" : "text-red-700"
                                 }`}
                               >
                                 {log.status}
@@ -628,7 +494,7 @@ export default function AdminLogsScreen() {
                         {key.toUpperCase()}
                       </Text>
                       <Text className="text-sm text-slate-900">
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                        {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
                       </Text>
                     </View>
                   ))}

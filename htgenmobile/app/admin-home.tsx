@@ -186,18 +186,6 @@ export default function AdminHomeScreen() {
       route: "/admin/hospitals",
     },
     {
-      id: "17",
-      title: "Quản lý\nmẫu xét nghiệm",
-      icon: (
-        <Image
-          source={require("@/assets/images/5.png")}
-          className="w-16 h-16"
-          resizeMode="contain"
-        />
-      ),
-      route: "/patient-metadatas",
-    },
-    {
       id: "18",
       title: "Quản lý\nbarcode",
       icon: (
