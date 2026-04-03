@@ -7,6 +7,7 @@ import {
   X,
   SlidersHorizontal,
   Calendar,
+  Plus,
 } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
@@ -435,15 +436,30 @@ export default function OrdersScreen() {
                         {order.clinic ? `Cơ sở: ${order.clinic}` : " "}
                       </Text>
 
-                      {order.hasDownload ? (
-                        <View className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center">
-                          <Download size={18} color="#0284C7" />
-                        </View>
-                      ) : (
-                        <View className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center">
-                          <ChevronRight size={18} color="#0284C7" />
-                        </View>
-                      )}
+                      <View className="flex-row items-center gap-2">
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            router.push({
+                              pathname: "/customer/new-sample-add",
+                              params: { orderId: order.id },
+                            });
+                          }}
+                          className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center"
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={18} color="#0284C7" />
+                        </TouchableOpacity>
+                        {order.hasDownload ? (
+                          <View className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center">
+                            <Download size={18} color="#0284C7" />
+                          </View>
+                        ) : (
+                          <View className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 items-center justify-center">
+                            <ChevronRight size={18} color="#0284C7" />
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );

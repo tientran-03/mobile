@@ -69,76 +69,148 @@ export default function CustomerHomeScreen() {
   const menuItems: MenuItem[] = useMemo(
     () => [
       {
-        id: '3',
-        title: 'Danh sách\nbệnh nhân',
+        id: 'specifies',
+        title: 'Quản lý phiếu\nxét nghiệm',
         icon: (
-          <Image source={require('@/assets/images/3.png')} className="w-16 h-16" resizeMode="contain" />
+          <Image
+            source={require('@/assets/images/4.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
         ),
-        route: '/customer/patients',
+        route: '/customer/specifies',
       },
       {
-        id: '5',
-        title: 'Danh sách\ndịch vụ',
-        icon: (
-          <Image source={require('@/assets/images/4.png')} className="w-16 h-16" resizeMode="contain" />
-        ),
-        route: '/customer/services',
-      },
-      {
-        id: '6',
-        title: 'Báo cáo\nthống kê',
-        icon: (
-          <Image source={require('@/assets/images/5.png')} className="w-16 h-16" resizeMode="contain" />
-        ),
-        route: '/customer/statistics',
-      },
-      {
-        id: '7',
+        id: 'orders',
         title: 'Đơn hàng\ncủa tôi',
         icon: (
-          <Image source={require('@/assets/images/6.png')} className="w-16 h-16" resizeMode="contain" />
+          <Image
+            source={require('@/assets/images/6.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
         ),
         route: '/customer/orders',
         badge: initiationOrdersCount > 0 ? initiationOrdersCount : undefined,
       },
       {
-        id: '8',
-        title: 'Thông tin\nngười dùng',
+        id: 'sample-adds',
+        title: 'Bổ sung mẫu',
         icon: (
-          <Image source={require('@/assets/images/7.png')} className="w-16 h-16" resizeMode="contain" />
+          <Image
+            source={require('@/assets/images/4.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/sample-adds',
+      },
+      {
+        id: 'patients',
+        title: 'Thông tin\nbệnh nhân',
+        icon: (
+          <Image
+            source={require('@/assets/images/3.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/patients',
+      },
+      {
+        id: 'patient-metadatas',
+        title: 'Quản lý dữ liệu\ngen',
+        icon: (
+          <Image
+            source={require('@/assets/images/3.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/patient-metadatas',
+      },
+      {
+        id: 'patient-results',
+        title: 'Trả kết quả',
+        icon: (
+          <Image
+            source={require('@/assets/images/4.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/patient-results',
+      },
+      {
+        id: 'services',
+        title: 'Dịch vụ\nxét nghiệm',
+        icon: (
+          <Image
+            source={require('@/assets/images/4.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/services',
+      },
+      {
+        id: 'sample-add-services',
+        title: 'Thêm mẫu',
+        icon: (
+          <Image
+            source={require('@/assets/images/4.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/sample-add-services',
+      },
+      {
+        id: 'statistics',
+        title: 'Thống kê',
+        icon: (
+          <Image
+            source={require('@/assets/images/5.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
+        ),
+        route: '/customer/statistics',
+      },
+      {
+        id: 'profile',
+        title: 'Thông tin\ntài khoản',
+        icon: (
+          <Image
+            source={require('@/assets/images/7.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
         ),
         route: '/customer/profile',
       },
       {
-        id: '11',
+        id: 'notifications',
         title: 'Thông báo',
         icon: (
-          <Image source={require('@/assets/images/6.png')} className="w-16 h-16" resizeMode="contain" />
+          <Image
+            source={require('@/assets/images/6.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
         ),
         route: '/customer/notifications',
         badge: unreadCount > 0 ? unreadCount : undefined,
       },
       {
-        id: '12',
-        title: 'Đơn hàng đang\nphân tích',
-        icon: (
-          <Image source={require('@/assets/images/6.png')} className="w-16 h-16" resizeMode="contain" />
-        ),
-        route: '/customer/orders',
-      },
-      {
-        id: '13',
-        title: 'Quản lý mẫu\nxét nghiệm',
-        icon: (
-          <Image source={require('@/assets/images/3.png')} className="w-16 h-16" resizeMode="contain" />
-        ),
-        route: '/customer/patient-metadatas',
-      },
-      {
-        id: '16',
+        id: 'logout',
         title: 'Đăng xuất',
         icon: (
-          <Image source={require('@/assets/images/9.png')} className="w-16 h-16" resizeMode="contain" />
+          <Image
+            source={require('@/assets/images/9.png')}
+            className="w-16 h-16"
+            resizeMode="contain"
+          />
         ),
         route: 'logout',
       },
@@ -172,7 +244,12 @@ export default function CustomerHomeScreen() {
         source={require('@/assets/images/bg.png')}
         className="pt-12 pb-6 px-6"
         style={Platform.select({
-          ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+          ios: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+          },
           android: { elevation: 3 },
           web: { boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)' },
         })}
@@ -196,7 +273,12 @@ export default function CustomerHomeScreen() {
               <TouchableOpacity
                 className="bg-white rounded-xl p-4 items-center border border-gray-100"
                 style={Platform.select({
-                  ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                  },
                   android: { elevation: 1 },
                   web: { boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)' },
                 })}
@@ -204,7 +286,9 @@ export default function CustomerHomeScreen() {
                 onPress={() => handleMenuPress(item)}
               >
                 <View className="relative">
-                  <View className="w-16 h-16 rounded-2xl items-center justify-center mb-2">{item.icon}</View>
+                  <View className="w-16 h-16 rounded-2xl items-center justify-center mb-2">
+                    {item.icon}
+                  </View>
                   {!!item.badge && (
                     <View className="absolute -top-1 -right-1 min-w-[24px] h-[24px] rounded-full bg-orange-500 items-center justify-center px-1.5 border-2 border-white">
                       <Text className="text-white text-[10px] font-bold">{item.badge}</Text>

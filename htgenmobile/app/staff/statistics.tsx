@@ -10,7 +10,7 @@ import {
   TrendingUp,
   Users,
   XCircle,
-  AlertCircle,
+  CircleAlert,
 } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
@@ -368,7 +368,7 @@ export default function StatisticsScreen() {
 
             <View className="flex-row items-center justify-between mb-3 pb-3 border-b border-sky-100">
               <View className="flex-row items-center">
-                <AlertCircle size={18} color="#EF4444" />
+                <CircleAlert size={18} color="#EF4444" />
                 <Text className="ml-2 text-sm font-extrabold text-slate-900">Thất bại</Text>
               </View>
               <Text className="text-lg font-extrabold text-red-600">{stats.failedOrders}</Text>

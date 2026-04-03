@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   PATIENTS: "/api/v1/patients",
   PATIENT_BY_ID: (id: string) => `/api/v1/patients/${id}`,
   PATIENT_BY_PHONE: (phone: string) => `/api/v1/patients/phone/${phone}`,
+  PATIENTS_BY_HOSPITAL: (hospitalId: string) => `/api/v1/patients/hospital/${hospitalId}`,
   PATIENT_SEARCH: '/api/v1/patients/search/name',
 
   SERVICES: '/api/v1/services',
@@ -43,11 +44,14 @@ export const API_ENDPOINTS = {
   SAMPLE_ADD_BY_ID: (id: string) => `/api/v1/sample-adds/${id}`,
   SAMPLE_ADD_BY_ORDER: (orderId: string) => `/api/v1/sample-adds/order/${orderId}`,
 
-  USERS: '/api/v1/user/list',
-  USER_INFO: '/api/v1/user/info',
-  USER_PROFILE: '/api/v1/user/profile',
-  USER_BLOCK: '/api/v1/user/block',
-  USER_UNBLOCK: '/api/v1/user/unblock',
+  SAMPLE_ADD_SERVICES: '/api/v1/sample-add-services',
+  SAMPLE_ADD_SERVICE_BY_ID: (id: string) => `/api/v1/sample-add-services/${id}`,
+
+  USERS: "/api/v1/user/list",
+  USER_INFO: "/api/v1/user/info",
+  USER_PROFILE: "/api/v1/user/profile",
+  USER_BLOCK: "/api/v1/user/block",
+  USER_UNBLOCK: "/api/v1/user/unblock",
   USER_COUNT_BY_ROLE: (role: string) => `/api/v1/count/users/${role}`,
 
   CUSTOMERS: '/api/v1/customers',
@@ -67,6 +71,10 @@ export const API_ENDPOINTS = {
   SPECIFY_VOTE_TESTS_BY_STATUS: (status: string) => `/api/v1/specify-vote-tests/status/${status}`,
   SPECIFY_VOTE_TESTS_BY_PATIENT: (patientId: string) =>
     `/api/v1/specify-vote-tests/patient/${patientId}`,
+  SPECIFY_VOTE_TESTS_BY_HOSPITAL: (hospitalId: string) =>
+    `/api/v1/specify-vote-tests/hospital/${hospitalId}`,
+  SPECIFY_VOTE_TESTS_BY_HOSPITAL_PAGED: (hospitalId: string) =>
+    `/api/v1/specify-vote-tests/hospital/${hospitalId}/paged`,
 
   GENOME_TESTS: '/api/v1/genome-tests',
   GENOME_TEST_BY_ID: (id: string) => `/api/v1/genome-tests/${id}`,
@@ -102,37 +110,40 @@ export const API_ENDPOINTS = {
   
   HOSPITALS: "/api/v1/hospitals",
   HOSPITAL_BY_ID: (id: string | number) => `/api/v1/hospitals/${id}`,
-  HOSPITALS_SEARCH: '/api/v1/hospitals/search',
+  HOSPITALS_SEARCH: "/api/v1/hospitals/search",
+  
+  SYSTEM_LOGS: "/api/v1/logs",
+  SYSTEM_LOGS_HEALTH: "/api/v1/logs/health",
+  SYSTEM_LOGS_QUERY: "/api/v1/logs/query",
+  SYSTEM_LOGS_STATISTICS: "/api/v1/logs/statistics",
+  
+  AUDIT_LOGS: "/api/v1/audit/logs",
+  AUDIT_LOGS_STATISTICS: "/api/v1/audit/statistics",
+  
+  SECURITY_LOGS: "/api/v1/security/logs",
+  SECURITY_LOGS_ALERTS: "/api/v1/security/alerts",
+  SECURITY_LOGS_STATISTICS: "/api/v1/security/statistics",
+  SECURITY_LOGS_SUSPICIOUS_IPS: "/api/v1/security/suspicious-ips",
+  
+  METRICS_HEALTH: "/api/v1/metrics/health",
+  METRICS_HEALTH_DATABASE: "/api/v1/metrics/health/database",
+  METRICS_HEALTH_REDIS: "/api/v1/metrics/health/redis",
+  METRICS_HEALTH_JVM: "/api/v1/metrics/health/jvm",
+  METRICS_HEALTH_DISK: "/api/v1/metrics/health/disk",
+  METRICS_OVERVIEW: "/api/v1/metrics/overview",
+  METRICS_HTTP: "/api/v1/metrics/http",
+  METRICS_JVM: "/api/v1/metrics/jvm",
+  METRICS_DATABASE: "/api/v1/metrics/database",
+  
+  STATISTICS_REVENUE: "/api/v1/statistics/revenue",
+  STATISTICS_PAYMENT_HISTORY: "/api/v1/statistics/payment-history",
+  STATISTICS_SERVICES: "/api/v1/statistics/services",
+  STATISTICS_HOSPITALS: "/api/v1/statistics/hospitals",
 
-  SYSTEM_LOGS: '/api/v1/logs',
-  SYSTEM_LOGS_HEALTH: '/api/v1/logs/health',
-  SYSTEM_LOGS_QUERY: '/api/v1/logs/query',
-  SYSTEM_LOGS_STATISTICS: '/api/v1/logs/statistics',
-
-  AUDIT_LOGS: '/api/v1/audit/logs',
-  AUDIT_LOGS_STATISTICS: '/api/v1/audit/statistics',
-
-  SECURITY_LOGS: '/api/v1/security/logs',
-  SECURITY_LOGS_ALERTS: '/api/v1/security/alerts',
-  SECURITY_LOGS_STATISTICS: '/api/v1/security/statistics',
-  SECURITY_LOGS_SUSPICIOUS_IPS: '/api/v1/security/suspicious-ips',
-
-  METRICS_HEALTH: '/api/v1/metrics/health',
-  METRICS_HEALTH_DATABASE: '/api/v1/metrics/health/database',
-  METRICS_HEALTH_REDIS: '/api/v1/metrics/health/redis',
-  METRICS_HEALTH_JVM: '/api/v1/metrics/health/jvm',
-  METRICS_HEALTH_DISK: '/api/v1/metrics/health/disk',
-  METRICS_OVERVIEW: '/api/v1/metrics/overview',
-  METRICS_HTTP: '/api/v1/metrics/http',
-  METRICS_JVM: '/api/v1/metrics/jvm',
-  METRICS_DATABASE: '/api/v1/metrics/database',
-
-  STATISTICS_REVENUE: '/api/v1/statistics/revenue',
-  STATISTICS_PAYMENT_HISTORY: '/api/v1/statistics/payment-history',
-  STATISTICS_SERVICES: '/api/v1/statistics/services',
-  STATISTICS_HOSPITALS: '/api/v1/statistics/hospitals',
-
-  ROLES: '/api/v1/roles',
+  CUSTOMER_STATISTICS: "/api/v1/customer-statistics",
+  CUSTOMER_STATISTICS_PAYMENT_HISTORY: "/api/v1/customer-statistics/payment-history",
+  
+  ROLES: "/api/v1/roles",
   ROLE_BY_ID: (id: string) => `/api/v1/roles/${id}`,
   ROLE_BY_NAME: (name: string) => `/api/v1/roles/name/${name}`,
 

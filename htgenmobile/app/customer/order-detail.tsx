@@ -20,6 +20,7 @@ import {
   Package,
   Phone,
   Pill,
+  Plus,
   Stethoscope,
   TestTube,
   User,
@@ -298,6 +299,21 @@ export default function OrderDetailScreen() {
               <Text className="text-[12px] text-slate-500 mb-2">Thanh toán</Text>
               <StatusBadge status={order.paymentStatus} type="payment" />
             </View>
+          </View>
+          <View className="px-4 pb-4">
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/customer/new-sample-add',
+                  params: { orderId: order.orderId },
+                })
+              }
+              className="flex-row items-center justify-center gap-2 py-3 rounded-xl bg-sky-50 border border-sky-200"
+              activeOpacity={0.8}
+            >
+              <Plus size={18} color={COLORS.primary} />
+              <Text className="text-sky-700 font-bold">Thêm mẫu bổ sung</Text>
+            </TouchableOpacity>
           </View>
         </Card>
         <Section title="Thông tin đơn hàng" icon={<Package size={18} color={COLORS.primary} />}>
