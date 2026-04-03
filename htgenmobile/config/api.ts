@@ -1,46 +1,53 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
 const getApiBaseUrl = () => {
   if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'https://api.htgenetic.io.vn';
-    } else if (Platform.OS === 'ios') {
-      return 'https://api.htgenetic.io.vn';
+    if (Platform.OS === "android") {
+      return "http://10.0.2.2:8080";
+    } else if (Platform.OS === "ios") {
+      return "https://api.htgenetic.io.vn";
     } else {
-      return 'https://api.htgenetic.io.vn';
+      return "https://api.htgenetic.io.vn";
     }
   } else {
-    return 'https://api.htgenetic.io.vn';
+    return "https://api.htgenetic.io.vn";
   }
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+
+// Log API URL for debugging (only in dev)
 if (__DEV__) {
-  console.log('🔗 API Base URL:', API_BASE_URL);
-  console.log('📱 Platform:', Platform.OS);
+  console.log("🔗 API Base URL:", API_BASE_URL);
+  console.log("📱 Platform:", Platform.OS);
 }
 export const API_ENDPOINTS = {
-  LOGIN: '/api/auth/login',
-  LOGOUT: '/api/auth/logout',
-  ME: '/api/auth/me',
-
-  ORDERS: '/api/v1/orders',
+  LOGIN: "/api/auth/login",
+  LOGOUT: "/api/auth/logout",
+  ME: "/api/auth/me",
+  
+  ORDERS: "/api/v1/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/orders/${id}`,
   ORDER_BY_STATUS: (status: string) => `/api/v1/orders/status/${status}`,
   ORDER_BY_PATIENT_ID: (patientId: string) => `/api/v1/orders/patient/${patientId}`,
-  ORDER_BY_CUSTOMER_ID: (customerId: string) => `/api/v1/orders/customer/${customerId}`,
   ORDER_SEARCH: "/api/v1/orders/search",
   
   PATIENTS: "/api/v1/patients",
   PATIENT_BY_ID: (id: string) => `/api/v1/patients/${id}`,
   PATIENT_BY_PHONE: (phone: string) => `/api/v1/patients/phone/${phone}`,
+<<<<<<< HEAD
+  PATIENT_SEARCH: "/api/v1/patients/search/name",
+  
+  SERVICES: "/api/v1/services",
+=======
   PATIENTS_BY_HOSPITAL: (hospitalId: string) => `/api/v1/patients/hospital/${hospitalId}`,
   PATIENT_SEARCH: '/api/v1/patients/search/name',
 
   SERVICES: '/api/v1/services',
+>>>>>>> 31a254f929f9f14d3664fcd55972c764aa05c7b8
   SERVICE_BY_ID: (id: string) => `/api/v1/services/${id}`,
-
-  SAMPLE_ADDS: '/api/v1/sample-adds',
+  
+  SAMPLE_ADDS: "/api/v1/sample-adds",
   SAMPLE_ADD_BY_ID: (id: string) => `/api/v1/sample-adds/${id}`,
   SAMPLE_ADD_BY_ORDER: (orderId: string) => `/api/v1/sample-adds/order/${orderId}`,
 
@@ -54,21 +61,27 @@ export const API_ENDPOINTS = {
   USER_UNBLOCK: "/api/v1/user/unblock",
   USER_COUNT_BY_ROLE: (role: string) => `/api/v1/count/users/${role}`,
 
-  CUSTOMERS: '/api/v1/customers',
+  CUSTOMERS: "/api/v1/customers",
   CUSTOMER_BY_ID: (id: string) => `/api/v1/customers/${id}`,
 
-  DOCTORS: '/api/v1/doctors',
+  DOCTORS: "/api/v1/doctors",
   DOCTOR_BY_ID: (id: string) => `/api/v1/doctors/${id}`,
-  HOSPITAL_STAFFS: '/api/v1/hospital-staff',
+  HOSPITAL_STAFFS: "/api/v1/hospital-staff",
   HOSPITAL_STAFF_BY_ID: (id: string) => `/api/v1/hospital-staff/${id}`,
-
-  BARCODES: '/api/v1/barcodes',
+  HOSPITAL_STAFF_BY_HOSPITAL_ID: (hospitalId: string) => `/api/v1/hospital-staff/hospital/${hospitalId}`,
+  
+  BARCODES: "/api/v1/barcodes",
   BARCODE_BY_ID: (id: string) => `/api/v1/barcodes/${id}`,
   BARCODES_BY_STATUS: (status: string) => `/api/v1/barcodes/status/${status}`,
-
-  SPECIFY_VOTE_TESTS: '/api/v1/specify-vote-tests',
+  
+  SPECIFY_VOTE_TESTS: "/api/v1/specify-vote-tests",
   SPECIFY_VOTE_TEST_BY_ID: (id: string) => `/api/v1/specify-vote-tests/${id}`,
   SPECIFY_VOTE_TESTS_BY_STATUS: (status: string) => `/api/v1/specify-vote-tests/status/${status}`,
+<<<<<<< HEAD
+  SPECIFY_VOTE_TESTS_BY_PATIENT: (patientId: string) => `/api/v1/specify-vote-tests/patient/${patientId}`,
+  
+  GENOME_TESTS: "/api/v1/genome-tests",
+=======
   SPECIFY_VOTE_TESTS_BY_PATIENT: (patientId: string) =>
     `/api/v1/specify-vote-tests/patient/${patientId}`,
   SPECIFY_VOTE_TESTS_BY_HOSPITAL: (hospitalId: string) =>
@@ -77,36 +90,29 @@ export const API_ENDPOINTS = {
     `/api/v1/specify-vote-tests/hospital/${hospitalId}/paged`,
 
   GENOME_TESTS: '/api/v1/genome-tests',
+>>>>>>> 31a254f929f9f14d3664fcd55972c764aa05c7b8
   GENOME_TEST_BY_ID: (id: string) => `/api/v1/genome-tests/${id}`,
   GENOME_TESTS_BY_SERVICE: (serviceId: string) => `/api/v1/genome-tests/service/${serviceId}`,
 
-  PATIENT_CLINICALS: '/api/v1/patient-clinicals',
+  PATIENT_CLINICALS: "/api/v1/patient-clinicals",
   PATIENT_CLINICAL_BY_ID: (id: string) => `/api/v1/patient-clinicals/${id}`,
-  PATIENT_CLINICAL_BY_PATIENT_ID: (patientId: string) =>
-    `/api/v1/patient-clinicals/patient/${patientId}`,
-  PATIENT_CLINICAL_EXISTS_BY_PATIENT_ID: (patientId: string) =>
-    `/api/v1/patient-clinicals/exists/patient/${patientId}`,
-
-  REPRODUCTION_SERVICES: '/api/v1/reproduction-services',
-  EMBRYO_SERVICES: '/api/v1/embryo-services',
-  DISEASE_SERVICES: '/api/v1/disease-services',
-
-  PATIENT_METADATA: '/api/v1/patient-metadata',
+  PATIENT_CLINICAL_BY_PATIENT_ID: (patientId: string) => `/api/v1/patient-clinicals/patient/${patientId}`,
+  PATIENT_CLINICAL_EXISTS_BY_PATIENT_ID: (patientId: string) => `/api/v1/patient-clinicals/exists/patient/${patientId}`,
+  
+  REPRODUCTION_SERVICES: "/api/v1/reproduction-services",
+  EMBRYO_SERVICES: "/api/v1/embryo-services",
+  DISEASE_SERVICES: "/api/v1/disease-services",
+  
+  PATIENT_METADATA: "/api/v1/patient-metadata",
   PATIENT_METADATA_BY_ID: (labcode: string) => `/api/v1/patient-metadata/${labcode}`,
-  PATIENT_METADATA_BY_PATIENT_ID: (patientId: string) =>
-    `/api/v1/patient-metadata/patient/${patientId}`,
-  PATIENT_METADATA_BY_SPECIFY_ID: (specifyId: string) =>
-    `/api/v1/patient-metadata/specify/${specifyId}`,
+  PATIENT_METADATA_BY_PATIENT_ID: (patientId: string) => `/api/v1/patient-metadata/patient/${patientId}`,
+  PATIENT_METADATA_BY_SPECIFY_ID: (specifyId: string) => `/api/v1/patient-metadata/specify/${specifyId}`,
 
   PATIENT_APPENDICES: "/api/v1/patient-appendices",
   PATIENT_TEST_RESULTS: "/api/v1/patient-test-results",
   
   NOTIFICATIONS: "/api/v1/notifications",
   NOTIFICATION_REGISTER_TOKEN: "/api/v1/notifications/register-token",
-  NOTIFICATIONS_RECEIVED: (userId: string) => `/api/v1/notifications/received/${userId}`,
-  NOTIFICATIONS_UNREAD_COUNT: (userId: string) => `/api/v1/notifications/unread-count/${userId}`,
-  NOTIFICATIONS_MARK_READ: "/api/v1/notifications/mark-read",
-  NOTIFICATIONS_MARK_ALL_READ: "/api/v1/notifications/mark-all-read",
   
   HOSPITALS: "/api/v1/hospitals",
   HOSPITAL_BY_ID: (id: string | number) => `/api/v1/hospitals/${id}`,
@@ -146,27 +152,22 @@ export const API_ENDPOINTS = {
   ROLES: "/api/v1/roles",
   ROLE_BY_ID: (id: string) => `/api/v1/roles/${id}`,
   ROLE_BY_NAME: (name: string) => `/api/v1/roles/name/${name}`,
-
-  PERMISSIONS: '/api/v1/permissions',
+  
+  PERMISSIONS: "/api/v1/permissions",
   PERMISSION_BY_ID: (id: string) => `/api/v1/permissions/${id}`,
-
-  ROLE_PERMISSIONS: '/api/v1/role-permissions',
+  
+  ROLE_PERMISSIONS: "/api/v1/role-permissions",
   ROLE_PERMISSION_BY_ID: (id: string) => `/api/v1/role-permissions/${id}`,
   ROLE_PERMISSIONS_BY_ROLE_ID: (roleId: string) => `/api/v1/role-permissions/role/${roleId}`,
-  ROLE_PERMISSIONS_BY_ROLE_NAME: (roleName: string) =>
-    `/api/v1/role-permissions/role-name/${roleName}`,
-  ROLE_PERMISSIONS_BY_PERMISSION_ID: (permissionId: string) =>
-    `/api/v1/role-permissions/permission/${permissionId}`,
-  ROLE_PERMISSION_DELETE_BY_ROLE_AND_PERMISSION: (roleId: string, permissionId: string) =>
-    `/api/v1/role-permissions/role/${roleId}/permission/${permissionId}`,
-  ROLE_PERMISSIONS_DELETE_ALL_FOR_ROLE: (roleId: string) =>
-    `/api/v1/role-permissions/role/${roleId}`,
-
-  SYSTEM_CONFIGS: '/api/v1/admin/system-configs',
+  ROLE_PERMISSIONS_BY_ROLE_NAME: (roleName: string) => `/api/v1/role-permissions/role-name/${roleName}`,
+  ROLE_PERMISSIONS_BY_PERMISSION_ID: (permissionId: string) => `/api/v1/role-permissions/permission/${permissionId}`,
+  ROLE_PERMISSION_DELETE_BY_ROLE_AND_PERMISSION: (roleId: string, permissionId: string) => `/api/v1/role-permissions/role/${roleId}/permission/${permissionId}`,
+  ROLE_PERMISSIONS_DELETE_ALL_FOR_ROLE: (roleId: string) => `/api/v1/role-permissions/role/${roleId}`,
+  
+  SYSTEM_CONFIGS: "/api/v1/admin/system-configs",
   SYSTEM_CONFIG_BY_ID: (id: string) => `/api/v1/admin/system-configs/${id}`,
-  SYSTEM_CONFIG_METADATA: (configName: string) =>
-    `/api/v1/admin/system-configs/metadata/${configName}`,
-  SYSTEM_CONFIG_NAMES: '/api/v1/admin/system-configs/names',
+  SYSTEM_CONFIG_METADATA: (configName: string) => `/api/v1/admin/system-configs/metadata/${configName}`,
+  SYSTEM_CONFIG_NAMES: "/api/v1/admin/system-configs/names",
   SYSTEM_CONFIG_TEST: (configName: string) => `/api/v1/admin/system-configs/test/${configName}`,
   SYSTEM_CONFIG_CACHE_CLEAR: "/api/v1/admin/system-configs/cache/clear-all",
   SYSTEM_CONFIG_CACHE_INVALIDATE: (configName: string) => `/api/v1/admin/system-configs/cache/${configName}`,

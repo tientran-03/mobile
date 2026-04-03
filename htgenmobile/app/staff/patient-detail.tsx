@@ -185,7 +185,8 @@ export default function PatientDetailScreen() {
     );
   }
 
-  const code = patient.patientCode || patient.patientId || "";
+  // Không hiển thị mã bệnh nhân trên giao diện staff để tránh lộ thông tin
+  const code = "";
   const name = patient.patientName || patient.name || "Chưa cập nhật";
   const phone = patient.patientPhone || patient.phone || "";
   const email = patient.patientEmail || patient.email || "";
@@ -241,25 +242,21 @@ export default function PatientDetailScreen() {
             <View className="w-16 h-16 rounded-2xl bg-sky-100 border border-sky-200 items-center justify-center mr-4">
               <User size={28} color="#0284C7" />
             </View>
-            <View className="flex-1">
-              <Text className="text-lg font-extrabold text-slate-900 mb-1">
-                {name}
-              </Text>
-              <View className="flex-row items-center">
-                <View className="px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 mr-2">
-                  <Text className="text-xs font-extrabold text-sky-700">
-                    {code}
-                  </Text>
+              <View className="flex-1">
+                <Text className="text-lg font-extrabold text-slate-900 mb-1">
+                  {name}
+                </Text>
+                <View className="flex-row items-center">
+                  {/* Không hiển thị mã bệnh nhân cho staff */}
+                  {gender && (
+                    <View className="px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200">
+                      <Text className="text-xs font-extrabold text-slate-600">
+                        {genderLabel(gender)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                {gender && (
-                  <View className="px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200">
-                    <Text className="text-xs font-extrabold text-slate-600">
-                      {genderLabel(gender)}
-                    </Text>
-                  </View>
-                )}
               </View>
-            </View>
           </View>
         </View>
 

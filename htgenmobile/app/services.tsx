@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, FlaskConical, Search, Tag, X } from "lucide-react-native";
+import { ArrowLeft, FlaskConical, Plus, Search, Tag, X } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
   View,
@@ -16,8 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PaginationControls } from "@/components/PaginationControls";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
-import { SERVICE_TYPE_MAPPER } from "@/lib/schemas/order-schemas";
 import { GenomeTestResponse, genomeTestService } from "@/services/genomeTestService";
+import { SERVICE_TYPE_MAPPER } from "@/lib/schemas/order-schemas";
+import { getApiResponseData } from "@/lib/types/api-types";
 import { ServiceResponse, serviceService } from "@/services/serviceService";
 
 const formatVnd = (value?: number) => {
@@ -40,8 +41,7 @@ export default function ServicesScreen() {
   });
 
   const services: ServiceResponse[] = useMemo(() => {
-    if (!servicesResp?.success || !servicesResp.data) return [];
-    return servicesResp.data as ServiceResponse[];
+    return getApiResponseData<ServiceResponse>(servicesResp) || [];
   }, [servicesResp]);
 
   const groupIds = useMemo(() => {
@@ -162,6 +162,14 @@ export default function ServicesScreen() {
             </View>
           </View>
 
+          <TouchableOpacity
+            onPress={() => router.push("/create-genome-test")}
+            className="flex-row items-center px-3 py-2 rounded-xl bg-sky-600"
+            activeOpacity={0.85}
+          >
+            <Plus size={18} color="#fff" />
+            <Text className="ml-1.5 text-white text-sm font-extrabold">Thêm dịch vụ</Text>
+          </TouchableOpacity>
         </View>
 
         <View className="mt-3 flex-row items-center rounded-2xl px-3 bg-sky-50 border border-sky-100">
@@ -290,7 +298,7 @@ export default function ServicesScreen() {
               className="bg-white rounded-2xl border border-sky-100 px-4 py-4"
               onPress={() =>
                 router.push({
-                  pathname: "/customer/genome-test-detail",
+                  pathname: "/genome-test-detail",
                   params: { testId: item.testId },
                 })
               }

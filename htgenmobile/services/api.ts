@@ -2,6 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { API_BASE_URL } from '@/config/api';
 
+// Ẩn bớt các mã nhạy cảm (ví dụ: mã bệnh nhân PAT-...) trong log để tránh lộ thông tin
+const obfuscateSensitiveInUrl = (url: string): string => {
+  // Ẩn chuỗi bắt đầu bằng PAT-<numbers>-<random>
+  return url.replace(/PAT-\d+-[A-Za-z0-9]+/g, 'PAT-******');
+};
+
 const TOKEN_KEY = '@htgen:token';
 
 export interface ApiResponse<T> {
@@ -61,11 +67,13 @@ class ApiClient {
 
     try {
       const fullUrl = `${this.baseURL}${endpoint}`;
+      const safeUrl = obfuscateSensitiveInUrl(fullUrl);
+      const safeEndpoint = obfuscateSensitiveInUrl(endpoint);
       console.log('🌐 API Request:', {
         method: options.method || 'GET',
-        url: fullUrl,
+        url: safeUrl,
         baseURL: this.baseURL,
-        endpoint,
+        endpoint: safeEndpoint,
         headers: Object.keys(headers),
       });
 
@@ -87,7 +95,7 @@ class ApiClient {
       console.log('📡 API Response:', {
         status: response.status,
         statusText: response.statusText,
-        url: fullUrl,
+        url: safeUrl,
         headers: Object.fromEntries(response.headers.entries()),
       });
 
@@ -223,6 +231,8 @@ class ApiClient {
             hasLogs: data.logs !== undefined,
             keys: Object.keys(data),
             dataType: Array.isArray(data) ? 'array' : typeof data,
+            dataValue: data.data ? (Array.isArray(data.data) ? `Array(${data.data.length})` : typeof data.data) : 'undefined',
+            dataKeys: data.data && typeof data.data === 'object' ? Object.keys(data.data) : [],
           });
         }
 

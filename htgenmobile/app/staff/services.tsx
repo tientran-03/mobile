@@ -17,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaginationControls } from '@/components/PaginationControls';
 import { usePaginatedQuery } from '@/hooks/usePaginatedQuery';
 import { SERVICE_TYPE_MAPPER } from '@/lib/schemas/order-schemas';
-import { getApiResponseData } from '@/lib/types/api-types';
 import { GenomeTestResponse, genomeTestService } from '@/services/genomeTestService';
 import { ServiceResponse, serviceService } from '@/services/serviceService';
 
@@ -41,7 +40,8 @@ export default function ServicesScreen() {
   });
 
   const services: ServiceResponse[] = useMemo(() => {
-    return getApiResponseData<ServiceResponse>(servicesResp) || [];
+    if (!servicesResp?.success || !servicesResp.data) return [];
+    return servicesResp.data as ServiceResponse[];
   }, [servicesResp]);
 
   const groupIds = useMemo(() => {

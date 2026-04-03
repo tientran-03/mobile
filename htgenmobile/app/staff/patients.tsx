@@ -220,9 +220,8 @@ export default function PatientsScreen() {
                 onPress={() => router.push(`/staff/patient-detail?id=${p.patientId}`)}
               >
                 <View className="flex-row justify-between items-center">
-                  <View className="px-2.5 py-1.5 rounded-full bg-sky-50 border border-sky-200">
-                    <Text className="text-xs font-extrabold text-sky-700">{code}</Text>
-                  </View>
+                  {/* Không hiển thị mã bệnh nhân ở danh sách */}
+                  <View />
                   {gender ? (
                     <View className="px-2.5 py-1.5 rounded-full bg-slate-50 border border-slate-200">
                       <Text className="text-xs font-extrabold text-slate-600">

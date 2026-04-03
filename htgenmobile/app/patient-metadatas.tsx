@@ -148,9 +148,9 @@ export default function PatientMetadatasScreen() {
     }
   };
 
-  const handleViewFastQC = async (metadata: PatientMetadataResponse, which: 1 | 2) => {
+  const handleViewFastq = async (metadata: PatientMetadataResponse, which: 1 | 2) => {
     if (!metadata.patientId) {
-      Alert.alert("Thiếu thông tin", "Mẫu này chưa có mã bệnh nhân, không thể xem FastQC.");
+      Alert.alert("Thiếu thông tin", "Mẫu này chưa có mã bệnh nhân, không thể xem file FASTQ.");
       return;
     }
     try {
@@ -162,15 +162,15 @@ export default function PatientMetadatasScreen() {
       if (!resp.success || !resp.data) {
         Alert.alert(
           "Không tìm thấy",
-          resp.error || "Không tìm thấy báo cáo FastQC tương ứng.",
+          resp.error || `Không tìm thấy file FASTQ${which} tương ứng.`,
         );
         return;
       }
 
       await handleOpenUrl(resp.data);
     } catch (error: any) {
-      console.error("Error viewing FastQC:", error);
-      Alert.alert("Lỗi", "Không thể lấy báo cáo FastQC. Vui lòng thử lại.");
+      console.error(`Error viewing FASTQ${which}:`, error);
+      Alert.alert("Lỗi", `Không thể lấy file FASTQ${which}. Vui lòng thử lại.`);
     }
   };
 
@@ -419,26 +419,26 @@ export default function PatientMetadatasScreen() {
                   </View>
                 )}
 
-                {/* Action buttons: FastQC 1/2, Duyệt kết quả, Báo lỗi */}
+                {/* Action buttons: FASTQ 1/2, Duyệt kết quả, Báo lỗi */}
                 <View className="flex-row flex-wrap gap-2 mt-3 pt-2 border-t border-sky-100">
                   {metadata.patientId && (
                     <>
                       <TouchableOpacity
                         className="px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200"
                         activeOpacity={0.8}
-                        onPress={() => handleViewFastQC(metadata, 1)}
+                        onPress={() => handleViewFastq(metadata, 1)}
                       >
                         <Text className="text-xs font-extrabold text-sky-700">
-                          Xem FastQC 1
+                          Xem FASTQ1
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         className="px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200"
                         activeOpacity={0.8}
-                        onPress={() => handleViewFastQC(metadata, 2)}
+                        onPress={() => handleViewFastq(metadata, 2)}
                       >
                         <Text className="text-xs font-extrabold text-sky-700">
-                          Xem FastQC 2
+                          Xem FASTQ2
                         </Text>
                       </TouchableOpacity>
                     </>
